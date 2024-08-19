@@ -24,7 +24,12 @@ use crate::operands::{LoadOperand, StoreOperand};
 /// it, since such products generally will not incorporate the documentation and
 /// so will not constitute works derived from it. Such activities are permitted
 /// subject only to the Apache-2.0 WITH LLVM-Exception license under which this
-/// crate's source code is provided.
+/// crate's source code is provided. The specification's license does not infect
+/// code which merely implements the specification, since, in the spec's own
+/// words, "The virtual machine described by this document is an idea, not an
+/// expression of an idea, and is therefore not copyrightable. Anyone is free to
+/// write programs that run on the Glulx VM or make use of it, including
+/// compilers, interpreters, debuggers, and so on".
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Instr<L> {
     /// No-op
