@@ -1,0 +1,20 @@
+[package]
+name = "glulx-asm"
+version = "0.1.0-alpha1"
+authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
+edition = "2021"
+description = "Assembler for the Glulx Virtual Machine for Interactive Fiction"
+license-file = "LICENSE.md"
+repository = "https://github.com/dfoxfranke/bedquilt"
+keywords = ["glulx"]
+categories = ["compilers", "no-std"]
+
+[dependencies]
+arrayvec = { version = "0.7", default-features = false }
+bytes = { version = "1", default-features = false }
+hashbrown = "0.14"
+never = { version  = "0.1", default-features = false }
+
+[features]
+default = ["std"]
+std = ["arrayvec/std", "bytes/std", "never/std"]
