@@ -18,14 +18,9 @@ pub enum LoadOperand<L> {
     Pop,
     /// Use the immediate value of the operand.
     Imm(i32),
-    /// Load the value from the absolute address given by the operand.
-    Addr(u32),
     /// Load the value from the stack at the given offset from the frame
     /// pointer.
     FrameAddr(u32),
-    /// Load the value from the address at the offset from the start of RAM
-    /// given by the operand.
-    RamAddr(u32),
     /// Use the address corresponding to the given label as an immediate value.
     ImmLabel(L),
     /// Load the value from the address at the given label.
@@ -40,7 +35,7 @@ pub enum LoadOperand<L> {
     /// instruction in which it occurs. The assembler won't stop you from using
     /// this variant in other locations. If you do, you'll get a nonsensical
     /// result, but you were already doing something nonsensical so GIGO.
-    OffsetLabel(L),
+    Branch(L),
 }
 
 /// An operand indicating where to put a value.
@@ -50,14 +45,9 @@ pub enum StoreOperand<L> {
     Push,
     /// Discard the value.
     Discard,
-    /// Store the value to the given absolute address.
-    Addr(u32),
     /// Store the value to the stack address at the given offset from the frame
     /// pointer.
     FrameAddr(u32),
-    /// Store the value to the address at the given offset from the start of
-    /// RAM.
-    RamAddr(u32),
     /// Store the value to the address given by the label.
     DerefLabel(L),
 }
@@ -104,12 +94,10 @@ impl<L> LoadOperand<L> {
         match self {
             LoadOperand::Pop => LoadOperand::Pop,
             LoadOperand::Imm(x) => LoadOperand::Imm(x),
-            LoadOperand::Addr(p) => LoadOperand::Addr(p),
             LoadOperand::FrameAddr(p) => LoadOperand::FrameAddr(p),
-            LoadOperand::RamAddr(p) => LoadOperand::RamAddr(p),
             LoadOperand::ImmLabel(l) => LoadOperand::ImmLabel(f(l)),
             LoadOperand::DerefLabel(l) => LoadOperand::DerefLabel(f(l)),
-            LoadOperand::OffsetLabel(l) => LoadOperand::OffsetLabel(f(l)),
+            LoadOperand::Branch(l) => LoadOperand::Branch(f(l)),
         }
     }
 
@@ -137,15 +125,6 @@ impl<L> LoadOperand<L> {
                     RawOperand::Imm32(*x)
                 }
             }
-            LoadOperand::Addr(x) => {
-                if let Ok(x) = u8::try_from(*x) {
-                    RawOperand::Addr8(x)
-                } else if let Ok(x) = u16::try_from(*x) {
-                    RawOperand::Addr16(x)
-                } else {
-                    RawOperand::Addr32(*x)
-                }
-            }
             LoadOperand::FrameAddr(x) => {
                 if let Ok(x) = u8::try_from(*x) {
                     RawOperand::Frame8(x)
@@ -153,15 +132,6 @@ impl<L> LoadOperand<L> {
                     RawOperand::Frame16(x)
                 } else {
                     RawOperand::Frame32(*x)
-                }
-            }
-            LoadOperand::RamAddr(x) => {
-                if let Ok(x) = u8::try_from(*x) {
-                    RawOperand::Ram8(x)
-                } else if let Ok(x) = u16::try_from(*x) {
-                    RawOperand::Ram16(x)
-                } else {
-                    RawOperand::Ram32(*x)
                 }
             }
             LoadOperand::ImmLabel(l) => match resolver.resolve(l)? {
@@ -210,7 +180,7 @@ impl<L> LoadOperand<L> {
                     }
                 }
             },
-            LoadOperand::OffsetLabel(l) => {
+            LoadOperand::Branch(l) => {
                 let target = match resolver.resolve(l)? {
                     ResolvedAddr::Rom(target) => target,
                     ResolvedAddr::Ram(target) => target.checked_add(ramstart).overflow()?,
@@ -267,25 +237,7 @@ impl<L> LoadOperand<L> {
                     4
                 }
             }
-            LoadOperand::Addr(x) => {
-                if u8::try_from(*x).is_ok() {
-                    1
-                } else if u16::try_from(*x).is_ok() {
-                    2
-                } else {
-                    4
-                }
-            }
             LoadOperand::FrameAddr(x) => {
-                if u8::try_from(*x).is_ok() {
-                    1
-                } else if u16::try_from(*x).is_ok() {
-                    2
-                } else {
-                    4
-                }
-            }
-            LoadOperand::RamAddr(x) => {
                 if u8::try_from(*x).is_ok() {
                     1
                 } else if u16::try_from(*x).is_ok() {
@@ -296,7 +248,7 @@ impl<L> LoadOperand<L> {
             }
             LoadOperand::ImmLabel(_) => 4,
             LoadOperand::DerefLabel(_) => 4,
-            LoadOperand::OffsetLabel(_) => 4,
+            LoadOperand::Branch(_) => 4,
         }
     }
 }
@@ -310,9 +262,7 @@ impl<L> StoreOperand<L> {
         match self {
             StoreOperand::Push => StoreOperand::Push,
             StoreOperand::Discard => StoreOperand::Discard,
-            StoreOperand::Addr(x) => StoreOperand::Addr(x),
             StoreOperand::FrameAddr(x) => StoreOperand::FrameAddr(x),
-            StoreOperand::RamAddr(x) => StoreOperand::RamAddr(x),
             StoreOperand::DerefLabel(l) => StoreOperand::DerefLabel(f(l)),
         }
     }
@@ -333,15 +283,6 @@ impl<L> StoreOperand<L> {
         Ok(match self {
             StoreOperand::Push => RawOperand::Stack,
             StoreOperand::Discard => RawOperand::Null,
-            StoreOperand::Addr(x) => {
-                if let Ok(x) = u8::try_from(*x) {
-                    RawOperand::Addr8(x)
-                } else if let Ok(x) = u16::try_from(*x) {
-                    RawOperand::Addr16(x)
-                } else {
-                    RawOperand::Addr32(*x)
-                }
-            }
             StoreOperand::FrameAddr(x) => {
                 if let Ok(x) = u8::try_from(*x) {
                     RawOperand::Frame8(x)
@@ -349,15 +290,6 @@ impl<L> StoreOperand<L> {
                     RawOperand::Frame16(x)
                 } else {
                     RawOperand::Frame32(*x)
-                }
-            }
-            StoreOperand::RamAddr(x) => {
-                if let Ok(x) = u8::try_from(*x) {
-                    RawOperand::Ram8(x)
-                } else if let Ok(x) = u16::try_from(*x) {
-                    RawOperand::Ram16(x)
-                } else {
-                    RawOperand::Ram32(*x)
                 }
             }
             StoreOperand::DerefLabel(l) => match resolver.resolve(l)? {
@@ -389,25 +321,7 @@ impl<L> StoreOperand<L> {
         match self {
             StoreOperand::Push => 0,
             StoreOperand::Discard => 0,
-            StoreOperand::Addr(x) => {
-                if u8::try_from(*x).is_ok() {
-                    1
-                } else if u16::try_from(*x).is_ok() {
-                    2
-                } else {
-                    4
-                }
-            }
             StoreOperand::FrameAddr(x) => {
-                if u8::try_from(*x).is_ok() {
-                    1
-                } else if u16::try_from(*x).is_ok() {
-                    2
-                } else {
-                    4
-                }
-            }
-            StoreOperand::RamAddr(x) => {
                 if u8::try_from(*x).is_ok() {
                     1
                 } else if u16::try_from(*x).is_ok() {

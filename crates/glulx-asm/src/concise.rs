@@ -223,7 +223,7 @@ pub fn jump<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
 pub fn jz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jz(l1, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jz(l1, LoadOperand::Branch(bt))),
     )
 }
 
@@ -231,7 +231,7 @@ pub fn jz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
 pub fn jnz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jnz(l1, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jnz(l1, LoadOperand::Branch(bt))),
     )
 }
 
@@ -239,7 +239,7 @@ pub fn jnz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
 pub fn jeq<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jeq(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jeq(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -247,7 +247,7 @@ pub fn jeq<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jne<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jne(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jne(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -255,7 +255,7 @@ pub fn jne<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jlt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jlt(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jlt(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -263,7 +263,7 @@ pub fn jlt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jle(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jle(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -271,7 +271,7 @@ pub fn jle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jgt(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jgt(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -279,7 +279,7 @@ pub fn jgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jge(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jge(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -287,7 +287,7 @@ pub fn jge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
 pub fn jltu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jltu(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jltu(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -295,7 +295,7 @@ pub fn jltu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jleu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jleu(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jleu(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -303,7 +303,7 @@ pub fn jleu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jgtu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jgtu(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jgtu(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -311,7 +311,7 @@ pub fn jgtu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jgeu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jgeu(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jgeu(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -500,7 +500,7 @@ pub fn tailcall<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L
 pub fn catch<L>(s1: StoreOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Catch(s1, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Catch(s1, LoadOperand::Branch(bt))),
     )
 }
 
@@ -999,7 +999,7 @@ pub fn datan2<L>(
 pub fn jisnan<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jisnan(l1, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jisnan(l1, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1007,7 +1007,7 @@ pub fn jisnan<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
 pub fn jisinf<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jisinf(l1, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jisinf(l1, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1020,7 +1020,7 @@ pub fn jfeq<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jfeq(l1, l2, l3, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jfeq(l1, l2, l3, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1033,7 +1033,7 @@ pub fn jfne<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jfne(l1, l2, l3, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jfne(l1, l2, l3, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1041,7 +1041,7 @@ pub fn jfne<L>(
 pub fn jflt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jflt(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jflt(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1049,7 +1049,7 @@ pub fn jflt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jfle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jfle(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jfle(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1057,7 +1057,7 @@ pub fn jfle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jfgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jfgt(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jfgt(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1065,7 +1065,7 @@ pub fn jfgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jfge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jfge(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jfge(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1073,7 +1073,7 @@ pub fn jfge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
 pub fn jdisnan<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdisnan(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdisnan(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1081,7 +1081,7 @@ pub fn jdisnan<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, 
 pub fn jdisinf<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdisinf(l1, l2, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdisinf(l1, l2, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1104,7 +1104,7 @@ pub fn jdeq<L>(
             l4,
             l5,
             l6,
-            LoadOperand::OffsetLabel(bt),
+            LoadOperand::Branch(bt),
         )),
     )
 }
@@ -1128,7 +1128,7 @@ pub fn jdne<L>(
             l4,
             l5,
             l6,
-            LoadOperand::OffsetLabel(bt),
+            LoadOperand::Branch(bt),
         )),
     )
 }
@@ -1143,7 +1143,7 @@ pub fn jdlt<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdlt(l1, l2, l3, l4, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdlt(l1, l2, l3, l4, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1157,7 +1157,7 @@ pub fn jdle<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdle(l1, l2, l3, l4, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdle(l1, l2, l3, l4, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1171,7 +1171,7 @@ pub fn jdgt<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdgt(l1, l2, l3, l4, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdgt(l1, l2, l3, l4, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1185,7 +1185,7 @@ pub fn jdge<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdge(l1, l2, l3, l4, LoadOperand::OffsetLabel(bt))),
+        Item::Instr(Instr::Jdge(l1, l2, l3, l4, LoadOperand::Branch(bt))),
     )
 }
 

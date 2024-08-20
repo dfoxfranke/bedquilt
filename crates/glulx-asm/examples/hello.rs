@@ -69,7 +69,7 @@ fn main() {
                 None,
                 Item::Instr(Instr::Jz(
                     LoadOperand::Pop,
-                    LoadOperand::OffsetLabel(fail_label),
+                    LoadOperand::Branch(fail_label),
                 )),
             ),
             // Call glk_set_window (0x21) with one argument (the winid that's on
