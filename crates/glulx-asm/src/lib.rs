@@ -44,6 +44,7 @@ extern crate alloc;
 
 mod assemble;
 mod cast;
+pub mod concise;
 mod decoding_table;
 mod error;
 mod instr_def;
