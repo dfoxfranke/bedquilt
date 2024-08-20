@@ -1,6 +1,6 @@
 [package]
 name = "glulx-asm"
-version = "0.1.0-alpha2"
+version = "0.1.0-alpha3"
 authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
 edition = "2021"
 description = "Assembler for the Glulx Virtual Machine for Interactive Fiction"
