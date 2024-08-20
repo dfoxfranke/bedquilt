@@ -1,0 +1,20 @@
+[package]
+name = "wasm2glulx"
+version = "0.1.0-alpha1"
+publish = false
+authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
+edition = "2021"
+description = "Translate WebAssembly into Glulx"
+license = "Apache-2.0 WITH LLVM-Exception"
+repository = "https://github.com/dfoxfranke/bedquilt"
+keywords = ["glulx"]
+categories = ["compilers", "wasm"]
+
+[dependencies]
+anyhow = "1"
+atty = "0.2"
+bytes = "1"
+clap = { version = "4", features = ["derive", "wrap_help"] }
+clap-num = "1"
+glulx-asm = { path = "../glulx-asm" }
+walrus = "0.21"
