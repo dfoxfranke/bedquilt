@@ -7,15 +7,15 @@ use alloc::borrow::{Borrow, Cow};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::{hash::Hash, ops::Range};
 
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
 use crate::{
     cast::{checked_next_multiple_of, Overflow},
     error::AssemblerError,
-    items::{Item, ItemRef, ZeroItem},
+    items::{Item, LabelRef, ZeroItem},
     resolver::{ResolvedAddr, Resolver},
 };
 
@@ -67,9 +67,9 @@ where
     /// How much space to allocate for the stack.
     pub stack_size: u32,
     /// Reference to the function to be called at the start of execution.
-    pub start_func: ItemRef<L>,
+    pub start_func: LabelRef<L>,
     /// Reference to the initial decoding table.
-    pub decoding_table: Option<ItemRef<L>>,
+    pub decoding_table: Option<LabelRef<L>>,
 }
 
 impl<L> Assembly<'_, L>
@@ -80,7 +80,7 @@ where
     pub fn map<F, M>(self, mut f: F) -> Assembly<'static, M>
     where
         F: FnMut(L) -> M,
-        M: Clone
+        M: Clone,
     {
         let rom_items = self
             .rom_items
@@ -144,21 +144,21 @@ where
 }
 
 /// Top-level function of our main assembler algorithm.
-/// 
+///
 /// The hard part of this is dealing with variable-length operands, and
 /// especially dealing with the PC-relative offset operands used by branch
 /// instructions. The approach is basically:
-/// 
+///
 /// 1. Start by computing label positions based on the worst case in which every
 ///    label-based operand requires full-width encoding.
-/// 
+///
 /// 2. Compute encoding lengths based on everything being at the positions we
 ///    computed in step 1, and then compute new positions based on those
 ///    lengths.
-/// 
+///
 /// 3. Repeat step 2 based on the results from the previous iteration, and keep
 ///    iterating until we get to a fixed point.
-/// 
+///
 ///    Operands should only ever shrink, lengths are natural numbers, and the
 ///    natural numbers are well-ordered, so the Tarski fixed-point theorem
 ///    should guarantee termination. Making sure of "operands should only ever
@@ -167,7 +167,7 @@ where
 ///    the thing it's branching to and so it needs to grow again to encode the
 ///    larger offset. But that trickiness is handled in
 ///    [`LoadOperand::resolve`], not in this function.
-/// 
+///
 /// 4. Finally, serialize the output, checking assertions along the way to make
 ///    sure the lengths we got are the ones we planned to get.
 fn assemble<L>(
@@ -175,8 +175,8 @@ fn assemble<L>(
     ram_items: &[(Option<L>, Item<L>)],
     zero_items: &[(Option<L>, ZeroItem)],
     stack_size: u32,
-    start_func: &ItemRef<L>,
-    decoding_table: &Option<ItemRef<L>>,
+    start_func: &LabelRef<L>,
+    decoding_table: &Option<LabelRef<L>>,
 ) -> Result<BytesMut, AssemblerError<L>>
 where
     L: Clone + Eq + Hash,
@@ -275,12 +275,12 @@ where
     };
 
     let resolved_decoding_table = if let Some(decoding_table) = decoding_table {
-        decoding_table.resolve(ramstart, &resolver)?.into()
+        decoding_table.resolve_absolute(ramstart, &resolver)?
     } else {
         0u32
     };
 
-    let resolved_start_func: u32 = start_func.resolve(ramstart, &resolver)?.into();
+    let resolved_start_func: u32 = start_func.resolve_absolute(ramstart, &resolver)?;
 
     let sum = MAGIC_NUMBER
         .wrapping_add(GLULX_VERSION)
@@ -313,7 +313,6 @@ where
 
     Ok(output)
 }
-
 
 /// Initializes item positions for the first step of assembly.
 fn initialize_positions<L>(
@@ -383,12 +382,12 @@ where
 }
 
 /// Called from each iterative step to update item positions.
-/// 
+///
 /// We're keeping track of start and end positions for both labeled and
 /// unlabeled items, which is probably overkill; just tracking label positions
 /// should be sufficient. But I don't want to try ripping out these extra checks
 /// until I have a good test suite to confirm that doing so didn't break
-/// anything. 
+/// anything.
 fn update_positions<L>(
     items: &[(Option<L>, Item<L>)],
     labeled: &mut HashMap<L, Range<u32>>,

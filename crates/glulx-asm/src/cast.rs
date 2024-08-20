@@ -30,14 +30,14 @@ pub(crate) trait Overflow<T> {
     fn overflow<L>(self) -> Result<T, AssemblerError<L>>;
 }
 
-impl <T> Overflow<T> for Option<T> {
+impl<T> Overflow<T> for Option<T> {
     #[inline]
     fn overflow<L>(self) -> Result<T, AssemblerError<L>> {
         self.ok_or(AssemblerError::Overflow)
     }
 }
 
-impl <T> Overflow<T> for Result<T, std::num::TryFromIntError> {
+impl<T> Overflow<T> for Result<T, std::num::TryFromIntError> {
     #[inline]
     fn overflow<L>(self) -> Result<T, AssemblerError<L>> {
         self.or(Err(AssemblerError::Overflow))

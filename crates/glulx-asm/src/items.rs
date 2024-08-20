@@ -5,7 +5,6 @@
 
 use bytes::{BufMut, Bytes};
 use core::num::NonZeroU32;
-use never::Never;
 
 use crate::{
     cast::Overflow,
@@ -16,17 +15,9 @@ use crate::{
     strings::{MysteryString, Utf32String},
 };
 
-/// A reference to an item.
+/// A reference to a label plus an offset.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ItemRef<L> {
-    /// Reference to an item by its label, plus an offset.
-    Label(L, i32),
-    /// Reference to an item by raw address.
-    ///
-    /// This variant is a leaked implementation detail; there is never any
-    /// reason for users to construct it.
-    Resolved(u32),
-}
+pub struct LabelRef<L>(pub L, pub i32);
 
 /// An item of top-level content in a story file assembly.
 #[derive(Debug, Clone)]
@@ -250,48 +241,40 @@ impl ZeroItem {
     }
 }
 
-impl<L> ItemRef<L> {
-    /// Applies the given mapping function to the label (if any) within the item reference.
-    pub fn map<F, M>(self, mut f: F) -> ItemRef<M>
+impl<L> LabelRef<L> {
+    /// Applies the given mapping function to the label within the label reference.
+    pub fn map<F, M>(self, mut f: F) -> LabelRef<M>
     where
         F: FnMut(L) -> M,
     {
-        match self {
-            ItemRef::Label(l, offset) => ItemRef::Label(f(l), offset),
-            ItemRef::Resolved(x) => ItemRef::Resolved(x),
-        }
+        LabelRef(f(self.0), self.1)
     }
 
-    pub(crate) fn resolve<R>(
-        &self,
-        ramstart: u32,
-        resolver: &R,
-    ) -> Result<ItemRef<Never>, AssemblerError<L>>
+    pub(crate) fn resolve<R>(&self, resolver: &R) -> Result<ResolvedAddr, AssemblerError<L>>
     where
         R: Resolver<Label = L>,
     {
-        Ok(match self {
-            ItemRef::Label(l, offset) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(addr) => {
-                    ItemRef::Resolved(addr.checked_add_signed(*offset).overflow()?)
-                }
-                ResolvedAddr::Ram(addr) => ItemRef::Resolved(
-                    addr.checked_add(ramstart)
-                        .overflow()?
-                        .checked_add_signed(*offset)
-                        .overflow()?,
-                ),
-            },
-            ItemRef::Resolved(addr) => ItemRef::Resolved(*addr),
+        Ok(match resolver.resolve(&self.0)? {
+            ResolvedAddr::Rom(addr) => {
+                ResolvedAddr::Rom(addr.checked_add_signed(self.1).overflow()?)
+            }
+            ResolvedAddr::Ram(addr) => {
+                ResolvedAddr::Ram(addr.checked_add_signed(self.1).overflow()?)
+            }
         })
     }
-}
 
-impl From<ItemRef<Never>> for u32 {
-    fn from(value: ItemRef<Never>) -> Self {
-        match value {
-            ItemRef::Label(l, _) => l.into_any(),
-            ItemRef::Resolved(addr) => addr,
-        }
+    pub(crate) fn resolve_absolute<R>(
+        &self,
+        ramstart: u32,
+        resolver: &R,
+    ) -> Result<u32, AssemblerError<L>>
+    where
+        R: Resolver<Label = L>,
+    {
+        Ok(match self.resolve(resolver)? {
+            ResolvedAddr::Rom(addr) => addr,
+            ResolvedAddr::Ram(addr) => addr.checked_add(ramstart).overflow()?,
+        })
     }
 }

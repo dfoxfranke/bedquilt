@@ -11,7 +11,7 @@ use arrayvec::ArrayVec;
 use bytes::BufMut;
 
 /// The largest number of operands taken by any instruction.
-/// 
+///
 /// `linearsearch` and `binarysearch` set the high-water mark.
 pub(crate) const MAX_OPERANDS: usize = 8;
 
@@ -865,7 +865,9 @@ impl<L> Instr<L> {
             Instr::Call(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
             Instr::Callf(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
             Instr::Callfi(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Callfii(l1, l2, l3, s1) => resolve!(position, ramstart, resolver, l1, l2, l3, s1),
+            Instr::Callfii(l1, l2, l3, s1) => {
+                resolve!(position, ramstart, resolver, l1, l2, l3, s1)
+            }
             Instr::Callfiii(l1, l2, l3, l4, s1) => {
                 resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1)
             }
@@ -972,10 +974,18 @@ impl<L> Instr<L> {
             Instr::Jdne(l1, l2, l3, l4, l5, l6, l7) => {
                 resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, l7)
             }
-            Instr::Jdlt(l1, l2, l3, l4, l5) => resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5),
-            Instr::Jdle(l1, l2, l3, l4, l5) => resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5),
-            Instr::Jdgt(l1, l2, l3, l4, l5) => resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5),
-            Instr::Jdge(l1, l2, l3, l4, l5) => resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5),
+            Instr::Jdlt(l1, l2, l3, l4, l5) => {
+                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+            }
+            Instr::Jdle(l1, l2, l3, l4, l5) => {
+                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+            }
+            Instr::Jdgt(l1, l2, l3, l4, l5) => {
+                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+            }
+            Instr::Jdge(l1, l2, l3, l4, l5) => {
+                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+            }
             Instr::Random(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
             Instr::Setrandom(l1) => resolve!(position, ramstart, resolver, l1),
             Instr::Mzero(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),

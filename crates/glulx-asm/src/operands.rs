@@ -9,10 +9,11 @@ use crate::{
     cast::{CastSign, Overflow},
     error::AssemblerError,
     resolver::{ResolvedAddr, Resolver},
+    LabelRef,
 };
 
 /// An operand indicating where to get a value from.
-/// 
+///
 /// For variants that accept a label+offset, it is unsupported to provide a
 /// label in RAM with an offset that points backward into ROM. This will return
 /// an overflow error when you try to assemble it.
@@ -26,9 +27,9 @@ pub enum LoadOperand<L> {
     /// pointer.
     FrameAddr(u32),
     /// Use the address corresponding to the given label+offset as an immediate value.
-    ImmLabel(L, i32),
+    ImmLabel(LabelRef<L>),
     /// Load the value from the address at the given label+offset.
-    DerefLabel(L, i32),
+    DerefLabel(LabelRef<L>),
     /// Compute an offset in order for a branch instruction to jump to the given
     /// label.
     ///
@@ -53,7 +54,7 @@ pub enum StoreOperand<L> {
     /// pointer.
     FrameAddr(u32),
     /// Store the value to the address given by the label+offset.
-    DerefLabel(L, i32),
+    DerefLabel(LabelRef<L>),
 }
 
 /// An encoded operand ready to be serialized.
@@ -99,8 +100,8 @@ impl<L> LoadOperand<L> {
             LoadOperand::Pop => LoadOperand::Pop,
             LoadOperand::Imm(x) => LoadOperand::Imm(x),
             LoadOperand::FrameAddr(p) => LoadOperand::FrameAddr(p),
-            LoadOperand::ImmLabel(l, offset) => LoadOperand::ImmLabel(f(l), offset),
-            LoadOperand::DerefLabel(l, offset) => LoadOperand::DerefLabel(f(l), offset),
+            LoadOperand::ImmLabel(l) => LoadOperand::ImmLabel(l.map(f)),
+            LoadOperand::DerefLabel(l) => LoadOperand::DerefLabel(l.map(f)),
             LoadOperand::Branch(l) => LoadOperand::Branch(f(l)),
         }
     }
@@ -138,40 +139,21 @@ impl<L> LoadOperand<L> {
                     RawOperand::Frame32(*x)
                 }
             }
-            LoadOperand::ImmLabel(l, offset) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(x) => {
-                    let addr = x.checked_add_signed(*offset).overflow()?.cast_sign();
-                    if addr == 0 {
-                        RawOperand::Null
-                    } else if let Ok(x) = i8::try_from(addr) {
-                        RawOperand::Imm8(x)
-                    } else if let Ok(x) = i16::try_from(addr) {
-                        RawOperand::Imm16(x)
-                    } else {
-                        RawOperand::Imm32(addr)
-                    }
+            LoadOperand::ImmLabel(l) => {
+                let addr = l.resolve_absolute(ramstart, resolver)?.cast_sign();
+
+                if addr == 0 {
+                    RawOperand::Null
+                } else if let Ok(x) = i8::try_from(addr) {
+                    RawOperand::Imm8(x)
+                } else if let Ok(x) = i16::try_from(addr) {
+                    RawOperand::Imm16(x)
+                } else {
+                    RawOperand::Imm32(addr)
                 }
-                ResolvedAddr::Ram(x) => {
-                    let addr = x
-                        .checked_add(ramstart)
-                        .overflow()?
-                        .checked_add_signed(*offset)
-                        .overflow()?
-                        .cast_sign();
-                    if addr == 0 {
-                        RawOperand::Null
-                    } else if let Ok(x) = i8::try_from(addr) {
-                        RawOperand::Imm8(x)
-                    } else if let Ok(x) = i16::try_from(addr) {
-                        RawOperand::Imm16(x)
-                    } else {
-                        RawOperand::Imm32(addr)
-                    }
-                }
-            },
-            LoadOperand::DerefLabel(l, offset) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(x) => {
-                    let addr = x.checked_add_signed(*offset).overflow()?;
+            }
+            LoadOperand::DerefLabel(l) => match l.resolve(resolver)? {
+                ResolvedAddr::Rom(addr) => {
                     if let Ok(x) = u8::try_from(addr) {
                         RawOperand::Addr8(x)
                     } else if let Ok(x) = u16::try_from(addr) {
@@ -180,16 +162,15 @@ impl<L> LoadOperand<L> {
                         RawOperand::Addr32(addr)
                     }
                 }
-                ResolvedAddr::Ram(x) => {
+                ResolvedAddr::Ram(ramaddr) => {
                     // An offset in RAM which points backward into ROM is
                     // intentionally unsupported here.
-                    let addr = x.checked_add_signed(*offset).overflow()?;
-                    if let Ok(x) = u8::try_from(addr) {
+                    if let Ok(x) = u8::try_from(ramaddr) {
                         RawOperand::Ram8(x)
-                    } else if let Ok(x) = u16::try_from(addr) {
+                    } else if let Ok(x) = u16::try_from(ramaddr) {
                         RawOperand::Ram16(x)
                     } else {
-                        RawOperand::Ram32(addr)
+                        RawOperand::Ram32(ramaddr)
                     }
                 }
             },
@@ -259,8 +240,8 @@ impl<L> LoadOperand<L> {
                     4
                 }
             }
-            LoadOperand::ImmLabel(_, _) => 4,
-            LoadOperand::DerefLabel(_, _) => 4,
+            LoadOperand::ImmLabel(_) => 4,
+            LoadOperand::DerefLabel(_) => 4,
             LoadOperand::Branch(_) => 4,
         }
     }
@@ -268,7 +249,7 @@ impl<L> LoadOperand<L> {
 
 impl<L> StoreOperand<L> {
     /// Applies the given mapping function to the label (if any) within the operand.
-    pub fn map<F, M>(self, mut f: F) -> StoreOperand<M>
+    pub fn map<F, M>(self, f: F) -> StoreOperand<M>
     where
         F: FnMut(L) -> M,
     {
@@ -276,7 +257,7 @@ impl<L> StoreOperand<L> {
             StoreOperand::Push => StoreOperand::Push,
             StoreOperand::Discard => StoreOperand::Discard,
             StoreOperand::FrameAddr(x) => StoreOperand::FrameAddr(x),
-            StoreOperand::DerefLabel(l, offset) => StoreOperand::DerefLabel(f(l), offset),
+            StoreOperand::DerefLabel(l) => StoreOperand::DerefLabel(l.map(f)),
         }
     }
 
@@ -305,9 +286,8 @@ impl<L> StoreOperand<L> {
                     RawOperand::Frame32(*x)
                 }
             }
-            StoreOperand::DerefLabel(l, offset) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(x) => {
-                    let addr = x.checked_add_signed(*offset).overflow()?;
+            StoreOperand::DerefLabel(l) => match l.resolve(resolver)? {
+                ResolvedAddr::Rom(addr) => {
                     if let Ok(x) = u8::try_from(addr) {
                         RawOperand::Addr8(x)
                     } else if let Ok(x) = u16::try_from(addr) {
@@ -316,8 +296,7 @@ impl<L> StoreOperand<L> {
                         RawOperand::Addr32(addr)
                     }
                 }
-                ResolvedAddr::Ram(x) => {
-                    let addr = x.checked_add_signed(*offset).overflow()?;
+                ResolvedAddr::Ram(addr) => {
                     if let Ok(x) = u8::try_from(addr) {
                         RawOperand::Ram8(x)
                     } else if let Ok(x) = u16::try_from(addr) {
@@ -345,7 +324,7 @@ impl<L> StoreOperand<L> {
                     4
                 }
             }
-            StoreOperand::DerefLabel(_, _) => 4,
+            StoreOperand::DerefLabel(_) => 4,
         }
     }
 }

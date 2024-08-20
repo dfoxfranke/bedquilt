@@ -4,7 +4,7 @@
 //! [`Utf32String`] and [`MysteryString`].
 
 use alloc::borrow::Borrow;
-    
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::{
     fmt::{Debug, Display, Formatter, Write},
@@ -13,15 +13,15 @@ use core::{
 
 #[cfg(feature = "std")]
 use std::error::Error;
-    
+
 /// A string encoded as UTF-32.
-/// 
+///
 /// Strings of this type can be serialized into a story file (via the
 /// [`Item::Utf32String`](`crate::Item::Utf32String`) constructor) formatted
 /// compatibly with the `streamstr` instruction. Constructors ensure that the
 /// string is valid Unicode with no embedded nulls. Internally it's a [`Bytes`],
 /// so cloning it is cheap.
-/// 
+///
 /// This is not at all a full-featured alternative to [`std::String`](`String`).
 /// `Utf32String`s are immutable once constructed and not intended for anything
 /// other than being serialized into a story file.
@@ -30,18 +30,18 @@ pub struct Utf32String(Bytes);
 
 /// A string whose encoding is defined by the IO system, but *probably* treated
 /// as Latin-1.
-/// 
+///
 /// Strings of this type can be serialized into a story file (via the
 /// [`Item::MysteryString`](`crate::Item::MysteryString`)) constructor formatted
 /// compatibly with the `streamstr` instruction. Constructors ensure that it
 /// will not contain any embedded nulls. Internally it's a [`Bytes`], so cloning
 /// it is cheap.
-/// 
+///
 /// This corresponds to a Glulx `E0` string, of which the spec says "the
 /// encoding scheme is the business of the I/O system; in Glk, it will be the
 /// Latin-1 character set". It is in any case required to be a single-byte
 /// encoding which uses a zero byte as a terminator.
-/// 
+///
 /// When building a `MysteryString` from a `char` iterator or using its
 /// `Display` impl, Latin1 is assumed. However, you can also build it from a
 /// `u8` iterator in which case no assumption is made about the encoding.
@@ -64,9 +64,9 @@ impl<T> Display for StringConversionError<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if usize::from(self.num_errors) > 1 {
             write!(
-                f, 
+                f,
                 "string conversion encountered {} unrepresentable characters, the first one at index {}.", 
-                self.num_errors, 
+                self.num_errors,
                 self.first_error
             )
         } else {
@@ -85,7 +85,7 @@ impl<T> Error for StringConversionError<T> where T: Debug {}
 impl Utf32String {
     /// Construct a `Utf32String` from an iterator over `char`s (or over any type
     /// that lets you borrow a `char`).
-    /// 
+    ///
     /// If the string contains embedded nulls, an error is returned, but a lossy
     /// version can be extracted from the error struct. The lossy string
     /// replaces nulls with `U+2400 SYMBOL FOR NULL` (␀), which belongs to the
@@ -228,7 +228,7 @@ impl TryFrom<&[char]> for Utf32String {
 impl MysteryString {
     /// Constructs a `MysteryString` from an iterator over `char`s (or over any
     /// type that lets you borrow a `char`).
-    /// 
+    ///
     /// If the string contains embedded nulls or any character which cannot be
     /// represented in Latin-1, an error is returned, but a lossy version can be
     /// extracted from the error struct. The lossy string replaces nulls and
@@ -270,7 +270,7 @@ impl MysteryString {
 
     /// Constructs a `MysteryString` from an iterator over `u8`s (or over any
     /// type that lets you borrow a `u8`).
-    /// 
+    ///
     /// If the string contains embedded nulls, an error is returned, but a lossy
     /// version can be extracted from the error struct. The lossy string is
     /// truncated at the first occurence of a null. (Unlike `from_chars`, this

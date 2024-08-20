@@ -28,7 +28,7 @@
 //! sense, a functor over its labels. That is, it provides a `map` method which
 //! lets you replace every label within it with the output of a callback,
 //! possibly changing the label's type.
-//! 
+//!
 //! See `examples/hello.rs` for an illustration of using this crate to assemble
 //! a story file that prints "Hello, Sailor!" and exits.
 
@@ -36,8 +36,7 @@
     clippy::as_conversions,
     missing_copy_implementations,
     missing_debug_implementations,
-    missing_docs,
-    
+    missing_docs
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
@@ -58,6 +57,6 @@ pub use assemble::Assembly;
 pub use decoding_table::{DecodeArg, DecodeNode};
 pub use error::AssemblerError;
 pub use instr_def::Instr;
-pub use items::{CallingConvention, Item, ItemRef, ZeroItem};
-pub use operands::{LoadOperand, StoreOperand, f32_to_imm, f64_to_imm, load_local, store_local};
+pub use items::{CallingConvention, Item, LabelRef, ZeroItem};
+pub use operands::{f32_to_imm, f64_to_imm, load_local, store_local, LoadOperand, StoreOperand};
 pub use strings::{MysteryString, StringConversionError, Utf32String};

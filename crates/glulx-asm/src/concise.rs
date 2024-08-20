@@ -1,6 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 //! Functions for concisely constructing items.
-//! 
+//!
 //! Everything here is just a trivial wrapper around various enum variants, but
 //! using it will make your code-generation code much more readable.
 //!
@@ -14,7 +14,7 @@
 //! * To construct an instruction item: use the function named for the
 //!   instruction, except that `mod` is [`modulus`] and `return` is [`ret`] to
 //!   avoid colliding with Rust keywords. Branch instructions, for their branch
-//!   target operand, just take an `L` rather than a `LoadOperand<L>`. 
+//!   target operand, just take an `L` rather than a `LoadOperand<L>`.
 //! * To construct a string or blob: use [`mystery_string`], [`utf32_string`],
 //!   [`compressed_string`], or [`blob`].
 //! * To construct a label item: use [`label`] or [`label_off`].
@@ -30,7 +30,7 @@
 // was easier than a one-off proc macro. The source to the script is in comments
 // at the bottom of the module.
 
-use crate::{cast::CastSign, DecodeNode};
+use crate::{cast::CastSign, DecodeNode, LabelRef};
 pub use crate::{f32_to_imm, f64_to_imm, load_local, store_local};
 use crate::{
     CallingConvention, Instr, Item, LoadOperand, MysteryString, StoreOperand, Utf32String, ZeroItem,
@@ -66,12 +66,18 @@ impl<L> AddLabel for (Option<L>, ZeroItem) {
 
 /// Constructs a function header item with the `ArgsInLocals` calling convention.
 pub fn fnhead_local<L>(nlocals: u32) -> (Option<L>, Item<L>) {
-    (None, Item::FnHeader(CallingConvention::ArgsInLocals, nlocals))
+    (
+        None,
+        Item::FnHeader(CallingConvention::ArgsInLocals, nlocals),
+    )
 }
 
 /// Constructs a function header item with the `ArgsOnStack` calling convention.
 pub fn fnhead_stack<L>(nlocals: u32) -> (Option<L>, Item<L>) {
-    (None, Item::FnHeader(CallingConvention::ArgsOnStack, nlocals))
+    (
+        None,
+        Item::FnHeader(CallingConvention::ArgsOnStack, nlocals),
+    )
 }
 
 /// Constructs a load operand that pops from the stack.
@@ -91,22 +97,22 @@ pub fn uimm<L>(x: u32) -> LoadOperand<L> {
 
 /// Constructs an immedate load operand from a label.
 pub fn imml<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::ImmLabel(x, 0)
+    LoadOperand::ImmLabel(LabelRef(x, 0))
 }
 
 /// Constructs an immedate load operand from a label and offset.
 pub fn imml_off<L>(x: L, offset: i32) -> LoadOperand<L> {
-    LoadOperand::ImmLabel(x, offset)
+    LoadOperand::ImmLabel(LabelRef(x, offset))
 }
 
 /// Constructs a load operand which derefernces a label.
 pub fn derefl<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::DerefLabel(x, 0)
+    LoadOperand::DerefLabel(LabelRef(x, 0))
 }
 
 /// Constructs a load operand which derefernces a label and offset.
-pub fn derefl_off<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::DerefLabel(x, 0)
+pub fn derefl_off<L>(x: L, offset: i32) -> LoadOperand<L> {
+    LoadOperand::DerefLabel(LabelRef(x, offset))
 }
 
 /// Constructs a store operand which pushes to the stack.
@@ -121,12 +127,12 @@ pub fn discard<L>() -> StoreOperand<L> {
 
 /// Constructs a store operand which stores to a labeled address.
 pub fn storel<L>(l: L) -> StoreOperand<L> {
-    StoreOperand::DerefLabel(l, 0)
+    StoreOperand::DerefLabel(LabelRef(l, 0))
 }
 
 /// Constructs a store operand which stores to a labeled address with offset.
 pub fn storel_off<L>(l: L, offset: i32) -> StoreOperand<L> {
-    StoreOperand::DerefLabel(l, offset)
+    StoreOperand::DerefLabel(LabelRef(l, offset))
 }
 
 /// Constructs a load operand which loads from the `m`'th local.

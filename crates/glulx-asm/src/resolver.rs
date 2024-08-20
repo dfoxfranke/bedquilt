@@ -6,7 +6,7 @@
 use crate::error::AssemblerError;
 
 /// Trait for a callback to resolve an address from a label.
-/// 
+///
 /// This could just be a closure. Originally it was, but I was stumbling over an
 /// obscure bug related to recursive trait resolution. I know now how to avoid
 /// the bug and could change it back, but there's no reason to bother.

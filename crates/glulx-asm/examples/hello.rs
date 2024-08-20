@@ -1,5 +1,5 @@
-use glulx_asm::*;
 use glulx_asm::concise::*;
+use glulx_asm::*;
 use std::{borrow::Cow, io::Write};
 
 fn main() {
@@ -45,7 +45,7 @@ fn main() {
         ram_items: Cow::Owned(vec![]),
         zero_items: Cow::Owned(vec![]),
         stack_size: 256,
-        start_func: ItemRef::Label(main_label, 0),
+        start_func: LabelRef(main_label, 0),
         decoding_table: None,
     };
 
