@@ -19,10 +19,13 @@ use crate::{
 /// A reference to an item.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ItemRef<L> {
-    /// Reference to an item by its label.
-    Label(L),
+    /// Reference to an item by its label, plus an offset.
+    Label(L, i32),
     /// Reference to an item by raw address.
-    RawAddr(u32),
+    ///
+    /// This variant is a leaked implementation detail; there is never any
+    /// reason for users to construct it.
+    Resolved(u32),
 }
 
 /// An item of top-level content in a story file assembly.
@@ -249,8 +252,8 @@ impl<L> ItemRef<L> {
         F: FnMut(L) -> M,
     {
         match self {
-            ItemRef::Label(l) => ItemRef::Label(f(l)),
-            ItemRef::RawAddr(x) => ItemRef::RawAddr(x),
+            ItemRef::Label(l, offset) => ItemRef::Label(f(l), offset),
+            ItemRef::Resolved(x) => ItemRef::Resolved(x),
         }
     }
 
@@ -263,11 +266,18 @@ impl<L> ItemRef<L> {
         R: Resolver<Label = L>,
     {
         Ok(match self {
-            ItemRef::Label(l) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(addr) => ItemRef::RawAddr(addr),
-                ResolvedAddr::Ram(addr) => ItemRef::RawAddr(addr.checked_add(ramstart).overflow()?),
+            ItemRef::Label(l, offset) => match resolver.resolve(l)? {
+                ResolvedAddr::Rom(addr) => {
+                    ItemRef::Resolved(addr.checked_add_signed(*offset).overflow()?)
+                }
+                ResolvedAddr::Ram(addr) => ItemRef::Resolved(
+                    addr.checked_add(ramstart)
+                        .overflow()?
+                        .checked_add_signed(*offset)
+                        .overflow()?,
+                ),
             },
-            ItemRef::RawAddr(addr) => ItemRef::RawAddr(*addr),
+            ItemRef::Resolved(addr) => ItemRef::Resolved(*addr),
         })
     }
 }
@@ -275,8 +285,8 @@ impl<L> ItemRef<L> {
 impl From<ItemRef<Never>> for u32 {
     fn from(value: ItemRef<Never>) -> Self {
         match value {
-            ItemRef::Label(l) => l.into_any(),
-            ItemRef::RawAddr(addr) => addr,
+            ItemRef::Label(l, _) => l.into_any(),
+            ItemRef::Resolved(addr) => addr,
         }
     }
 }

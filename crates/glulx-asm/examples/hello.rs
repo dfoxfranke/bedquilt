@@ -85,7 +85,7 @@ fn main() {
             // Print our message.
             (
                 None,
-                Item::Instr(Instr::Streamstr(LoadOperand::ImmLabel(hello_sailor_label))),
+                Item::Instr(Instr::Streamstr(LoadOperand::ImmLabel(hello_sailor_label, 0))),
             ),
             // Return from main.
             (
@@ -96,7 +96,7 @@ fn main() {
         ram_items: Cow::Owned(vec![]),
         zero_items: Cow::Owned(vec![]),
         stack_size: 256,
-        start_func: ItemRef::Label(main_label),
+        start_func: ItemRef::Label(main_label, 0),
         decoding_table: None,
     };
 

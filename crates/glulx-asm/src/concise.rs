@@ -72,12 +72,12 @@ pub fn uimm<L>(x: u32) -> LoadOperand<L> {
 
 /// Constructs an immedate load operand from a label.
 pub fn imml<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::ImmLabel(x)
+    LoadOperand::ImmLabel(x, 0)
 }
 
 /// Constructs a load operand which derefernces a label.
 pub fn derefl<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::DerefLabel(x)
+    LoadOperand::DerefLabel(x, 0)
 }
 
 /// Constructs a store operand which pushes to the stack.
@@ -92,7 +92,7 @@ pub fn discard<L>() -> StoreOperand<L> {
 
 /// Constructs a store operand which stores to a labeled address.
 pub fn storel<L>(l: L) -> StoreOperand<L> {
-    StoreOperand::DerefLabel(l)
+    StoreOperand::DerefLabel(l, 0)
 }
 
 /// Constructs a load operand which loads from the `m`'th local.
