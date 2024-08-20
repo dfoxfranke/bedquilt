@@ -55,8 +55,8 @@ pub enum Item<L> {
     Utf32String(Utf32String),
     /// Some arbitrary bytes to be serialized verbatim.
     Blob(Bytes),
-    /// Four bytes representing the absolute adddress of the given label.
-    Label(L),
+    /// Four bytes representing the absolute adddress of the given label+offset.
+    Label(L, i32),
 }
 
 /// Placeholder for space in RAM that shoud be allocated at startup with
@@ -97,7 +97,7 @@ impl<L> Item<L> {
             Item::Utf32String(s) => Item::Utf32String(s),
             Item::CompressedString(s) => Item::CompressedString(s),
             Item::Blob(b) => Item::Blob(b),
-            Item::Label(l) => Item::Label(f(l)),
+            Item::Label(l, offset) => Item::Label(f(l), offset),
         }
     }
 
@@ -117,7 +117,7 @@ impl<L> Item<L> {
             Item::Utf32String(s) => s.byte_len() + 8,
             Item::CompressedString(s) => 1 + s.len(),
             Item::Blob(b) => b.len(),
-            Item::Label(_) => 4,
+            Item::Label(_, _) => 4,
         }
     }
 
@@ -218,11 +218,16 @@ impl<L> Item<L> {
             Item::Blob(blob) => {
                 buf.put(blob.clone());
             }
-            Item::Label(l) => match resolver.resolve(l)? {
+            Item::Label(l, offset) => match resolver.resolve(l)? {
                 ResolvedAddr::Rom(addr) => {
-                    buf.put_u32(addr);
+                    buf.put_u32(addr.checked_add_signed(*offset).overflow()?);
                 }
-                ResolvedAddr::Ram(addr) => buf.put_u32(addr.checked_add(ramstart).overflow()?),
+                ResolvedAddr::Ram(addr) => buf.put_u32(
+                    addr.checked_add(ramstart)
+                        .overflow()?
+                        .checked_add_signed(*offset)
+                        .overflow()?,
+                ),
             },
         }
         Ok(())
