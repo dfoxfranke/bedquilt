@@ -12,9 +12,12 @@
 //! * To construct a store operand: use [`push`], [`discard`], [`storel`],
 //!   [`storel_off`] [`sloc`] or the reimport [`store_local`].
 //! * To construct an instruction item: use the function named for the
-//!   instruction, except that `mod` is [`modulus`] and `return` is [`ret`] to
+//!   instruction, except that `mod` is [`modulo`] and `return` is [`ret`] to
 //!   avoid colliding with Rust keywords. Branch instructions, for their branch
-//!   target operand, just take an `L` rather than a `LoadOperand<L>`.
+//!   target operand, just take an `L` rather than a `LoadOperand<L>`. They have
+//!   each have a variant named *instr*`_ret` which instead takes a boolean,
+//!   yielding an instruction which returns a 0 or 1 from the current call frame
+//!   instead of branching.
 //! * To construct a string or blob: use [`mystery_string`], [`utf32_string`],
 //!   [`compressed_string`], or [`blob`].
 //! * To construct a label item: use [`label`] or [`label_off`].
@@ -231,32 +234,32 @@ pub fn zspace<L>(space: u32) -> (Option<L>, ZeroItem) {
 
 // SCRIPT OUTPUT BEGINS HERE
 
-/// Constructs an instruction item.
+/// Constructs an item for the `nop` instruction.
 pub fn nop<L>() -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Nop))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `add` instruction.
 pub fn add<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Add(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sub` instruction.
 pub fn sub<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Sub(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `mul` instruction.
 pub fn mul<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Mul(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `div` instruction.
 pub fn div<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Div(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `mod` instruction.
 pub fn modulo<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -265,12 +268,12 @@ pub fn modulo<L>(
     (None, Item::Instr(Instr::Mod(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `neg` instruction.
 pub fn neg<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Neg(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `bitand` instruction.
 pub fn bitand<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -279,7 +282,7 @@ pub fn bitand<L>(
     (None, Item::Instr(Instr::Bitand(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `bitor` instruction.
 pub fn bitor<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -288,7 +291,7 @@ pub fn bitor<L>(
     (None, Item::Instr(Instr::Bitor(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `bitxor` instruction.
 pub fn bitxor<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -297,12 +300,12 @@ pub fn bitxor<L>(
     (None, Item::Instr(Instr::Bitxor(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `bitnot` instruction.
 pub fn bitnot<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Bitnot(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `shiftl` instruction.
 pub fn shiftl<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -311,7 +314,7 @@ pub fn shiftl<L>(
     (None, Item::Instr(Instr::Shiftl(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ushiftr` instruction.
 pub fn ushiftr<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -320,7 +323,7 @@ pub fn ushiftr<L>(
     (None, Item::Instr(Instr::Ushiftr(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sshiftr` instruction.
 pub fn sshiftr<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -329,22 +332,44 @@ pub fn sshiftr<L>(
     (None, Item::Instr(Instr::Sshiftr(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jump` instruction.
 pub fn jump<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Jump(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jz` instruction.
 pub fn jz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (None, Item::Instr(Instr::Jz(l1, LoadOperand::Branch(bt))))
+    (
+        None,
+        Item::Instr(Instr::Jz(l1, LoadOperand::Branch(bt))),
+    )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jz` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jz_ret<L>(l1: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jz(l1, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jnz` instruction.
 pub fn jnz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (None, Item::Instr(Instr::Jnz(l1, LoadOperand::Branch(bt))))
+    (
+        None,
+        Item::Instr(Instr::Jnz(l1, LoadOperand::Branch(bt))),
+    )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jnz` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jnz_ret<L>(l1: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jnz(l1, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jeq` instruction.
 pub fn jeq<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -352,7 +377,15 @@ pub fn jeq<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jeq` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jeq_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jeq(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jne` instruction.
 pub fn jne<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -360,7 +393,15 @@ pub fn jne<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jne` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jne_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jne(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jlt` instruction.
 pub fn jlt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -368,7 +409,15 @@ pub fn jlt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jlt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jlt_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jlt(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jle` instruction.
 pub fn jle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -376,7 +425,15 @@ pub fn jle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jle` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jle_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jle(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jgt` instruction.
 pub fn jgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -384,7 +441,15 @@ pub fn jgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jgt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jgt_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jgt(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jge` instruction.
 pub fn jge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -392,7 +457,15 @@ pub fn jge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jge` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jge_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jge(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jltu` instruction.
 pub fn jltu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -400,7 +473,15 @@ pub fn jltu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jltu` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jltu_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jltu(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jleu` instruction.
 pub fn jleu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -408,7 +489,15 @@ pub fn jleu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jleu` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jleu_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jleu(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jgtu` instruction.
 pub fn jgtu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -416,7 +505,15 @@ pub fn jgtu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jgtu` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jgtu_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jgtu(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jgeu` instruction.
 pub fn jgeu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -424,37 +521,45 @@ pub fn jgeu<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jgeu` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jgeu_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jgeu(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jumpabs` instruction.
 pub fn jumpabs<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Jumpabs(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `copy` instruction.
 pub fn copy<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Copy(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `copys` instruction.
 pub fn copys<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Copys(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `copyb` instruction.
 pub fn copyb<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Copyb(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sexs` instruction.
 pub fn sexs<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Sexs(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sexb` instruction.
 pub fn sexb<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Sexb(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `astore` instruction.
 pub fn astore<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -463,7 +568,7 @@ pub fn astore<L>(
     (None, Item::Instr(Instr::Astore(l1, l2, l3)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `aload` instruction.
 pub fn aload<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -472,7 +577,7 @@ pub fn aload<L>(
     (None, Item::Instr(Instr::Aload(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `astores` instruction.
 pub fn astores<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -481,7 +586,7 @@ pub fn astores<L>(
     (None, Item::Instr(Instr::Astores(l1, l2, l3)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `aloads` instruction.
 pub fn aloads<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -490,7 +595,7 @@ pub fn aloads<L>(
     (None, Item::Instr(Instr::Aloads(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `astoreb` instruction.
 pub fn astoreb<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -499,7 +604,7 @@ pub fn astoreb<L>(
     (None, Item::Instr(Instr::Astoreb(l1, l2, l3)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `aloadb` instruction.
 pub fn aloadb<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -508,7 +613,7 @@ pub fn aloadb<L>(
     (None, Item::Instr(Instr::Aloadb(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `astorebit` instruction.
 pub fn astorebit<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -517,7 +622,7 @@ pub fn astorebit<L>(
     (None, Item::Instr(Instr::Astorebit(l1, l2, l3)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `aloadbit` instruction.
 pub fn aloadbit<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -526,32 +631,32 @@ pub fn aloadbit<L>(
     (None, Item::Instr(Instr::Aloadbit(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `stkcount` instruction.
 pub fn stkcount<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Stkcount(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `stkpeek` instruction.
 pub fn stkpeek<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Stkpeek(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `stkswap` instruction.
 pub fn stkswap<L>() -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Stkswap))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `stkcopy` instruction.
 pub fn stkcopy<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Stkcopy(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `stkroll` instruction.
 pub fn stkroll<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Stkroll(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `call` instruction.
 pub fn call<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -560,12 +665,12 @@ pub fn call<L>(
     (None, Item::Instr(Instr::Call(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `callf` instruction.
 pub fn callf<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Callf(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `callfi` instruction.
 pub fn callfi<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -574,7 +679,7 @@ pub fn callfi<L>(
     (None, Item::Instr(Instr::Callfi(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `callfii` instruction.
 pub fn callfii<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -584,7 +689,7 @@ pub fn callfii<L>(
     (None, Item::Instr(Instr::Callfii(l1, l2, l3, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `callfiii` instruction.
 pub fn callfiii<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -595,152 +700,163 @@ pub fn callfiii<L>(
     (None, Item::Instr(Instr::Callfiii(l1, l2, l3, l4, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `return` instruction.
 pub fn ret<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Return(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `tailcall` instruction.
 pub fn tailcall<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Tailcall(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `catch` instruction.
 pub fn catch<L>(s1: StoreOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (None, Item::Instr(Instr::Catch(s1, LoadOperand::Branch(bt))))
+    (
+        None,
+        Item::Instr(Instr::Catch(s1, LoadOperand::Branch(bt))),
+    )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `catch` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn catch_ret<L>(s1: StoreOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Catch(s1, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `throw` instruction.
 pub fn throw<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Throw(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `getmemsize` instruction.
 pub fn getmemsize<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Getmemsize(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `setmemsize` instruction.
 pub fn setmemsize<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Setmemsize(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `malloc` instruction.
 pub fn malloc<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Malloc(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `mfree` instruction.
 pub fn mfree<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Mfree(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `quit` instruction.
 pub fn quit<L>() -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Quit))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `restart` instruction.
 pub fn restart<L>() -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Restart))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `save` instruction.
 pub fn save<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Save(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `restore` instruction.
 pub fn restore<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Restore(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `saveundo` instruction.
 pub fn saveundo<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Saveundo(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `restoreundo` instruction.
 pub fn restoreundo<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Restoreundo(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `hasundo` instruction.
 pub fn hasundo<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Hasundo(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `discardundo` instruction.
 pub fn discardundo<L>() -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Discardundo))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `protect` instruction.
 pub fn protect<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Protect(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `verify` instruction.
 pub fn verify<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Verify(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `getiosys` instruction.
 pub fn getiosys<L>(s1: StoreOperand<L>, s2: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Getiosys(s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `setiosys` instruction.
 pub fn setiosys<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Setiosys(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `streamchar` instruction.
 pub fn streamchar<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Streamchar(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `streamunichar` instruction.
 pub fn streamunichar<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Streamunichar(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `streamnum` instruction.
 pub fn streamnum<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Streamnum(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `streamstr` instruction.
 pub fn streamstr<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Streamstr(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `getstringtbl` instruction.
 pub fn getstringtbl<L>(s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Getstringtbl(s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `setstringtbl` instruction.
 pub fn setstringtbl<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Setstringtbl(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `numtof` instruction.
 pub fn numtof<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Numtof(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ftonumz` instruction.
 pub fn ftonumz<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Ftonumz(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ftonumn` instruction.
 pub fn ftonumn<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Ftonumn(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `fadd` instruction.
 pub fn fadd<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -749,7 +865,7 @@ pub fn fadd<L>(
     (None, Item::Instr(Instr::Fadd(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `fsub` instruction.
 pub fn fsub<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -758,7 +874,7 @@ pub fn fsub<L>(
     (None, Item::Instr(Instr::Fsub(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `fmul` instruction.
 pub fn fmul<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -767,7 +883,7 @@ pub fn fmul<L>(
     (None, Item::Instr(Instr::Fmul(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `fdiv` instruction.
 pub fn fdiv<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -776,7 +892,7 @@ pub fn fdiv<L>(
     (None, Item::Instr(Instr::Fdiv(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `fmod` instruction.
 pub fn fmod<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -785,72 +901,72 @@ pub fn fmod<L>(
     (None, Item::Instr(Instr::Fmod(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ceil` instruction.
 pub fn ceil<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Ceil(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `floor` instruction.
 pub fn floor<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Floor(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sqrt` instruction.
 pub fn sqrt<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Sqrt(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `exp` instruction.
 pub fn exp<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Exp(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `log` instruction.
 pub fn log<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Log(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `pow` instruction.
 pub fn pow<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Pow(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `sin` instruction.
 pub fn sin<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Sin(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `cos` instruction.
 pub fn cos<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Cos(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `tan` instruction.
 pub fn tan<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Tan(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `asin` instruction.
 pub fn asin<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Asin(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `acos` instruction.
 pub fn acos<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Acos(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `atan` instruction.
 pub fn atan<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Atan(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `atan2` instruction.
 pub fn atan2<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Atan2(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `numtod` instruction.
 pub fn numtod<L>(
     l1: LoadOperand<L>,
     s1: StoreOperand<L>,
@@ -859,7 +975,7 @@ pub fn numtod<L>(
     (None, Item::Instr(Instr::Numtod(l1, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dtonumz` instruction.
 pub fn dtonumz<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -868,7 +984,7 @@ pub fn dtonumz<L>(
     (None, Item::Instr(Instr::Dtonumz(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dtonumn` instruction.
 pub fn dtonumn<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -877,7 +993,7 @@ pub fn dtonumn<L>(
     (None, Item::Instr(Instr::Dtonumn(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ftod` instruction.
 pub fn ftod<L>(
     l1: LoadOperand<L>,
     s1: StoreOperand<L>,
@@ -886,7 +1002,7 @@ pub fn ftod<L>(
     (None, Item::Instr(Instr::Ftod(l1, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dtof` instruction.
 pub fn dtof<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -895,7 +1011,7 @@ pub fn dtof<L>(
     (None, Item::Instr(Instr::Dtof(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dadd` instruction.
 pub fn dadd<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -907,7 +1023,7 @@ pub fn dadd<L>(
     (None, Item::Instr(Instr::Dadd(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dsub` instruction.
 pub fn dsub<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -919,7 +1035,7 @@ pub fn dsub<L>(
     (None, Item::Instr(Instr::Dsub(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dmul` instruction.
 pub fn dmul<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -931,7 +1047,7 @@ pub fn dmul<L>(
     (None, Item::Instr(Instr::Dmul(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `ddiv` instruction.
 pub fn ddiv<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -943,7 +1059,7 @@ pub fn ddiv<L>(
     (None, Item::Instr(Instr::Ddiv(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dmodr` instruction.
 pub fn dmodr<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -955,7 +1071,7 @@ pub fn dmodr<L>(
     (None, Item::Instr(Instr::Dmodr(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dmodq` instruction.
 pub fn dmodq<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -967,7 +1083,7 @@ pub fn dmodq<L>(
     (None, Item::Instr(Instr::Dmodq(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dceil` instruction.
 pub fn dceil<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -977,7 +1093,7 @@ pub fn dceil<L>(
     (None, Item::Instr(Instr::Dceil(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dfloor` instruction.
 pub fn dfloor<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -987,7 +1103,7 @@ pub fn dfloor<L>(
     (None, Item::Instr(Instr::Dfloor(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dsqrt` instruction.
 pub fn dsqrt<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -997,7 +1113,7 @@ pub fn dsqrt<L>(
     (None, Item::Instr(Instr::Dsqrt(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dexp` instruction.
 pub fn dexp<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1007,7 +1123,7 @@ pub fn dexp<L>(
     (None, Item::Instr(Instr::Dexp(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dlog` instruction.
 pub fn dlog<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1017,7 +1133,7 @@ pub fn dlog<L>(
     (None, Item::Instr(Instr::Dlog(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dpow` instruction.
 pub fn dpow<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1029,7 +1145,7 @@ pub fn dpow<L>(
     (None, Item::Instr(Instr::Dpow(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dsin` instruction.
 pub fn dsin<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1039,7 +1155,7 @@ pub fn dsin<L>(
     (None, Item::Instr(Instr::Dsin(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dcos` instruction.
 pub fn dcos<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1049,7 +1165,7 @@ pub fn dcos<L>(
     (None, Item::Instr(Instr::Dcos(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dtan` instruction.
 pub fn dtan<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1059,7 +1175,7 @@ pub fn dtan<L>(
     (None, Item::Instr(Instr::Dtan(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dasin` instruction.
 pub fn dasin<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1069,7 +1185,7 @@ pub fn dasin<L>(
     (None, Item::Instr(Instr::Dasin(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `dacos` instruction.
 pub fn dacos<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1079,7 +1195,7 @@ pub fn dacos<L>(
     (None, Item::Instr(Instr::Dacos(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `datan` instruction.
 pub fn datan<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1089,7 +1205,7 @@ pub fn datan<L>(
     (None, Item::Instr(Instr::Datan(l1, l2, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `datan2` instruction.
 pub fn datan2<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1101,7 +1217,7 @@ pub fn datan2<L>(
     (None, Item::Instr(Instr::Datan2(l1, l2, l3, l4, s1, s2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jisnan` instruction.
 pub fn jisnan<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1109,7 +1225,15 @@ pub fn jisnan<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jisnan` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jisnan_ret<L>(l1: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jisnan(l1, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jisinf` instruction.
 pub fn jisinf<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1117,7 +1241,15 @@ pub fn jisinf<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jisinf` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jisinf_ret<L>(l1: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jisinf(l1, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jfeq` instruction.
 pub fn jfeq<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1130,7 +1262,20 @@ pub fn jfeq<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jfeq` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jfeq_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jfeq(l1, l2, l3, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jfne` instruction.
 pub fn jfne<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1143,7 +1288,20 @@ pub fn jfne<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jfne` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jfne_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jfne(l1, l2, l3, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jflt` instruction.
 pub fn jflt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1151,7 +1309,15 @@ pub fn jflt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jflt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jflt_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jflt(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jfle` instruction.
 pub fn jfle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1159,7 +1325,15 @@ pub fn jfle<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jfle` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jfle_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jfle(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jfgt` instruction.
 pub fn jfgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1167,7 +1341,15 @@ pub fn jfgt<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jfgt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jfgt_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jfgt(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jfge` instruction.
 pub fn jfge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1175,7 +1357,15 @@ pub fn jfge<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Ite
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jfge` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jfge_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jfge(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdisnan` instruction.
 pub fn jdisnan<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1183,7 +1373,15 @@ pub fn jdisnan<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, 
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdisnan` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdisnan_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdisnan(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdisinf` instruction.
 pub fn jdisinf<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
     (
         None,
@@ -1191,7 +1389,15 @@ pub fn jdisinf<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: L) -> (Option<L>, 
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdisinf` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdisinf_ret<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdisinf(l1, l2, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdeq` instruction.
 pub fn jdeq<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1203,11 +1409,43 @@ pub fn jdeq<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdeq(l1, l2, l3, l4, l5, l6, LoadOperand::Branch(bt))),
+        Item::Instr(Instr::Jdeq(
+            l1,
+            l2,
+            l3,
+            l4,
+            l5,
+            l6,
+            LoadOperand::Branch(bt),
+        )),
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdeq` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdeq_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    l5: LoadOperand<L>,
+    l6: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdeq(
+            l1,
+            l2,
+            l3,
+            l4,
+            l5,
+            l6,
+            LoadOperand::Imm(bt.into()),
+        )),
+    )
+}
+
+/// Constructs an item for the `jdne` instruction.
 pub fn jdne<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1219,11 +1457,43 @@ pub fn jdne<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdne(l1, l2, l3, l4, l5, l6, LoadOperand::Branch(bt))),
+        Item::Instr(Instr::Jdne(
+            l1,
+            l2,
+            l3,
+            l4,
+            l5,
+            l6,
+            LoadOperand::Branch(bt),
+        )),
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdne` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdne_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    l5: LoadOperand<L>,
+    l6: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdne(
+            l1,
+            l2,
+            l3,
+            l4,
+            l5,
+            l6,
+            LoadOperand::Imm(bt.into()),
+        )),
+    )
+}
+
+/// Constructs an item for the `jdlt` instruction.
 pub fn jdlt<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1237,7 +1507,21 @@ pub fn jdlt<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdlt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdlt_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdlt(l1, l2, l3, l4, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdle` instruction.
 pub fn jdle<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1251,7 +1535,21 @@ pub fn jdle<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdle` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdle_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdle(l1, l2, l3, l4, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdgt` instruction.
 pub fn jdgt<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1265,7 +1563,21 @@ pub fn jdgt<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdgt` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdgt_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdgt(l1, l2, l3, l4, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `jdge` instruction.
 pub fn jdge<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1279,22 +1591,36 @@ pub fn jdge<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `jdge` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jdge_ret<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    l3: LoadOperand<L>,
+    l4: LoadOperand<L>,
+    bt: bool,
+) -> (Option<L>, Item<L>) {
+    (
+        None,
+        Item::Instr(Instr::Jdge(l1, l2, l3, l4, LoadOperand::Imm(bt.into()))),
+    )
+}
+
+/// Constructs an item for the `random` instruction.
 pub fn random<L>(l1: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Random(l1, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `setrandom` instruction.
 pub fn setrandom<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Setrandom(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `mzero` instruction.
 pub fn mzero<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Mzero(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `mcopy` instruction.
 pub fn mcopy<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1303,7 +1629,7 @@ pub fn mcopy<L>(
     (None, Item::Instr(Instr::Mcopy(l1, l2, l3)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `linearsearch` instruction.
 pub fn linearsearch<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1320,7 +1646,7 @@ pub fn linearsearch<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `binarysearch` instruction.
 pub fn binarysearch<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1337,7 +1663,7 @@ pub fn binarysearch<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `linkedsearch` instruction.
 pub fn linkedsearch<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1353,17 +1679,17 @@ pub fn linkedsearch<L>(
     )
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `accelfunc` instruction.
 pub fn accelfunc<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Accelfunc(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `accelparam` instruction.
 pub fn accelparam<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Accelparam(l1, l2)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `gestalt` instruction.
 pub fn gestalt<L>(
     l1: LoadOperand<L>,
     l2: LoadOperand<L>,
@@ -1372,12 +1698,12 @@ pub fn gestalt<L>(
     (None, Item::Instr(Instr::Gestalt(l1, l2, s1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `debugtrap` instruction.
 pub fn debugtrap<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Debugtrap(l1)))
 }
 
-/// Constructs an instruction item.
+/// Constructs an item for the `glk` instruction.
 pub fn glk<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> (Option<L>, Item<L>) {
     (None, Item::Instr(Instr::Glk(l1, l2, s1)))
 }
@@ -1543,12 +1869,13 @@ for instr in INSTRS:
     args = instr[1:]
     upper = op[0].upper() + op[1:]
 
+    print("/// Constructs an item for the `{}` instruction.".format(op))
+    
     if op == "mod":
         op = "modulo"
     if op == "return":
         op = "ret"
 
-    print("/// Constructs an instruction item.")
     print("pub fn {}<L>(".format(op), end='')
     for arg in args:
         if arg[0] == 'l':
@@ -1563,10 +1890,29 @@ for instr in INSTRS:
         print("(", end='')
         for arg in args:
             if arg == "bt":
-                print("LoadOperand::OffsetLabel(bt), ", end='')
+                print("LoadOperand::Branch(bt), ", end='')
             else:
                  print("{}, ".format(arg), end='')
         print("))) }\n")
     else:
         print(")) } \n")
+
+    if len(args) > 0 and args[-1] == "bt":
+        print("/// Constructs an item for the `{}` instruction, with a branch operand that returns 0 or 1 instead of branching".format(op))
+        print("pub fn {}_ret<L>(".format(op), end='')
+        for arg in args:
+            if arg[0] == 'l':
+                print("{}: LoadOperand<L>, ".format(arg), end='')
+            elif arg[0] == 's':
+                print("{}: StoreOperand<L>, ".format(arg), end='')
+            else:
+                print("{}: bool, ".format(arg), end='')
+        print(") -> (Option<L>, Item<L>) {", end = '')
+        print("(None, Item::Instr(Instr::{}(".format(upper), end = '')
+        for arg in args:
+            if arg == "bt":
+                print("LoadOperand::Imm(bt.into()), ", end='')
+            else:
+                 print("{}, ".format(arg), end='')
+        print("))) }\n")
 */
