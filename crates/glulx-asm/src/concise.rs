@@ -333,16 +333,18 @@ pub fn sshiftr<L>(
 }
 
 /// Constructs an item for the `jump` instruction.
-pub fn jump<L>(l1: LoadOperand<L>) -> (Option<L>, Item<L>) {
-    (None, Item::Instr(Instr::Jump(l1)))
+pub fn jump<L>(bt: L) -> (Option<L>, Item<L>) {
+    (None, Item::Instr(Instr::Jump(LoadOperand::Branch(bt))))
+}
+
+/// Constructs an item for the `jump` instruction, with a branch operand that returns 0 or 1 instead of branching
+pub fn jump_ret<L>(bt: bool) -> (Option<L>, Item<L>) {
+    (None, Item::Instr(Instr::Jump(LoadOperand::Imm(bt.into()))))
 }
 
 /// Constructs an item for the `jz` instruction.
 pub fn jz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (
-        None,
-        Item::Instr(Instr::Jz(l1, LoadOperand::Branch(bt))),
-    )
+    (None, Item::Instr(Instr::Jz(l1, LoadOperand::Branch(bt))))
 }
 
 /// Constructs an item for the `jz` instruction, with a branch operand that returns 0 or 1 instead of branching
@@ -355,10 +357,7 @@ pub fn jz_ret<L>(l1: LoadOperand<L>, bt: bool) -> (Option<L>, Item<L>) {
 
 /// Constructs an item for the `jnz` instruction.
 pub fn jnz<L>(l1: LoadOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (
-        None,
-        Item::Instr(Instr::Jnz(l1, LoadOperand::Branch(bt))),
-    )
+    (None, Item::Instr(Instr::Jnz(l1, LoadOperand::Branch(bt))))
 }
 
 /// Constructs an item for the `jnz` instruction, with a branch operand that returns 0 or 1 instead of branching
@@ -712,10 +711,7 @@ pub fn tailcall<L>(l1: LoadOperand<L>, l2: LoadOperand<L>) -> (Option<L>, Item<L
 
 /// Constructs an item for the `catch` instruction.
 pub fn catch<L>(s1: StoreOperand<L>, bt: L) -> (Option<L>, Item<L>) {
-    (
-        None,
-        Item::Instr(Instr::Catch(s1, LoadOperand::Branch(bt))),
-    )
+    (None, Item::Instr(Instr::Catch(s1, LoadOperand::Branch(bt))))
 }
 
 /// Constructs an item for the `catch` instruction, with a branch operand that returns 0 or 1 instead of branching
@@ -1409,15 +1405,7 @@ pub fn jdeq<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdeq(
-            l1,
-            l2,
-            l3,
-            l4,
-            l5,
-            l6,
-            LoadOperand::Branch(bt),
-        )),
+        Item::Instr(Instr::Jdeq(l1, l2, l3, l4, l5, l6, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1457,15 +1445,7 @@ pub fn jdne<L>(
 ) -> (Option<L>, Item<L>) {
     (
         None,
-        Item::Instr(Instr::Jdne(
-            l1,
-            l2,
-            l3,
-            l4,
-            l5,
-            l6,
-            LoadOperand::Branch(bt),
-        )),
+        Item::Instr(Instr::Jdne(l1, l2, l3, l4, l5, l6, LoadOperand::Branch(bt))),
     )
 }
 
@@ -1726,7 +1706,7 @@ INSTRS = [
     ["shiftl", "l1", "l2", "s1"],
     ["ushiftr", "l1", "l2", "s1"],
     ["sshiftr", "l1", "l2", "s1"],
-    ["jump", "l1"],
+    ["jump", "bt"],
     ["jz", "l1", "bt"],
     ["jnz", "l1", "bt"],
     ["jeq", "l1", "l2", "bt"],
@@ -1870,7 +1850,7 @@ for instr in INSTRS:
     upper = op[0].upper() + op[1:]
 
     print("/// Constructs an item for the `{}` instruction.".format(op))
-    
+
     if op == "mod":
         op = "modulo"
     if op == "return":
