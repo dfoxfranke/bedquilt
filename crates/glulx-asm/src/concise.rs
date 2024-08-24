@@ -100,12 +100,17 @@ pub fn uimm<L>(x: u32) -> LoadOperand<L> {
 
 /// Constructs an immedate load operand from a label.
 pub fn imml<L>(x: L) -> LoadOperand<L> {
-    LoadOperand::ImmLabel(LabelRef(x, 0))
+    LoadOperand::ImmLabel(LabelRef(x, 0), 0)
 }
 
 /// Constructs an immedate load operand from a label and offset.
 pub fn imml_off<L>(x: L, offset: i32) -> LoadOperand<L> {
-    LoadOperand::ImmLabel(LabelRef(x, offset))
+    LoadOperand::ImmLabel(LabelRef(x, offset), 0)
+}
+
+/// Constructs an immedate load operand from a label, offset, and right-shift.
+pub fn imml_off_shift<L>(x: L, offset: i32, shift: u8) -> LoadOperand<L> {
+    LoadOperand::ImmLabel(LabelRef(x, offset), shift)
 }
 
 /// Constructs a load operand which derefernces a label.
@@ -212,13 +217,19 @@ pub fn decoding_table<L>(root: DecodeNode<L>) -> (Option<L>, Item<L>) {
 
 /// Constructs a `Label` item.
 pub fn label<L>(label: L) -> (Option<L>, Item<L>) {
-    (None, Item::Label(label, 0))
+    (None, Item::Label(LabelRef(label, 0), 0))
 }
 
 /// Constructs a `Label` item with an offset.
 pub fn label_off<L>(label: L, offset: i32) -> (Option<L>, Item<L>) {
-    (None, Item::Label(label, offset))
+    (None, Item::Label(LabelRef(label, offset), 0))
 }
+
+/// Constructs a `Label` item with an offset and right shift.
+pub fn label_off_shift<L>(label: L, offset: i32, shift: u8) -> (Option<L>, Item<L>) {
+    (None, Item::Label(LabelRef(label, offset), shift))
+}
+
 
 /// Constructs an `Align` zero-item.
 ///

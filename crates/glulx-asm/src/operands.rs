@@ -26,8 +26,16 @@ pub enum LoadOperand<L> {
     /// Load the value from the stack at the given offset from the frame
     /// pointer.
     FrameAddr(u32),
-    /// Use the address corresponding to the given label+offset as an immediate value.
-    ImmLabel(LabelRef<L>),
+    /// Use the address corresponding to the given label+offset and right-shift
+    /// as an immediate value.
+    ///
+    /// Generating an operand with a right-shift of 1 or 2 is useful with the
+    /// array load/store instructions, allowing an unaligned access to an
+    /// aligned array, as opposed to the usual pattern of an aligned access to
+    /// an unaligned array. The shift is computed *after* the offset, *i.e.*,
+    /// the offset is still given in bytes. Shifting a label by more than its
+    /// alignment will produce an error at assembly time.
+    ImmLabel(LabelRef<L>, u8),
     /// Load the value from the address at the given label+offset.
     DerefLabel(LabelRef<L>),
     /// Compute an offset in order for a branch instruction to jump to the given
@@ -100,12 +108,14 @@ impl<L> LoadOperand<L> {
             LoadOperand::Pop => LoadOperand::Pop,
             LoadOperand::Imm(x) => LoadOperand::Imm(x),
             LoadOperand::FrameAddr(p) => LoadOperand::FrameAddr(p),
-            LoadOperand::ImmLabel(l) => LoadOperand::ImmLabel(l.map(f)),
+            LoadOperand::ImmLabel(l, shift) => LoadOperand::ImmLabel(l.map(f), shift),
             LoadOperand::DerefLabel(l) => LoadOperand::DerefLabel(l.map(f)),
             LoadOperand::Branch(l) => LoadOperand::Branch(f(l)),
         }
     }
+}
 
+impl <L> LoadOperand<L> where L: Clone {
     /// Resolve labels in the operand, provided that the operand occurs at the
     /// given position and RAM begins at the given address.
     pub(crate) fn resolve<R>(
@@ -139,8 +149,17 @@ impl<L> LoadOperand<L> {
                     RawOperand::Frame32(*x)
                 }
             }
-            LoadOperand::ImmLabel(l) => {
-                let addr = l.resolve_absolute(ramstart, resolver)?.cast_sign();
+            LoadOperand::ImmLabel(l, shift) => {
+                let unshifted_addr = l.resolve_absolute(ramstart, resolver)?;
+                if unshifted_addr.trailing_zeros() < (*shift).into() {
+                    return Err(AssemblerError::InsufficientAlignment {
+                        label: l.0.clone(),
+                        offset: l.1,
+                        shift: *shift,
+                    });
+                }
+
+                let addr = (unshifted_addr >> *shift).cast_sign();
 
                 if addr == 0 {
                     RawOperand::Null
@@ -240,7 +259,7 @@ impl<L> LoadOperand<L> {
                     4
                 }
             }
-            LoadOperand::ImmLabel(_) => 4,
+            LoadOperand::ImmLabel(_, _) => 4,
             LoadOperand::DerefLabel(_) => 4,
             LoadOperand::Branch(_) => 4,
         }
@@ -260,7 +279,9 @@ impl<L> StoreOperand<L> {
             StoreOperand::DerefLabel(l) => StoreOperand::DerefLabel(l.map(f)),
         }
     }
+}
 
+impl <L> StoreOperand<L> where L: Clone {
     /// Resolve labels in the operand, provided that the operand occurs at the
     /// given position and RAM begins at the given address. These arguments are
     /// in fact ignored, but we need this type signature to be the same as the

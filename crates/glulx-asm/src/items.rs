@@ -46,8 +46,8 @@ pub enum Item<L> {
     Utf32String(Utf32String),
     /// Some arbitrary bytes to be serialized verbatim.
     Blob(Bytes),
-    /// Four bytes representing the absolute adddress of the given label+offset.
-    Label(L, i32),
+    /// Four bytes representing the absolute adddress of the given label+offset and right-shift.
+    Label(LabelRef<L>, u8),
 }
 
 /// Placeholder for space in RAM that shoud be allocated at startup with
@@ -88,10 +88,15 @@ impl<L> Item<L> {
             Item::Utf32String(s) => Item::Utf32String(s),
             Item::CompressedString(s) => Item::CompressedString(s),
             Item::Blob(b) => Item::Blob(b),
-            Item::Label(l, offset) => Item::Label(f(l), offset),
+            Item::Label(l, shift) => Item::Label(l.map(f), shift),
         }
     }
+}
 
+impl<L> Item<L>
+where
+    L: Clone,
+{
     pub(crate) fn worst_len(&self) -> usize {
         match self {
             Item::Align(_) => 0,
@@ -209,17 +214,24 @@ impl<L> Item<L> {
             Item::Blob(blob) => {
                 buf.put(blob.clone());
             }
-            Item::Label(l, offset) => match resolver.resolve(l)? {
-                ResolvedAddr::Rom(addr) => {
-                    buf.put_u32(addr.checked_add_signed(*offset).overflow()?);
-                }
-                ResolvedAddr::Ram(addr) => buf.put_u32(
-                    addr.checked_add(ramstart)
+            Item::Label(l, shift) => {
+                let unshifted_addr = match l.resolve(resolver)? {
+                    ResolvedAddr::Rom(addr) => addr,
+                    ResolvedAddr::Ram(addr) => addr
+                        .checked_add(ramstart)
                         .overflow()?
-                        .checked_add_signed(*offset)
-                        .overflow()?,
-                ),
-            },
+                };
+
+                if unshifted_addr.trailing_zeros() < (*shift).into() {
+                    return Err(AssemblerError::InsufficientAlignment {
+                        label: l.0.clone(),
+                        offset: l.1,
+                        shift: *shift,
+                    });
+                }
+
+                buf.put_u32(unshifted_addr >> *shift);
+            }
         }
         Ok(())
     }
