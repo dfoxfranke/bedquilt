@@ -39,16 +39,20 @@ where
     type Label = L;
 
     fn resolve(&self, label: &Self::Label) -> Result<ResolvedAddr, AssemblerError<Self::Label>> {
-        let addr = self
-            .hashmap
-            .get(label)
-            .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?
-            .start;
+        let addr = self.resolve_absolute(label)?;
         if addr < self.ramstart {
             Ok(ResolvedAddr::Rom(addr))
         } else {
             Ok(ResolvedAddr::Ram(addr - self.ramstart))
         }
+    }
+
+    fn resolve_absolute(&self, label: &Self::Label) -> Result<u32, AssemblerError<Self::Label>> {
+        Ok(self
+            .hashmap
+            .get(label)
+            .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?
+            .start)
     }
 }
 
@@ -275,12 +279,12 @@ where
     };
 
     let resolved_decoding_table = if let Some(decoding_table) = decoding_table {
-        decoding_table.resolve_absolute(ramstart, &resolver)?
+        decoding_table.resolve_absolute(&resolver)?
     } else {
         0u32
     };
 
-    let resolved_start_func: u32 = start_func.resolve_absolute(ramstart, &resolver)?;
+    let resolved_start_func: u32 = start_func.resolve_absolute(&resolver)?;
 
     let sum = MAGIC_NUMBER
         .wrapping_add(GLULX_VERSION)
@@ -418,7 +422,7 @@ where
             ramstart,
         };
 
-        let resolved_len = item.resolved_len(*position, ramstart, &resolver)?;
+        let resolved_len = item.resolved_len(*position, &resolver)?;
 
         let end_position = position
             .checked_add(u32::try_from(resolved_len).overflow()?)
@@ -516,7 +520,7 @@ where
             ramstart,
         };
 
-        item.serialize(position, ramstart, &resolver, &mut *buf)?;
+        item.serialize(position, &resolver, &mut *buf)?;
     }
 
     let position = u32::try_from(buf.len())

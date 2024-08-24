@@ -31,13 +31,12 @@ macro_rules! count {
     ( $current:expr, $($rest:expr),* $(,)*) => (const { 1 + count!($($rest),*) });
 }
 
-/// Call arg.resolve(position, ramstart, resolver) for each argument after the
+/// Call arg.resolve(position, resolver) for each argument after the
 /// third, correctly updating position for each call. Position at the start of
 /// the invocation should the end of the opcode.
 macro_rules! resolve {
-    ($position:expr, $ramstart:expr, $resolver:expr, $($x:expr),* $(,)*) => {
+    ($position:expr, $resolver:expr, $($x:expr),* $(,)*) => {
         {
-            let _ramstart = $ramstart;
             #[allow(unused_mut)]
             let mut v = ArrayVec::<RawOperand, MAX_OPERANDS>::new();
             let n_args = count!($($x),*);
@@ -46,7 +45,7 @@ macro_rules! resolve {
                 .ok_or(AssemblerError::Overflow)?;
 
             $(
-                let operand = $x.resolve(_position, _ramstart, $resolver)?;
+                let operand = $x.resolve(_position, $resolver)?;
                 _position = _position.checked_add(u32::try_from(operand.len())
                     .or(Err(AssemblerError::Overflow))?)
                     .ok_or(AssemblerError::Overflow)?;
@@ -475,7 +474,10 @@ impl<L> Instr<L> {
     }
 }
 
-impl <L> Instr<L> where L: Clone {
+impl<L> Instr<L>
+where
+    L: Clone,
+{
     /// Returns an upper bound on how long the serialized instruction might be,
     /// regardless of its position.
     pub(crate) fn worst_len(&self) -> usize {
@@ -804,7 +806,6 @@ impl <L> Instr<L> where L: Clone {
     pub(crate) fn resolve<R>(
         &self,
         mut position: u32,
-        ramstart: u32,
         resolver: &R,
     ) -> Result<RawInstr, AssemblerError<L>>
     where
@@ -818,194 +819,194 @@ impl <L> Instr<L> where L: Clone {
             .ok_or(AssemblerError::Overflow)?;
 
         let operands = match self {
-            Instr::Nop => resolve!(position, ramstart, resolver,),
-            Instr::Add(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Sub(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Mul(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Div(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Mod(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Neg(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Bitand(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Bitor(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Bitxor(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Bitnot(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Shiftl(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Ushiftr(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Sshiftr(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Jump(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Jz(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Jnz(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Jeq(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jne(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jlt(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jle(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jgt(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jge(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jltu(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jleu(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jgtu(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jgeu(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jumpabs(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Copy(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Copys(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Copyb(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Sexs(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Sexb(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Astore(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Aload(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Astores(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Aloads(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Astoreb(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Aloadb(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Astorebit(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Aloadbit(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Stkcount(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Stkpeek(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Stkswap => resolve!(position, ramstart, resolver,),
-            Instr::Stkcopy(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Stkroll(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Call(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Callf(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Callfi(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
+            Instr::Nop => resolve!(position, resolver,),
+            Instr::Add(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Sub(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Mul(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Div(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Mod(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Neg(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Bitand(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Bitor(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Bitxor(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Bitnot(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Shiftl(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Ushiftr(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Sshiftr(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Jump(l1) => resolve!(position, resolver, l1),
+            Instr::Jz(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Jnz(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Jeq(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jne(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jlt(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jle(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jgt(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jge(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jltu(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jleu(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jgtu(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jgeu(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jumpabs(l1) => resolve!(position, resolver, l1),
+            Instr::Copy(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Copys(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Copyb(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Sexs(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Sexb(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Astore(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Aload(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Astores(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Aloads(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Astoreb(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Aloadb(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Astorebit(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Aloadbit(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Stkcount(s1) => resolve!(position, resolver, s1),
+            Instr::Stkpeek(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Stkswap => resolve!(position, resolver,),
+            Instr::Stkcopy(l1) => resolve!(position, resolver, l1),
+            Instr::Stkroll(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Call(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Callf(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Callfi(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
             Instr::Callfii(l1, l2, l3, s1) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, s1)
+                resolve!(position, resolver, l1, l2, l3, s1)
             }
             Instr::Callfiii(l1, l2, l3, l4, s1) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1)
+                resolve!(position, resolver, l1, l2, l3, l4, s1)
             }
-            Instr::Return(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Tailcall(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Catch(s1, l1) => resolve!(position, ramstart, resolver, s1, l1),
-            Instr::Throw(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Getmemsize(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Setmemsize(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Malloc(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Mfree(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Quit => resolve!(position, ramstart, resolver,),
-            Instr::Restart => resolve!(position, ramstart, resolver,),
-            Instr::Save(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Restore(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Saveundo(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Restoreundo(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Hasundo(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Discardundo => resolve!(position, ramstart, resolver,),
-            Instr::Protect(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Verify(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Getiosys(s1, s2) => resolve!(position, ramstart, resolver, s1, s2),
-            Instr::Setiosys(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Streamchar(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Streamunichar(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Streamnum(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Streamstr(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Getstringtbl(s1) => resolve!(position, ramstart, resolver, s1),
-            Instr::Setstringtbl(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Numtof(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Ftonumz(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Ftonumn(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Fadd(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Fsub(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Fmul(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Fdiv(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Fmod(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Ceil(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Floor(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Sqrt(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Exp(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Log(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Pow(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Sin(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Cos(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Tan(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Asin(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Acos(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Atan(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Atan2(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Numtod(l1, s1, s2) => resolve!(position, ramstart, resolver, l1, s1, s2),
-            Instr::Dtonumz(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Dtonumn(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Ftod(l1, s1, s2) => resolve!(position, ramstart, resolver, l1, s1, s2),
-            Instr::Dtof(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
+            Instr::Return(l1) => resolve!(position, resolver, l1),
+            Instr::Tailcall(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Catch(s1, l1) => resolve!(position, resolver, s1, l1),
+            Instr::Throw(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Getmemsize(s1) => resolve!(position, resolver, s1),
+            Instr::Setmemsize(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Malloc(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Mfree(l1) => resolve!(position, resolver, l1),
+            Instr::Quit => resolve!(position, resolver,),
+            Instr::Restart => resolve!(position, resolver,),
+            Instr::Save(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Restore(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Saveundo(s1) => resolve!(position, resolver, s1),
+            Instr::Restoreundo(s1) => resolve!(position, resolver, s1),
+            Instr::Hasundo(s1) => resolve!(position, resolver, s1),
+            Instr::Discardundo => resolve!(position, resolver,),
+            Instr::Protect(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Verify(s1) => resolve!(position, resolver, s1),
+            Instr::Getiosys(s1, s2) => resolve!(position, resolver, s1, s2),
+            Instr::Setiosys(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Streamchar(l1) => resolve!(position, resolver, l1),
+            Instr::Streamunichar(l1) => resolve!(position, resolver, l1),
+            Instr::Streamnum(l1) => resolve!(position, resolver, l1),
+            Instr::Streamstr(l1) => resolve!(position, resolver, l1),
+            Instr::Getstringtbl(s1) => resolve!(position, resolver, s1),
+            Instr::Setstringtbl(l1) => resolve!(position, resolver, l1),
+            Instr::Numtof(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Ftonumz(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Ftonumn(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Fadd(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Fsub(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Fmul(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Fdiv(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Fmod(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Ceil(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Floor(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Sqrt(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Exp(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Log(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Pow(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Sin(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Cos(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Tan(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Asin(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Acos(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Atan(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Atan2(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Numtod(l1, s1, s2) => resolve!(position, resolver, l1, s1, s2),
+            Instr::Dtonumz(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Dtonumn(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Ftod(l1, s1, s2) => resolve!(position, resolver, l1, s1, s2),
+            Instr::Dtof(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
             Instr::Dadd(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
             Instr::Dsub(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
             Instr::Dmul(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
             Instr::Ddiv(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
             Instr::Dmodr(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
             Instr::Dmodq(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
-            Instr::Dceil(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dfloor(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dsqrt(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dexp(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dlog(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
+            Instr::Dceil(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dfloor(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dsqrt(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dexp(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dlog(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
             Instr::Dpow(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
-            Instr::Dsin(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dcos(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dtan(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dasin(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Dacos(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
-            Instr::Datan(l1, l2, s1, s2) => resolve!(position, ramstart, resolver, l1, l2, s1, s2),
+            Instr::Dsin(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dcos(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dtan(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dasin(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Dacos(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
+            Instr::Datan(l1, l2, s1, s2) => resolve!(position, resolver, l1, l2, s1, s2),
             Instr::Datan2(l1, l2, l3, l4, s1, s2) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, s1, s2)
+                resolve!(position, resolver, l1, l2, l3, l4, s1, s2)
             }
-            Instr::Jisnan(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Jisinf(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Jfeq(l1, l2, l3, l4) => resolve!(position, ramstart, resolver, l1, l2, l3, l4),
-            Instr::Jfne(l1, l2, l3, l4) => resolve!(position, ramstart, resolver, l1, l2, l3, l4),
-            Instr::Jflt(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jfle(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jfgt(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jfge(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jdisnan(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
-            Instr::Jdisinf(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
+            Instr::Jisnan(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Jisinf(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Jfeq(l1, l2, l3, l4) => resolve!(position, resolver, l1, l2, l3, l4),
+            Instr::Jfne(l1, l2, l3, l4) => resolve!(position, resolver, l1, l2, l3, l4),
+            Instr::Jflt(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jfle(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jfgt(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jfge(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jdisnan(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
+            Instr::Jdisinf(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
             Instr::Jdeq(l1, l2, l3, l4, l5, l6, l7) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, l7)
+                resolve!(position, resolver, l1, l2, l3, l4, l5, l6, l7)
             }
             Instr::Jdne(l1, l2, l3, l4, l5, l6, l7) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, l7)
+                resolve!(position, resolver, l1, l2, l3, l4, l5, l6, l7)
             }
             Instr::Jdlt(l1, l2, l3, l4, l5) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+                resolve!(position, resolver, l1, l2, l3, l4, l5)
             }
             Instr::Jdle(l1, l2, l3, l4, l5) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+                resolve!(position, resolver, l1, l2, l3, l4, l5)
             }
             Instr::Jdgt(l1, l2, l3, l4, l5) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+                resolve!(position, resolver, l1, l2, l3, l4, l5)
             }
             Instr::Jdge(l1, l2, l3, l4, l5) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5)
+                resolve!(position, resolver, l1, l2, l3, l4, l5)
             }
-            Instr::Random(l1, s1) => resolve!(position, ramstart, resolver, l1, s1),
-            Instr::Setrandom(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Mzero(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Mcopy(l1, l2, l3) => resolve!(position, ramstart, resolver, l1, l2, l3),
+            Instr::Random(l1, s1) => resolve!(position, resolver, l1, s1),
+            Instr::Setrandom(l1) => resolve!(position, resolver, l1),
+            Instr::Mzero(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Mcopy(l1, l2, l3) => resolve!(position, resolver, l1, l2, l3),
             Instr::Linearsearch(l1, l2, l3, l4, l5, l6, l7, s1) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, l7, s1)
+                resolve!(position, resolver, l1, l2, l3, l4, l5, l6, l7, s1)
             }
             Instr::Binarysearch(l1, l2, l3, l4, l5, l6, l7, s1) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, l7, s1)
+                resolve!(position, resolver, l1, l2, l3, l4, l5, l6, l7, s1)
             }
             Instr::Linkedsearch(l1, l2, l3, l4, l5, l6, s1) => {
-                resolve!(position, ramstart, resolver, l1, l2, l3, l4, l5, l6, s1)
+                resolve!(position, resolver, l1, l2, l3, l4, l5, l6, s1)
             }
-            Instr::Accelfunc(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Accelparam(l1, l2) => resolve!(position, ramstart, resolver, l1, l2),
-            Instr::Gestalt(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
-            Instr::Debugtrap(l1) => resolve!(position, ramstart, resolver, l1),
-            Instr::Glk(l1, l2, s1) => resolve!(position, ramstart, resolver, l1, l2, s1),
+            Instr::Accelfunc(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Accelparam(l1, l2) => resolve!(position, resolver, l1, l2),
+            Instr::Gestalt(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
+            Instr::Debugtrap(l1) => resolve!(position, resolver, l1),
+            Instr::Glk(l1, l2, s1) => resolve!(position, resolver, l1, l2, s1),
         };
 
         Ok(RawInstr { opcode, operands })

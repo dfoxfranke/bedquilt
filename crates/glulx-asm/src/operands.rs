@@ -6,7 +6,7 @@
 use bytes::BufMut;
 
 use crate::{
-    cast::{CastSign, Overflow},
+    cast::CastSign,
     error::AssemblerError,
     resolver::{ResolvedAddr, Resolver},
     LabelRef,
@@ -115,13 +115,15 @@ impl<L> LoadOperand<L> {
     }
 }
 
-impl <L> LoadOperand<L> where L: Clone {
+impl<L> LoadOperand<L>
+where
+    L: Clone,
+{
     /// Resolve labels in the operand, provided that the operand occurs at the
     /// given position and RAM begins at the given address.
     pub(crate) fn resolve<R>(
         &self,
         position: u32,
-        ramstart: u32,
         resolver: &R,
     ) -> Result<RawOperand, AssemblerError<L>>
     where
@@ -150,7 +152,7 @@ impl <L> LoadOperand<L> where L: Clone {
                 }
             }
             LoadOperand::ImmLabel(l, shift) => {
-                let unshifted_addr = l.resolve_absolute(ramstart, resolver)?;
+                let unshifted_addr = l.resolve_absolute(resolver)?;
                 if unshifted_addr.trailing_zeros() < (*shift).into() {
                     return Err(AssemblerError::InsufficientAlignment {
                         label: l.0.clone(),
@@ -194,10 +196,7 @@ impl <L> LoadOperand<L> where L: Clone {
                 }
             },
             LoadOperand::Branch(l) => {
-                let target = match resolver.resolve(l)? {
-                    ResolvedAddr::Rom(target) => target,
-                    ResolvedAddr::Ram(target) => target.checked_add(ramstart).overflow()?,
-                };
+                let target = resolver.resolve_absolute(l)?;
 
                 // We have to be careful here not to shrink an operand in such a
                 // way as it has to grow again because shrinking it increased
@@ -281,7 +280,10 @@ impl<L> StoreOperand<L> {
     }
 }
 
-impl <L> StoreOperand<L> where L: Clone {
+impl<L> StoreOperand<L>
+where
+    L: Clone,
+{
     /// Resolve labels in the operand, provided that the operand occurs at the
     /// given position and RAM begins at the given address. These arguments are
     /// in fact ignored, but we need this type signature to be the same as the
@@ -289,7 +291,6 @@ impl <L> StoreOperand<L> where L: Clone {
     pub(crate) fn resolve<R>(
         &self,
         _position: u32,
-        _ramstart: u32,
         resolver: &R,
     ) -> Result<RawOperand, AssemblerError<L>>
     where

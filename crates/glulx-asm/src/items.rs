@@ -127,14 +127,13 @@ where
     pub(crate) fn resolved_len<R>(
         &self,
         position: u32,
-        ramstart: u32,
         resolver: &R,
     ) -> Result<usize, AssemblerError<L>>
     where
         R: Resolver<Label = L>,
     {
         Ok(match self {
-            Item::Instr(i) => i.resolve(position, ramstart, resolver)?.len(),
+            Item::Instr(i) => i.resolve(position, resolver)?.len(),
             _ => self.worst_len(),
         })
     }
@@ -142,7 +141,6 @@ where
     pub(crate) fn serialize<R, B>(
         &self,
         position: u32,
-        ramstart: u32,
         resolver: &R,
         mut buf: B,
     ) -> Result<(), AssemblerError<L>>
@@ -163,7 +161,7 @@ where
                 );
             }
             Item::DecodingTable(table) => {
-                let resolved = table.resolve(ramstart, resolver)?;
+                let resolved = table.resolve(resolver)?;
                 let count = u32::try_from(resolved.count_nodes()).overflow()?;
                 let length =
                     u32::try_from(resolved.len().checked_add(12).overflow()?).overflow()?;
@@ -194,7 +192,7 @@ where
                 buf.put_bytes(0, 2);
             }
             Item::Instr(instr) => {
-                let resolved = instr.resolve(position, ramstart, resolver)?;
+                let resolved = instr.resolve(position, resolver)?;
                 resolved.serialize(buf);
             }
             Item::MysteryString(s) => {
@@ -215,12 +213,7 @@ where
                 buf.put(blob.clone());
             }
             Item::Label(l, shift) => {
-                let unshifted_addr = match l.resolve(resolver)? {
-                    ResolvedAddr::Rom(addr) => addr,
-                    ResolvedAddr::Ram(addr) => addr
-                        .checked_add(ramstart)
-                        .overflow()?
-                };
+                let unshifted_addr = l.resolve_absolute(resolver)?;
 
                 if unshifted_addr.trailing_zeros() < (*shift).into() {
                     return Err(AssemblerError::InsufficientAlignment {
@@ -276,17 +269,10 @@ impl<L> LabelRef<L> {
         })
     }
 
-    pub(crate) fn resolve_absolute<R>(
-        &self,
-        ramstart: u32,
-        resolver: &R,
-    ) -> Result<u32, AssemblerError<L>>
+    pub(crate) fn resolve_absolute<R>(&self, resolver: &R) -> Result<u32, AssemblerError<L>>
     where
         R: Resolver<Label = L>,
     {
-        Ok(match self.resolve(resolver)? {
-            ResolvedAddr::Rom(addr) => addr,
-            ResolvedAddr::Ram(addr) => addr.checked_add(ramstart).overflow()?,
-        })
+        resolver.resolve_absolute(&self.0)
     }
 }

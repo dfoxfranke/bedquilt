@@ -75,12 +75,12 @@ impl<L> DecodeArg<L> {
         }
     }
 
-    pub(crate) fn resolve<R>(&self, ramstart: u32, resolver: &R) -> Result<i32, AssemblerError<L>>
+    pub(crate) fn resolve<R>(&self, resolver: &R) -> Result<i32, AssemblerError<L>>
     where
         R: Resolver<Label = L>,
     {
         Ok(match self {
-            DecodeArg::Label(l) => l.resolve_absolute(ramstart, resolver)?.cast_sign(),
+            DecodeArg::Label(l) => l.resolve_absolute(resolver)?.cast_sign(),
             DecodeArg::Literal(x) => *x,
         })
     }
@@ -142,18 +142,14 @@ impl<L> DecodeNode<L> {
         }
     }
 
-    pub(crate) fn resolve<R>(
-        &self,
-        ramstart: u32,
-        resolver: &R,
-    ) -> Result<ResolvedDecodeNode, AssemblerError<L>>
+    pub(crate) fn resolve<R>(&self, resolver: &R) -> Result<ResolvedDecodeNode, AssemblerError<L>>
     where
         R: Resolver<Label = L>,
     {
         Ok(match self {
             DecodeNode::Branch(left, right) => ResolvedDecodeNode::Branch(
-                Box::new(left.resolve(ramstart, resolver)?),
-                Box::new(right.resolve(ramstart, resolver)?),
+                Box::new(left.resolve(resolver)?),
+                Box::new(right.resolve(resolver)?),
             ),
             DecodeNode::StringTerminator => ResolvedDecodeNode::StringTerminator,
             DecodeNode::MysteryChar(c) => ResolvedDecodeNode::MysteryChar(*c),
@@ -161,32 +157,29 @@ impl<L> DecodeNode<L> {
             DecodeNode::UnicodeChar(c) => ResolvedDecodeNode::UnicodeChar(*c),
             DecodeNode::Utf32String(s) => ResolvedDecodeNode::Utf32String(s.clone()),
             DecodeNode::IndirectRef(r) => {
-                ResolvedDecodeNode::IndirectRef(r.resolve_absolute(ramstart, resolver)?)
+                ResolvedDecodeNode::IndirectRef(r.resolve_absolute(resolver)?)
             }
             DecodeNode::DoubleIndirectRef(r) => {
-                ResolvedDecodeNode::DoubleIndirectRef(r.resolve_absolute(ramstart, resolver)?)
+                ResolvedDecodeNode::DoubleIndirectRef(r.resolve_absolute(resolver)?)
             }
             DecodeNode::IndirectRefWithArgs(r, args) => {
                 u32::try_from(args.len()).overflow()?; // We can't serialize this. Serialization is infallible, so check here instead.
                 let mut newargs = Vec::with_capacity(args.len());
                 for arg in args {
-                    newargs.push(arg.resolve(ramstart, resolver)?);
+                    newargs.push(arg.resolve(resolver)?);
                 }
 
-                ResolvedDecodeNode::IndirectRefWithArgs(
-                    r.resolve_absolute(ramstart, resolver)?,
-                    newargs,
-                )
+                ResolvedDecodeNode::IndirectRefWithArgs(r.resolve_absolute(resolver)?, newargs)
             }
             DecodeNode::DoubleIndirectRefWithArgs(r, args) => {
                 u32::try_from(args.len()).overflow()?;
                 let mut newargs = Vec::with_capacity(args.len());
                 for arg in args {
-                    newargs.push(arg.resolve(ramstart, resolver)?);
+                    newargs.push(arg.resolve(resolver)?);
                 }
 
                 ResolvedDecodeNode::DoubleIndirectRefWithArgs(
-                    r.resolve_absolute(ramstart, resolver)?,
+                    r.resolve_absolute(resolver)?,
                     newargs,
                 )
             }

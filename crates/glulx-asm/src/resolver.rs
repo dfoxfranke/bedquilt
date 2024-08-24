@@ -6,16 +6,15 @@
 use crate::error::AssemblerError;
 
 /// Trait for a callback to resolve an address from a label.
-///
-/// This could just be a closure. Originally it was, but I was stumbling over an
-/// obscure bug related to recursive trait resolution. I know now how to avoid
-/// the bug and could change it back, but there's no reason to bother.
 pub(crate) trait Resolver {
     /// The type of label that this resolver can resolve.
     type Label;
 
     /// Returns the address to which the label resolves.
     fn resolve(&self, label: &Self::Label) -> Result<ResolvedAddr, AssemblerError<Self::Label>>;
+
+    /// Returns the absolute address to which the label resolves.
+    fn resolve_absolute(&self, label: &Self::Label) -> Result<u32, AssemblerError<Self::Label>>;
 }
 
 /// The result of address resolution.

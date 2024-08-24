@@ -15,13 +15,13 @@ pub enum AssemblerError<L> {
     /// A label was defined in multiple places.
     DuplicateLabel(L),
     /// A label was right-shifted beyond its alignment.
-    InsufficientAlignment { 
+    InsufficientAlignment {
         /// The label that produced the error.
         label: L,
         /// The offset that was applied to the label.
         offset: i32,
         /// The attempted right-shift amount.
-        shift: u8
+        shift: u8,
     },
 }
 

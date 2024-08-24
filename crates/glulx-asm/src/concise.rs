@@ -230,7 +230,6 @@ pub fn label_off_shift<L>(label: L, offset: i32, shift: u8) -> (Option<L>, Item<
     (None, Item::Label(LabelRef(label, offset), shift))
 }
 
-
 /// Constructs an `Align` zero-item.
 ///
 /// Panics if its argument is 0.
