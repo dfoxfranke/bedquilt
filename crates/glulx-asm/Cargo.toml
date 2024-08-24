@@ -13,8 +13,7 @@ categories = ["compilers", "no-std"]
 arrayvec = { version = "0.7", default-features = false }
 bytes = { version = "1", default-features = false }
 hashbrown = "0.14"
-never = { version  = "0.1", default-features = false }
 
 [features]
 default = ["std"]
-std = ["arrayvec/std", "bytes/std", "never/std"]
+std = ["arrayvec/std", "bytes/std"]
