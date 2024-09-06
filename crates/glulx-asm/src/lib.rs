@@ -58,5 +58,7 @@ pub use decoding_table::{DecodeArg, DecodeNode};
 pub use error::AssemblerError;
 pub use instr_def::Instr;
 pub use items::{CallingConvention, Item, LabelRef, ZeroItem};
-pub use operands::{f32_to_imm, f64_to_imm, load_local, store_local, LoadOperand, StoreOperand};
+pub use operands::{
+    f32_to_imm, f64_to_imm, LoadOperand, StoreOperand,
+};
 pub use strings::{MysteryString, StringConversionError, Utf32String};

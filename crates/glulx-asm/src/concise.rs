@@ -34,7 +34,7 @@
 // at the bottom of the module.
 
 use crate::{cast::CastSign, DecodeNode, LabelRef};
-pub use crate::{f32_to_imm, f64_to_imm, load_local, store_local};
+pub use crate::{f32_to_imm, f64_to_imm};
 use crate::{
     CallingConvention, Instr, Item, LoadOperand, MysteryString, StoreOperand, Utf32String, ZeroItem,
 };
@@ -143,22 +143,14 @@ pub fn storel_off<L>(l: L, offset: i32) -> StoreOperand<L> {
     StoreOperand::DerefLabel(LabelRef(l, offset))
 }
 
-/// Constructs a load operand which loads from the `m`'th local.
-///
-/// Unlike [`load_local`] this lets you omit the second argument. It gives a
-/// correct result if and only if you have between 1 and 255 locals, so if
-/// you might have 256 or more then you must use `load_local` instead.
-pub fn lloc<L>(m: u32) -> LoadOperand<L> {
-    load_local(m, 1)
+/// Constructs a load operand which loads from the `n`'th local.
+pub fn lloc<L>(n: u32) -> LoadOperand<L> {
+    LoadOperand::FrameAddr(4*n)
 }
 
-/// Constructs a store operand which stores to the `m`'th local.
-///
-/// Unlike [`store_local`] this lets you omit the second argument. It gives a
-/// correct result if and only if you have between 1 and 255 locals, so if
-/// you might have 256 or more then you must use `store_local` instead.
-pub fn sloc<L>(m: u32) -> StoreOperand<L> {
-    store_local(m, 1)
+/// Constructs a store operand which stores to the `n`'th local.
+pub fn sloc<L>(n: u32) -> StoreOperand<L> {
+    StoreOperand::FrameAddr(4*n)
 }
 
 /// Constructs a `MysteryString` item.

@@ -431,23 +431,3 @@ pub fn f64_to_imm<L>(x: f64) -> (LoadOperand<L>, LoadOperand<L>) {
         LoadOperand::Imm(low.cast_sign()),
     )
 }
-
-/// Computes the FramePtr-relative address for th `m`th of `n` locals.
-fn local_pos(m: u32, n: u32) -> u32 {
-    8 // Frame Len and Locals Pos 
-    + (2 * n.div_ceil(255) + 2) // Format of Locals
-    .next_multiple_of(4) // Padding
-    + 4 * m // Offset of local
-}
-
-/// Returns a load operand which addresses the (zero-indexed) `m`th of `n` local
-/// variables in a call frame.
-pub fn load_local<L>(m: u32, n: u32) -> LoadOperand<L> {
-    LoadOperand::FrameAddr(local_pos(m, n))
-}
-
-/// Returns a store operand which addresses the (zero-indexed) `m`th of `n`
-/// local variables in a call frame.
-pub fn store_local<L>(m: u32, n: u32) -> StoreOperand<L> {
-    StoreOperand::FrameAddr(local_pos(m, n))
-}
