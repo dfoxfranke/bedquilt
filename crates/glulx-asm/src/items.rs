@@ -5,6 +5,7 @@
 
 use bytes::{BufMut, Bytes};
 use core::num::NonZeroU32;
+use core::fmt::Display;
 
 use crate::{
     cast::Overflow,
@@ -237,6 +238,34 @@ where
     }
 }
 
+impl <L> Display for Item<L> where L: Display {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Item::Label(label) => write!(f, ".label {label}")?,
+            Item::Align(a) => write!(f, ".align {a}")?,
+            Item::DecodingTable(_) => write!(f, ".decoding_table")?,
+            Item::FnHeader(CallingConvention::ArgsInLocals, args) => write!(f, ".fnlocal {args}")?,
+            Item::FnHeader(CallingConvention::ArgsOnStack, args) => write!(f, ".fnstack {args}")?,
+            Item::Instr(instr) => write!(f, "\t{instr}")?,
+            Item::MysteryString(s) => write!(f, ".string {:?}", s)?,
+            Item::CompressedString(c) => write!(f, ".compressed_string {c:x}")?,
+            Item::Utf32String(s) => write!(f, ".unistring {:?}", s)?,
+            Item::Blob(b) => write!(f, ".blob {b:x}")?,
+            Item::LabelRef(LabelRef(label, offset), shift) => {
+                write!(f, ".labelref ({label}")?;
+                if *offset != 0 {
+                    write!(f, "{offset:+#x}")?;
+                }
+                if *shift != 0 {
+                    write!(f, ">>{shift}")?;
+                }
+                write!(f, ")")?;
+            },
+        }
+        Ok(())
+    }
+}
+
 impl <L> ZeroItem<L> {
     /// Applies the given mapping function to the label, if any, within the zero-item.
     pub fn map<F, M>(self, mut f: F) -> ZeroItem<M>
@@ -263,6 +292,16 @@ impl <L> ZeroItem<L> {
             ZeroItem::Label(_) => 1,
             ZeroItem::Space(_) => 1,
             ZeroItem::Align(a) => (*a).into(),
+        }
+    }
+}
+
+impl <L> Display for ZeroItem<L> where L: Display {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ZeroItem::Label(label) => write!(f, ".label {label}"),
+            ZeroItem::Space(x) => write!(f, ".space {x}"),
+            ZeroItem::Align(a) => write!(f, ".align {a}"),
         }
     }
 }

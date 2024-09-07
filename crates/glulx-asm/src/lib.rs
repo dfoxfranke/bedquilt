@@ -6,11 +6,12 @@
 //! specification](https://www.eblong.com/zarf/glulx/Glulx-Spec.html#moving-data).
 //!
 //! Currently, the functionality of this crate is limited to generating binary
-//! Glulx files from the in-memory data structures defined herein. Aside from
-//! providing `Debug` impls, it does not support reading or writing
-//! human-readable assembly listings. It is designed and suitable as a library
-//! for use by translation tools that generate Glulx, but cannot be used as a
-//! standalone assembler. It may be extended with such functionality in the
+//! Glulx files from the in-memory data structures defined herein. It is
+//! designed and suitable as a library for use by translation tools that
+//! generate Glulx, but cannot be used as a standalone assembler. `Display`
+//! impls are provided for generating human-readable assembly listings, but the
+//! syntax is subject to change and there is no tool which parses what these
+//! impls emit. This crate may be extended with such functionality in the
 //! future.
 //!
 //! This crate's main entry point is the [`Assembly`] struct and its

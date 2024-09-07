@@ -5,7 +5,7 @@
 
 use alloc::borrow::{Borrow, Cow};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use core::hash::Hash;
+use core::{fmt::Display, hash::Hash};
 
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
@@ -13,10 +13,7 @@ use hashbrown::HashMap;
 use std::collections::HashMap;
 
 use crate::{
-    cast::{checked_next_multiple_of, Overflow},
-    error::AssemblerError,
-    items::{Item, LabelRef, ZeroItem},
-    resolver::{ResolvedAddr, Resolver},
+    cast::{checked_next_multiple_of, Overflow}, error::AssemblerError, items::{Item, LabelRef, ZeroItem}, resolver::{ResolvedAddr, Resolver}
 };
 
 /// Length of the story file header.
@@ -143,6 +140,36 @@ where
             start_func: self.start_func.clone(),
             decoding_table: self.decoding_table.clone(),
         }
+    }
+}
+
+impl <L> Display for Assembly<'_, L> where L: Display + Clone {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, ".stack_size {}", self.stack_size)?;
+        write!(f, ".start_func ({}", self.start_func.0)?;
+        if self.start_func.1 != 0 {
+            write!(f, "{:+#x}", self.start_func.1)?;
+        }
+        writeln!(f, ")")?;
+        if let Some(decoding_table) = &self.decoding_table {
+            write!(f, ".initial_decoding_table ({}", decoding_table.0)?;
+            if decoding_table.1 != 0 {
+                write!(f, "{:+#x}", decoding_table.1)?;
+            }
+            writeln!(f, ")")?;
+        }
+        for item in self.rom_items.iter() {
+            writeln!(f, "{item}")?;
+        }
+        writeln!(f, ".ram_items")?;
+        for item in self.ram_items.iter() {
+            writeln!(f, "{item}")?;
+        }
+        writeln!(f, ".zero_items")?;
+        for item in self.zero_items.iter() {
+            writeln!(f, "{item}")?;
+        }
+        Ok(())
     }
 }
 

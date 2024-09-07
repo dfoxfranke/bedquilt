@@ -3,6 +3,8 @@
 
 //! Implementations for [`Instr`].
 
+use core::fmt::Display;
+
 use crate::error::AssemblerError;
 use crate::instr_def::Instr;
 use crate::operands::RawOperand;
@@ -1010,6 +1012,183 @@ where
         };
 
         Ok(RawInstr { opcode, operands })
+    }
+}
+
+impl<L> Display for Instr<L>
+where
+    L: Display,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Instr::Nop => write!(f, "nop")?,
+            Instr::Add(l1, l2, s1) => write!(f, "add {l1} {l2} {s1}")?,
+            Instr::Sub(l1, l2, s1) => write!(f, "sub {l1} {l2} {s1}")?,
+            Instr::Mul(l1, l2, s1) => write!(f, "mul {l1} {l2} {s1}")?,
+            Instr::Div(l1, l2, s1) => write!(f, "div {l1} {l2} {s1}")?,
+            Instr::Mod(l1, l2, s1) => write!(f, "mod {l1} {l2} {s1}")?,
+            Instr::Neg(l1, s1) => write!(f, "neg {l1} {s1}")?,
+            Instr::Bitand(l1, l2, s1) => write!(f, "bitand {l1} {l2} {s1}")?,
+            Instr::Bitor(l1, l2, s1) => write!(f, "bitor {l1} {l2} {s1}")?,
+            Instr::Bitxor(l1, l2, s1) => write!(f, "bitxor {l1} {l2} {s1}")?,
+            Instr::Bitnot(l1, s1) => write!(f, "bitnot {l1} {s1}")?,
+            Instr::Shiftl(l1, l2, s1) => write!(f, "shiftl {l1} {l2} {s1}")?,
+            Instr::Ushiftr(l1, l2, s1) => write!(f, "ushiftr {l1} {l2} {s1}")?,
+            Instr::Sshiftr(l1, l2, s1) => write!(f, "sshiftr {l1} {l2} {s1}")?,
+            Instr::Jump(bt) => write!(f, "jump {bt}")?,
+            Instr::Jz(l1, bt) => write!(f, "jz {l1} {bt}")?,
+            Instr::Jnz(l1, bt) => write!(f, "jnz {l1} {bt}")?,
+            Instr::Jeq(l1, l2, bt) => write!(f, "jeq {l1} {l2} {bt}")?,
+            Instr::Jne(l1, l2, bt) => write!(f, "jne {l1} {l2} {bt}")?,
+            Instr::Jlt(l1, l2, bt) => write!(f, "jlt {l1} {l2} {bt}")?,
+            Instr::Jle(l1, l2, bt) => write!(f, "jle {l1} {l2} {bt}")?,
+            Instr::Jgt(l1, l2, bt) => write!(f, "jgt {l1} {l2} {bt}")?,
+            Instr::Jge(l1, l2, bt) => write!(f, "jge {l1} {l2} {bt}")?,
+            Instr::Jltu(l1, l2, bt) => write!(f, "jltu {l1} {l2} {bt}")?,
+            Instr::Jleu(l1, l2, bt) => write!(f, "jleu {l1} {l2} {bt}")?,
+            Instr::Jgtu(l1, l2, bt) => write!(f, "jgtu {l1} {l2} {bt}")?,
+            Instr::Jgeu(l1, l2, bt) => write!(f, "jgeu {l1} {l2} {bt}")?,
+            Instr::Jumpabs(l1) => write!(f, "jumpabs {l1}")?,
+            Instr::Copy(l1, s1) => write!(f, "copy {l1} {s1}")?,
+            Instr::Copys(l1, s1) => write!(f, "copys {l1} {s1}")?,
+            Instr::Copyb(l1, s1) => write!(f, "copyb {l1} {s1}")?,
+            Instr::Sexs(l1, s1) => write!(f, "sexs {l1} {s1}")?,
+            Instr::Sexb(l1, s1) => write!(f, "sexb {l1} {s1}")?,
+            Instr::Astore(l1, l2, l3) => write!(f, "astore {l1} {l2} {l3}")?,
+            Instr::Aload(l1, l2, s1) => write!(f, "aload {l1} {l2} {s1}")?,
+            Instr::Astores(l1, l2, l3) => write!(f, "astores {l1} {l2} {l3}")?,
+            Instr::Aloads(l1, l2, s1) => write!(f, "aloads {l1} {l2} {s1}")?,
+            Instr::Astoreb(l1, l2, l3) => write!(f, "astoreb {l1} {l2} {l3}")?,
+            Instr::Aloadb(l1, l2, s1) => write!(f, "aloadb {l1} {l2} {s1}")?,
+            Instr::Astorebit(l1, l2, l3) => write!(f, "astorebit {l1} {l2} {l3}")?,
+            Instr::Aloadbit(l1, l2, s1) => write!(f, "aloadbit {l1} {l2} {s1}")?,
+            Instr::Stkcount(s1) => write!(f, "stkcount {s1}")?,
+            Instr::Stkpeek(l1, s1) => write!(f, "stkpeek {l1} {s1}")?,
+            Instr::Stkswap => write!(f, "stkswap")?,
+            Instr::Stkcopy(l1) => write!(f, "stkcopy {l1}")?,
+            Instr::Stkroll(l1, l2) => write!(f, "stkroll {l1} {l2}")?,
+            Instr::Call(l1, l2, s1) => write!(f, "call {l1} {l2} {s1}")?,
+            Instr::Callf(l1, s1) => write!(f, "callf {l1} {s1}")?,
+            Instr::Callfi(l1, l2, s1) => write!(f, "callfi {l1} {l2} {s1}")?,
+            Instr::Callfii(l1, l2, l3, s1) => write!(f, "callfii {l1} {l2} {l3} {s1}")?,
+            Instr::Callfiii(l1, l2, l3, l4, s1) => write!(f, "callfiii {l1} {l2} {l3} {l4} {s1}")?,
+            Instr::Return(l1) => write!(f, "return {l1}")?,
+            Instr::Tailcall(l1, l2) => write!(f, "tailcall {l1} {l2}")?,
+            Instr::Catch(s1, bt) => write!(f, "catch {s1} {bt}")?,
+            Instr::Throw(l1, l2) => write!(f, "throw {l1} {l2}")?,
+            Instr::Getmemsize(s1) => write!(f, "getmemsize {s1}")?,
+            Instr::Setmemsize(l1, s1) => write!(f, "setmemsize {l1} {s1}")?,
+            Instr::Malloc(l1, s1) => write!(f, "malloc {l1} {s1}")?,
+            Instr::Mfree(l1) => write!(f, "mfree {l1}")?,
+            Instr::Quit => write!(f, "quit")?,
+            Instr::Restart => write!(f, "restart")?,
+            Instr::Save(l1, s1) => write!(f, "save {l1} {s1}")?,
+            Instr::Restore(l1, s1) => write!(f, "restore {l1} {s1}")?,
+            Instr::Saveundo(s1) => write!(f, "saveundo {s1}")?,
+            Instr::Restoreundo(s1) => write!(f, "restoreundo {s1}")?,
+            Instr::Hasundo(s1) => write!(f, "hasundo {s1}")?,
+            Instr::Discardundo => write!(f, "discardundo")?,
+            Instr::Protect(l1, l2) => write!(f, "protect {l1} {l2}")?,
+            Instr::Verify(s1) => write!(f, "verify {s1}")?,
+            Instr::Getiosys(s1, s2) => write!(f, "getiosys {s1} {s2}")?,
+            Instr::Setiosys(l1, l2) => write!(f, "setiosys {l1} {l2}")?,
+            Instr::Streamchar(l1) => write!(f, "streamchar {l1}")?,
+            Instr::Streamunichar(l1) => write!(f, "streamunichar {l1}")?,
+            Instr::Streamnum(l1) => write!(f, "streamnum {l1}")?,
+            Instr::Streamstr(l1) => write!(f, "streamstr {l1}")?,
+            Instr::Getstringtbl(s1) => write!(f, "getstringtbl {s1}")?,
+            Instr::Setstringtbl(l1) => write!(f, "setstringtbl {l1}")?,
+            Instr::Numtof(l1, s1) => write!(f, "numtof {l1} {s1}")?,
+            Instr::Ftonumz(l1, s1) => write!(f, "ftonumz {l1} {s1}")?,
+            Instr::Ftonumn(l1, s1) => write!(f, "ftonumn {l1} {s1}")?,
+            Instr::Fadd(l1, l2, s1) => write!(f, "fadd {l1} {l2} {s1}")?,
+            Instr::Fsub(l1, l2, s1) => write!(f, "fsub {l1} {l2} {s1}")?,
+            Instr::Fmul(l1, l2, s1) => write!(f, "fmul {l1} {l2} {s1}")?,
+            Instr::Fdiv(l1, l2, s1) => write!(f, "fdiv {l1} {l2} {s1}")?,
+            Instr::Fmod(l1, l2, s1) => write!(f, "fmod {l1} {l2} {s1}")?,
+            Instr::Ceil(l1, s1) => write!(f, "ceil {l1} {s1}")?,
+            Instr::Floor(l1, s1) => write!(f, "floor {l1} {s1}")?,
+            Instr::Sqrt(l1, s1) => write!(f, "sqrt {l1} {s1}")?,
+            Instr::Exp(l1, s1) => write!(f, "exp {l1} {s1}")?,
+            Instr::Log(l1, s1) => write!(f, "log {l1} {s1}")?,
+            Instr::Pow(l1, l2, s1) => write!(f, "pow {l1} {l2} {s1}")?,
+            Instr::Sin(l1, s1) => write!(f, "sin {l1} {s1}")?,
+            Instr::Cos(l1, s1) => write!(f, "cos {l1} {s1}")?,
+            Instr::Tan(l1, s1) => write!(f, "tan {l1} {s1}")?,
+            Instr::Asin(l1, s1) => write!(f, "asin {l1} {s1}")?,
+            Instr::Acos(l1, s1) => write!(f, "acos {l1} {s1}")?,
+            Instr::Atan(l1, s1) => write!(f, "atan {l1} {s1}")?,
+            Instr::Atan2(l1, s1) => write!(f, "atan2 {l1} {s1}")?,
+            Instr::Numtod(l1, s1, s2) => write!(f, "numtod {l1} {s1} {s2}")?,
+            Instr::Dtonumz(l1, l2, s1) => write!(f, "dtonumz {l1} {l2} {s1}")?,
+            Instr::Dtonumn(l1, l2, s1) => write!(f, "dtonumn {l1} {l2} {s1}")?,
+            Instr::Ftod(l1, s1, s2) => write!(f, "ftod {l1} {s1} {s2}")?,
+            Instr::Dtof(l1, l2, s1) => write!(f, "dtof {l1} {l2} {s1}")?,
+            Instr::Dadd(l1, l2, l3, l4, s1, s2) => write!(f, "dadd {l1} {l2} {l3} {l4} {s1} {s2}")?,
+            Instr::Dsub(l1, l2, l3, l4, s1, s2) => write!(f, "dsub {l1} {l2} {l3} {l4} {s1} {s2}")?,
+            Instr::Dmul(l1, l2, l3, l4, s1, s2) => write!(f, "dmul {l1} {l2} {l3} {l4} {s1} {s2}")?,
+            Instr::Ddiv(l1, l2, l3, l4, s1, s2) => write!(f, "ddiv {l1} {l2} {l3} {l4} {s1} {s2}")?,
+            Instr::Dmodr(l1, l2, l3, l4, s1, s2) => {
+                write!(f, "dmodr {l1} {l2} {l3} {l4} {s1} {s2}")?
+            }
+            Instr::Dmodq(l1, l2, l3, l4, s1, s2) => {
+                write!(f, "dmodq {l1} {l2} {l3} {l4} {s1} {s2}")?
+            }
+            Instr::Dceil(l1, l2, s1, s2) => write!(f, "dceil {l1} {l2} {s1} {s2}")?,
+            Instr::Dfloor(l1, l2, s1, s2) => write!(f, "dfloor {l1} {l2} {s1} {s2}")?,
+            Instr::Dsqrt(l1, l2, s1, s2) => write!(f, "dsqrt {l1} {l2} {s1} {s2}")?,
+            Instr::Dexp(l1, l2, s1, s2) => write!(f, "dexp {l1} {l2} {s1} {s2}")?,
+            Instr::Dlog(l1, l2, s1, s2) => write!(f, "dlog {l1} {l2} {s1} {s2}")?,
+            Instr::Dpow(l1, l2, l3, l4, s1, s2) => write!(f, "dpow {l1} {l2} {l3} {l4} {s1} {s2}")?,
+            Instr::Dsin(l1, l2, s1, s2) => write!(f, "dsin {l1} {l2} {s1} {s2}")?,
+            Instr::Dcos(l1, l2, s1, s2) => write!(f, "dcos {l1} {l2} {s1} {s2}")?,
+            Instr::Dtan(l1, l2, s1, s2) => write!(f, "dtan {l1} {l2} {s1} {s2}")?,
+            Instr::Dasin(l1, l2, s1, s2) => write!(f, "dasin {l1} {l2} {s1} {s2}")?,
+            Instr::Dacos(l1, l2, s1, s2) => write!(f, "dacos {l1} {l2} {s1} {s2}")?,
+            Instr::Datan(l1, l2, s1, s2) => write!(f, "datan {l1} {l2} {s1} {s2}")?,
+            Instr::Datan2(l1, l2, l3, l4, s1, s2) => {
+                write!(f, "datan2 {l1} {l2} {l3} {l4} {s1} {s2}")?
+            }
+            Instr::Jisnan(l1, bt) => write!(f, "jisnan {l1} {bt}")?,
+            Instr::Jisinf(l1, bt) => write!(f, "jisinf {l1} {bt}")?,
+            Instr::Jfeq(l1, l2, l3, bt) => write!(f, "jfeq {l1} {l2} {l3} {bt}")?,
+            Instr::Jfne(l1, l2, l3, bt) => write!(f, "jfne {l1} {l2} {l3} {bt}")?,
+            Instr::Jflt(l1, l2, bt) => write!(f, "jflt {l1} {l2} {bt}")?,
+            Instr::Jfle(l1, l2, bt) => write!(f, "jfle {l1} {l2} {bt}")?,
+            Instr::Jfgt(l1, l2, bt) => write!(f, "jfgt {l1} {l2} {bt}")?,
+            Instr::Jfge(l1, l2, bt) => write!(f, "jfge {l1} {l2} {bt}")?,
+            Instr::Jdisnan(l1, l2, bt) => write!(f, "jdisnan {l1} {l2} {bt}")?,
+            Instr::Jdisinf(l1, l2, bt) => write!(f, "jdisinf {l1} {l2} {bt}")?,
+            Instr::Jdeq(l1, l2, l3, l4, l5, l6, bt) => {
+                write!(f, "jdeq {l1} {l2} {l3} {l4} {l5} {l6} {bt}")?
+            }
+            Instr::Jdne(l1, l2, l3, l4, l5, l6, bt) => {
+                write!(f, "jdne {l1} {l2} {l3} {l4} {l5} {l6} {bt}")?
+            }
+            Instr::Jdlt(l1, l2, l3, l4, bt) => write!(f, "jdlt {l1} {l2} {l3} {l4} {bt}")?,
+            Instr::Jdle(l1, l2, l3, l4, bt) => write!(f, "jdle {l1} {l2} {l3} {l4} {bt}")?,
+            Instr::Jdgt(l1, l2, l3, l4, bt) => write!(f, "jdgt {l1} {l2} {l3} {l4} {bt}")?,
+            Instr::Jdge(l1, l2, l3, l4, bt) => write!(f, "jdge {l1} {l2} {l3} {l4} {bt}")?,
+            Instr::Random(l1, s1) => write!(f, "random {l1} {s1}")?,
+            Instr::Setrandom(l1) => write!(f, "setrandom {l1}")?,
+            Instr::Mzero(l1, l2) => write!(f, "mzero {l1} {l2}")?,
+            Instr::Mcopy(l1, l2, l3) => write!(f, "mcopy {l1} {l2} {l3}")?,
+            Instr::Linearsearch(l1, l2, l3, l4, l5, l6, l7, s1) => {
+                write!(f, "linearsearch {l1} {l2} {l3} {l4} {l5} {l6} {l7} {s1}")?
+            }
+            Instr::Binarysearch(l1, l2, l3, l4, l5, l6, l7, s1) => {
+                write!(f, "binarysearch {l1} {l2} {l3} {l4} {l5} {l6} {l7} {s1}")?
+            }
+            Instr::Linkedsearch(l1, l2, l3, l4, l5, l6, s1) => {
+                write!(f, "linkedsearch {l1} {l2} {l3} {l4} {l5} {l6} {s1}")?
+            }
+            Instr::Accelfunc(l1, l2) => write!(f, "accelfunc {l1} {l2}")?,
+            Instr::Accelparam(l1, l2) => write!(f, "accelparam {l1} {l2}")?,
+            Instr::Gestalt(l1, l2, s1) => write!(f, "gestalt {l1} {l2} {s1}")?,
+            Instr::Debugtrap(l1) => write!(f, "debugtrap {l1}")?,
+            Instr::Glk(l1, l2, s1) => write!(f, "glk {l1} {l2} {s1}")?,
+        }
+        Ok(())
     }
 }
 
