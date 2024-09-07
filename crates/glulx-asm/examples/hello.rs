@@ -11,9 +11,11 @@ fn main() {
         rom_items: Cow::Owned(vec![
             // The string we'll print. Add some newlines at the beginning so
             // that the "game session has ended" message doesn't cover it.
-            mystery_string(&"\n\n\nHello, sailor!\n").label(hello_sailor_label),
+            label(hello_sailor_label),
+            mystery_string(&"\n\n\nHello, sailor!\n"),
             // Header for our main function, which uses no locals.
-            fnhead_stack(0).label(main_label),
+            label(main_label),
+            fnhead_stack(0),
             // Set Glk as our IO system.
             setiosys(imm(2), imm(0)),
             // Push arguments to create our main window
@@ -40,7 +42,8 @@ fn main() {
             // Print our message.
             streamstr(imml(hello_sailor_label)),
             // Return from main.
-            ret(imm(0)).label(fail_label),
+            label(fail_label),
+            ret(imm(0)),
         ]),
         ram_items: Cow::Owned(vec![]),
         zero_items: Cow::Owned(vec![]),

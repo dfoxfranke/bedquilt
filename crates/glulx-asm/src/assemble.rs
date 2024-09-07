@@ -5,7 +5,7 @@
 
 use alloc::borrow::{Borrow, Cow};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use core::{hash::Hash, ops::Range};
+use core::hash::Hash;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
@@ -28,7 +28,7 @@ const GLULX_VERSION: u32 = 0x00030103;
 
 /// Resolve labels from a hash table lookup.
 struct HashResolver<'a, L> {
-    hashmap: &'a HashMap<L, Range<u32>>,
+    hashmap: &'a HashMap<L, u32>,
     ramstart: u32,
 }
 
@@ -48,11 +48,10 @@ where
     }
 
     fn resolve_absolute(&self, label: &Self::Label) -> Result<u32, AssemblerError<Self::Label>> {
-        Ok(self
+        Ok(*self
             .hashmap
             .get(label)
-            .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?
-            .start)
+            .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?)
     }
 }
 
@@ -63,11 +62,11 @@ where
     L: Clone,
 {
     /// List of items which should appear in the ROM section.
-    pub rom_items: Cow<'a, [(Option<L>, Item<L>)]>,
+    pub rom_items: Cow<'a, [Item<L>]>,
     /// List of items which should appear in the RAM section.
-    pub ram_items: Cow<'a, [(Option<L>, Item<L>)]>,
+    pub ram_items: Cow<'a, [Item<L>]>,
     /// List of items which should have space in the RAM section and be initialized to zero.
-    pub zero_items: Cow<'a, [(Option<L>, ZeroItem)]>,
+    pub zero_items: Cow<'a, [ZeroItem<L>]>,
     /// How much space to allocate for the stack.
     pub stack_size: u32,
     /// Reference to the function to be called at the start of execution.
@@ -90,21 +89,21 @@ where
             .rom_items
             .iter()
             .cloned()
-            .map(|(label, item)| (label.map(&mut f), item.map(&mut f)))
+            .map(|item| item.map(&mut f))
             .collect();
 
         let ram_items = self
             .ram_items
             .iter()
             .cloned()
-            .map(|(label, item)| (label.map(&mut f), item.map(&mut f)))
+            .map(|item| item.map(&mut f))
             .collect();
 
         let zero_items = self
             .zero_items
             .iter()
             .cloned()
-            .map(|(label, item)| (label.map(&mut f), item))
+            .map(|item| item.map(&mut f))
             .collect();
 
         let stack_size = self.stack_size;
@@ -175,9 +174,9 @@ where
 /// 4. Finally, serialize the output, checking assertions along the way to make
 ///    sure the lengths we got are the ones we planned to get.
 fn assemble<L>(
-    rom_items: &[(Option<L>, Item<L>)],
-    ram_items: &[(Option<L>, Item<L>)],
-    zero_items: &[(Option<L>, ZeroItem)],
+    rom_items: &[Item<L>],
+    ram_items: &[Item<L>],
+    zero_items: &[ZeroItem<L>],
     stack_size: u32,
     start_func: &LabelRef<L>,
     decoding_table: &Option<LabelRef<L>>,
@@ -185,69 +184,28 @@ fn assemble<L>(
 where
     L: Clone + Eq + Hash,
 {
-    let mut unlabel_ctr: usize = 0;
-    let mut labeled: HashMap<L, Range<u32>> = HashMap::new();
-    let mut unlabeled: HashMap<usize, Range<u32>> = HashMap::new();
+    let mut labeled: HashMap<L, u32> = HashMap::new();
 
     let mut position = HEADER_LENGTH;
 
     // Step 1: initialize positions
-    initialize_positions(
-        rom_items,
-        &mut labeled,
-        &mut unlabeled,
-        &mut position,
-        &mut unlabel_ctr,
-    )?;
+    initialize_positions(rom_items, &mut labeled, &mut position)?;
     position = checked_next_multiple_of(position, 256)?;
     let mut ramstart = position;
-    initialize_positions(
-        ram_items,
-        &mut labeled,
-        &mut unlabeled,
-        &mut position,
-        &mut unlabel_ctr,
-    )?;
+    initialize_positions(ram_items, &mut labeled, &mut position)?;
     position = checked_next_multiple_of(position, 256)?;
-    initialize_zero_positions(
-        zero_items,
-        &mut labeled,
-        &mut unlabeled,
-        &mut position,
-        &mut unlabel_ctr,
-    )?;
+    initialize_zero_positions(zero_items, &mut labeled, &mut position)?;
 
     // Step 2/3: update positions until we reach a fixed point.
     loop {
         position = HEADER_LENGTH;
-        unlabel_ctr = 0;
 
-        let rom_improved = update_positions(
-            rom_items,
-            &mut labeled,
-            &mut unlabeled,
-            &mut position,
-            &mut unlabel_ctr,
-            ramstart,
-        )?;
+        let rom_improved = update_positions(rom_items, &mut labeled, &mut position, ramstart)?;
         position = checked_next_multiple_of(position, 256)?;
         ramstart = position;
-        let ram_improved = update_positions(
-            ram_items,
-            &mut labeled,
-            &mut unlabeled,
-            &mut position,
-            &mut unlabel_ctr,
-            ramstart,
-        )?;
+        let ram_improved = update_positions(ram_items, &mut labeled, &mut position, ramstart)?;
         position = checked_next_multiple_of(position, 256)?;
-        let zero_improved = update_zero_positions(
-            zero_items,
-            &mut labeled,
-            &mut unlabeled,
-            &mut position,
-            &mut unlabel_ctr,
-        )?;
+        let zero_improved = update_zero_positions(zero_items, &mut labeled, &mut position)?;
 
         if !rom_improved && !ram_improved && !zero_improved {
             break;
@@ -320,30 +278,20 @@ where
 
 /// Initializes item positions for the first step of assembly.
 fn initialize_positions<L>(
-    items: &[(Option<L>, Item<L>)],
-    labeled: &mut HashMap<L, Range<u32>>,
-    unlabeled: &mut HashMap<usize, Range<u32>>,
+    items: &[Item<L>],
+    labeled: &mut HashMap<L, u32>,
     position: &mut u32,
-    unlabel_ctr: &mut usize,
 ) -> Result<(), AssemblerError<L>>
 where
     L: Clone + Hash + Eq,
 {
-    for (label, item) in items {
+    for item in items {
         let worst_len: u32 = item.worst_len().try_into().overflow()?;
         let end_position = position.checked_add(worst_len).overflow()?;
-        if let Some(label) = label {
-            if labeled
-                .insert(label.clone(), *position..end_position)
-                .is_some()
-            {
+        if let Item::Label(label) = item {
+            if labeled.insert(label.clone(), *position).is_some() {
                 return Err(AssemblerError::DuplicateLabel(label.clone()));
             }
-        } else {
-            assert!(unlabeled
-                .insert(*unlabel_ctr, *position..end_position)
-                .is_none());
-            *unlabel_ctr += 1;
         }
 
         *position = checked_next_multiple_of(end_position, item.align())?;
@@ -354,29 +302,19 @@ where
 
 /// Initializes zero-item positions for the first step of assembly.
 fn initialize_zero_positions<L>(
-    items: &[(Option<L>, ZeroItem)],
-    labeled: &mut HashMap<L, Range<u32>>,
-    unlabeled: &mut HashMap<usize, Range<u32>>,
+    items: &[ZeroItem<L>],
+    labeled: &mut HashMap<L, u32>,
     position: &mut u32,
-    unlabel_ctr: &mut usize,
 ) -> Result<(), AssemblerError<L>>
 where
     L: Clone + Hash + Eq,
 {
-    for (label, item) in items {
+    for item in items {
         let end_position = position.checked_add(item.len()).overflow()?;
-        if let Some(label) = label {
-            if labeled
-                .insert(label.clone(), *position..end_position)
-                .is_some()
-            {
+        if let ZeroItem::Label(label) = item {
+            if labeled.insert(label.clone(), *position).is_some() {
                 return Err(AssemblerError::DuplicateLabel(label.clone()));
             };
-        } else {
-            assert!(unlabeled
-                .insert(*unlabel_ctr, *position..end_position)
-                .is_none());
-            *unlabel_ctr += 1;
         }
 
         *position = checked_next_multiple_of(end_position, item.align())?;
@@ -386,60 +324,38 @@ where
 }
 
 /// Called from each iterative step to update item positions.
-///
-/// We're keeping track of start and end positions for both labeled and
-/// unlabeled items, which is probably overkill; just tracking label positions
-/// should be sufficient. But I don't want to try ripping out these extra checks
-/// until I have a good test suite to confirm that doing so didn't break
-/// anything.
 fn update_positions<L>(
-    items: &[(Option<L>, Item<L>)],
-    labeled: &mut HashMap<L, Range<u32>>,
-    unlabeled: &mut HashMap<usize, Range<u32>>,
+    items: &[Item<L>],
+    labeled: &mut HashMap<L, u32>,
     position: &mut u32,
-    unlabel_ctr: &mut usize,
     ramstart: u32,
 ) -> Result<bool, AssemblerError<L>>
 where
     L: Clone + Hash + Eq,
 {
     let mut improvement_found = false;
-    for (label, item) in items {
-        let old_range = if let Some(label) = label {
-            labeled
-                .get(label)
-                .expect("previously-inserted label should still be in the HashMap")
-                .clone()
-        } else {
-            unlabeled
-                .get(unlabel_ctr)
-                .expect("previously-inserted label should still be in the HashMap")
-                .clone()
-        };
-
+    for item in items {
         let resolver = HashResolver {
             hashmap: labeled,
             ramstart,
         };
 
         let resolved_len = item.resolved_len(*position, &resolver)?;
-
         let end_position = position
             .checked_add(u32::try_from(resolved_len).overflow()?)
             .overflow()?;
 
-        if *position != old_range.start || end_position != old_range.end {
-            improvement_found = true;
-            if let Some(label) = label {
-                labeled.insert(label.clone(), *position..end_position);
-            } else {
-                unlabeled.insert(*unlabel_ctr, *position..end_position);
+        if let Item::Label(label) = item {
+            let old_position = *labeled
+                .get(label)
+                .expect("previously-inserted label should still be in the HashMap");
+
+            if *position != old_position {
+                improvement_found = true;
+                labeled.insert(label.clone(), *position);
             }
         }
 
-        if label.is_none() {
-            *unlabel_ctr += 1;
-        }
         *position = checked_next_multiple_of(end_position, item.align())?;
     }
     Ok(improvement_found)
@@ -447,42 +363,29 @@ where
 
 /// Called from each iterative step to update zero-item positions.
 fn update_zero_positions<L>(
-    items: &[(Option<L>, ZeroItem)],
-    labeled: &mut HashMap<L, Range<u32>>,
-    unlabeled: &mut HashMap<usize, Range<u32>>,
+    items: &[ZeroItem<L>],
+    labeled: &mut HashMap<L, u32>,
     position: &mut u32,
-    unlabel_ctr: &mut usize,
 ) -> Result<bool, AssemblerError<L>>
 where
     L: Clone + Hash + Eq,
 {
     let mut improvement_found = false;
 
-    for (label, item) in items {
-        let old_range = if let Some(label) = label {
-            labeled
-                .get(label)
-                .expect("previously-inserted label should still be in the HashMap")
-                .clone()
-        } else {
-            unlabeled
-                .get(unlabel_ctr)
-                .expect("previously-inserted label should still be in the HashMap")
-                .clone()
-        };
+    for item in items {
         let end_position = position.checked_add(item.len()).overflow()?;
-        if *position != old_range.start || end_position != old_range.end {
-            improvement_found = true;
-            if let Some(label) = label {
-                labeled.insert(label.clone(), *position..end_position);
-            } else {
-                unlabeled.insert(*unlabel_ctr, *position..end_position);
+
+        if let ZeroItem::Label(label) = item {
+            let old_position = *labeled
+                .get(label)
+                .expect("previously-inserted label should still be in the HashMap");
+
+            if *position != old_position {
+                improvement_found = true;
+                labeled.insert(label.clone(), *position);
             }
         }
 
-        if label.is_none() {
-            *unlabel_ctr += 1;
-        }
         *position = checked_next_multiple_of(end_position, item.align())?;
     }
 
@@ -491,26 +394,26 @@ where
 
 /// Serializes items after all final label positions have been computed.
 fn serialize_items<L>(
-    items: &[(Option<L>, Item<L>)],
-    labeled: &HashMap<L, Range<u32>>,
+    items: &[Item<L>],
+    labeled: &HashMap<L, u32>,
     ramstart: u32,
     buf: &mut BytesMut,
 ) -> Result<(), AssemblerError<L>>
 where
     L: Clone + Eq + Hash,
 {
-    for (label, item) in items {
+    for item in items {
         let position = u32::try_from(buf.len())
             .overflow()?
             .checked_add(HEADER_LENGTH)
             .overflow()?;
 
-        if let Some(label) = label {
-            let range = labeled
+        if let Item::Label(label) = item {
+            let expected_position = *labeled
                 .get(label)
                 .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?;
             assert_eq!(
-                range.start, position,
+                expected_position, position,
                 "label position should match previous calculation"
             );
         }
@@ -542,8 +445,8 @@ where
 
 /// Checks assertions to ensure that all zero-items were placed as intended.
 fn verify_zero_items<L>(
-    items: &[(Option<L>, ZeroItem)],
-    labeled: &HashMap<L, Range<u32>>,
+    items: &[ZeroItem<L>],
+    labeled: &HashMap<L, u32>,
     extstart: u32,
 ) -> Result<u32, AssemblerError<L>>
 where
@@ -551,13 +454,13 @@ where
 {
     let mut position = extstart;
 
-    for (label, item) in items {
-        if let Some(label) = label {
-            let range = labeled
+    for item in items {
+        if let ZeroItem::Label(label) = item {
+            let expected_position = *labeled
                 .get(label)
                 .ok_or_else(|| AssemblerError::UndefinedLabel(label.clone()))?;
             assert_eq!(
-                position, range.start,
+                position, expected_position,
                 "label position should match previous calculation"
             );
         }

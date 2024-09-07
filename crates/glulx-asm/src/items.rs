@@ -22,6 +22,8 @@ pub struct LabelRef<L>(pub L, pub i32);
 /// An item of top-level content in a story file assembly.
 #[derive(Debug, Clone)]
 pub enum Item<L> {
+    /// A label whose address can be dereferenced.
+    Label(L),
     /// Generates padding such that the next item is aligned to a multiple of
     /// the given `NonZeroU32`, which will likely be a power of two but
     /// arbitrary values are accepted. Glulx itself never requires any item in
@@ -47,13 +49,15 @@ pub enum Item<L> {
     /// Some arbitrary bytes to be serialized verbatim.
     Blob(Bytes),
     /// Four bytes representing the absolute adddress of the given label+offset and right-shift.
-    Label(LabelRef<L>, u8),
+    LabelRef(LabelRef<L>, u8),
 }
 
 /// Placeholder for space in RAM that shoud be allocated at startup with
 /// initially-zeroed content.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ZeroItem {
+pub enum ZeroItem<L> {
+    /// A label whose address can be dereferenced.
+    Label(L),
     /// Reserves the given amount of space, in bytes.
     Space(u32),
     /// Generates padding such that the next item is aligned to a multiple of
@@ -80,6 +84,7 @@ impl<L> Item<L> {
         F: FnMut(L) -> M,
     {
         match self {
+            Item::Label(l) => Item::Label(f(l)),
             Item::Align(a) => Item::Align(a),
             Item::DecodingTable(t) => Item::DecodingTable(t.map(&mut f)),
             Item::FnHeader(t, n) => Item::FnHeader(t, n),
@@ -88,7 +93,7 @@ impl<L> Item<L> {
             Item::Utf32String(s) => Item::Utf32String(s),
             Item::CompressedString(s) => Item::CompressedString(s),
             Item::Blob(b) => Item::Blob(b),
-            Item::Label(l, shift) => Item::Label(l.map(f), shift),
+            Item::LabelRef(l, shift) => Item::LabelRef(l.map(f), shift),
         }
     }
 }
@@ -99,6 +104,7 @@ where
 {
     pub(crate) fn worst_len(&self) -> usize {
         match self {
+            Item::Label(_) => 0,
             Item::Align(_) => 0,
             Item::DecodingTable(t) => 12 + t.len(),
             Item::FnHeader(_, n) => {
@@ -113,7 +119,7 @@ where
             Item::Utf32String(s) => s.byte_len() + 8,
             Item::CompressedString(s) => 1 + s.len(),
             Item::Blob(b) => b.len(),
-            Item::Label(_, _) => 4,
+            Item::LabelRef(_, _) => 4,
         }
     }
 
@@ -149,6 +155,7 @@ where
         B: BufMut,
     {
         match self {
+            Item::Label(_) => {},
             Item::Align(x) => {
                 let align: u32 = (*x).into();
                 let modulus = position % align;
@@ -212,7 +219,7 @@ where
             Item::Blob(blob) => {
                 buf.put(blob.clone());
             }
-            Item::Label(l, shift) => {
+            Item::LabelRef(l, shift) => {
                 let unshifted_addr = l.resolve_absolute(resolver)?;
 
                 if unshifted_addr.trailing_zeros() < (*shift).into() {
@@ -230,9 +237,22 @@ where
     }
 }
 
-impl ZeroItem {
+impl <L> ZeroItem<L> {
+    /// Applies the given mapping function to the label, if any, within the zero-item.
+    pub fn map<F, M>(self, mut f: F) -> ZeroItem<M>
+    where
+        F: FnMut(L) -> M,
+    {
+        match self {
+            ZeroItem::Label(l) => ZeroItem::Label(f(l)),
+            ZeroItem::Space(x) => ZeroItem::Space(x),
+            ZeroItem::Align(a) => ZeroItem::Align(a),
+        }
+    }
+
     pub(crate) fn len(&self) -> u32 {
         match self {
+            ZeroItem::Label(_) => 0,
             ZeroItem::Space(x) => *x,
             ZeroItem::Align(_) => 0,
         }
@@ -240,6 +260,7 @@ impl ZeroItem {
 
     pub(crate) fn align(&self) -> u32 {
         match self {
+            ZeroItem::Label(_) => 1,
             ZeroItem::Space(_) => 1,
             ZeroItem::Align(a) => (*a).into(),
         }
