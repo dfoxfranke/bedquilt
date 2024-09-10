@@ -733,6 +733,7 @@ fn gen_block<G>(
             );
             let test_target = ctx.gen.gen("consequent");
             super::control::gen_test(ctx, *test, test_target.clone(), credits);
+            let mut cloned_stack = stack.clone();
             test.update_stack(ctx.module, frame.function, &mut stack);
             let alternative = frame.function.block(*aid);
             gen_instrseq(
@@ -750,7 +751,7 @@ fn gen_block<G>(
                 ctx,
                 frame,
                 consequent,
-                &mut stack,
+                &mut cloned_stack,
                 Credits::default(),
                 Debts::default(),
             );
@@ -807,7 +808,6 @@ fn gen_other<G>(
         Other::BrIf(test, br_if) => {
             super::control::gen_br_if(ctx, frame, *test, br_if, pre_height, credits, debts);
         }
-
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
         }
