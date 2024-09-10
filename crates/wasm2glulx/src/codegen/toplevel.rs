@@ -360,7 +360,8 @@ fn gen_instrseq<G>(
                         load.update_stack(ctx.module, frame.function, stack);
                     }
 
-                    let cloned_stack = stack.clone();
+                    let pre_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+
                     other.update_stack(ctx.module, frame.function, stack);
 
                     let debts = if i == n_subseqs - 1 {
@@ -370,7 +371,7 @@ fn gen_instrseq<G>(
                         build_debts(ctx, frame, stack, &stores, ret.is_some())
                     };
 
-                    gen_other(ctx, frame, other, cloned_stack, credits, debts);
+                    gen_other(ctx, frame, other, pre_height, &stack, credits, debts);
 
                     for store in stores {
                         store.update_stack(ctx.module, frame.function, stack);
@@ -792,13 +793,21 @@ fn gen_other<G>(
     ctx: &mut Context<G>,
     frame: &mut Frame<G::Label>,
     other: Other,
-    _stack: Vec<ValType>,
+    pre_height: usize,
+    _post_stack: &[ValType],
     credits: Credits<G::Label>,
     debts: Debts<G::Label>,
 ) where
     G: LabelGenerator,
 {
     match &other {
+        Other::Br(br) => {
+            super::control::gen_br(ctx, frame, br, pre_height, credits, debts);
+        }
+        Other::BrIf(test, br_if) => {
+            super::control::gen_br_if(ctx, frame, *test, br_if, pre_height, credits, debts);
+        }
+
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
         }

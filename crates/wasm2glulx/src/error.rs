@@ -37,6 +37,8 @@ pub enum OverflowLocation {
     FnList,
     /// Too many local variables in named function
     Locals(Option<String>),
+    /// Too large a stack in named function
+    Stack(Option<String>),
     /// Table too large
     Table,
     /// Element segment too large
@@ -132,6 +134,12 @@ impl Display for CompilationError {
                         "The set of local variables used by the function `{}` ",
                         name
                     )?,
+                    OverflowLocation::Stack(None) => {
+                        write!(f, "The stack used by an unnamed function ")?
+                    }
+                    OverflowLocation::Stack(Some(name)) => {
+                        write!(f, "The stack used by the function `{}` ", name)?
+                    }
                     OverflowLocation::Table => write!(f, "A table declaration ")?,
                     OverflowLocation::Element => write!(f, "An element segment ")?,
                     OverflowLocation::Data => write!(f, "A data segment ")?,

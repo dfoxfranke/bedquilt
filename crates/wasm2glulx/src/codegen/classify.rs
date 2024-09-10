@@ -1532,6 +1532,35 @@ impl Test {
             _ => None,
         }
     }
+
+    pub fn popped_words(&self) -> usize {
+        match self {
+            Test::I32Nez => 1,
+            Test::I32Eqz => 1,
+            Test::I32Eq => 2,
+            Test::I32Ne => 2,
+            Test::I32LtS => 2,
+            Test::I32LtU => 2,
+            Test::I32GtS => 2,
+            Test::I32GtU => 2,
+            Test::I32LeS => 2,
+            Test::I32LeU => 2,
+            Test::I32GeS => 2,
+            Test::I32GeU => 2,
+            Test::F32Eq => 2,
+            Test::F32Ne => 2,
+            Test::F32Lt => 2,
+            Test::F32Gt => 2,
+            Test::F32Le => 2,
+            Test::F32Ge => 2,
+            Test::F64Eq => 4,
+            Test::F64Ne => 4,
+            Test::F64Lt => 4,
+            Test::F64Gt => 4,
+            Test::F64Le => 4,
+            Test::F64Ge => 4,
+        }
+    }
 }
 
 pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {

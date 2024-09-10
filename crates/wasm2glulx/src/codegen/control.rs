@@ -1,11 +1,14 @@
 use super::{
     classify::Test,
-    toplevel::{gen_copies, Credits, Debts, Frame},
+    toplevel::{gen_copies, Credits, Debts, Frame, JumpTarget},
 };
 
 use crate::common::{vt_words, Context, LabelGenerator};
 use glulx_asm::concise::*;
-use walrus::{ir::Call, Type};
+use walrus::{
+    ir::{self, InstrSeq, InstrSeqId},
+    Type,
+};
 
 pub fn gen_test<G>(
     ctx: &mut Context<G>,
@@ -177,7 +180,7 @@ pub fn gen_test<G>(
 pub fn gen_call<G>(
     ctx: &mut Context<G>,
     _frame: &mut Frame<G::Label>,
-    call: &Call,
+    call: &ir::Call,
     credits: Credits<G::Label>,
     debts: Debts<G::Label>,
 ) where
@@ -251,4 +254,92 @@ fn gen_call_inner<G>(
     }
 
     gen_copies(ctx, credits, debts);
+}
+
+fn gen_br_inner<G>(
+    ctx: &mut Context<G>,
+    frame: &Frame<G::Label>,
+    target: &JumpTarget<G::Label>,
+    height: usize,
+) where
+    G: LabelGenerator,
+{
+    if target.base + target.arity != height {
+        assert!(height > target.base + target.arity);
+        let total = height - target.base;
+        let drop = total - target.arity;
+
+        let total_i32: i32 = if let Ok(total_i32) = total.try_into() {
+            total_i32
+        } else {
+            ctx.errors.push(crate::CompilationError::Overflow(
+                crate::OverflowLocation::Stack(frame.function_name.map(|s| s.to_owned())),
+            ));
+            return;
+        };
+
+        let drop_i32: i32 = drop
+            .try_into()
+            .expect("If total fits in an i32 then the smaller drop amount should too");
+
+        if drop_i32 != total_i32 {
+            ctx.rom_items.push(stkroll(imm(total_i32), imm(drop_i32)));
+        }
+        for _ in 0..drop {
+            ctx.rom_items.push(copy(pop(), discard()));
+        }
+        ctx.rom_items.push(jump(target.target.clone()));
+    }
+}
+
+pub fn gen_br<G>(
+    ctx: &mut Context<G>,
+    frame: &mut Frame<G::Label>,
+    br: &ir::Br,
+    height: usize,
+    credits: Credits<G::Label>,
+    debts: Debts<G::Label>,
+) where
+    G: LabelGenerator,
+{
+    let ir::Br { block: id } = br;
+    let target = frame
+        .jump_targets
+        .get(id)
+        .expect("Branch target should be present on stack");
+    credits.gen(ctx);
+    gen_br_inner(ctx, frame, target, height);
+    debts.gen(ctx);
+}
+
+pub fn gen_br_if<G>(
+    ctx: &mut Context<G>,
+    frame: &mut Frame<G::Label>,
+    test: Test,
+    br_if: &ir::BrIf,
+    height: usize,
+    credits: Credits<G::Label>,
+    debts: Debts<G::Label>,
+) where
+    G: LabelGenerator,
+{
+    let height = height - test.popped_words();
+    let ir::BrIf { block: id } = br_if;
+    let target = frame
+        .jump_targets
+        .get(id)
+        .expect("Branch target should be present on stack");
+
+    if height == target.base + target.arity {
+        gen_test(ctx, test, target.target.clone(), credits);
+    } else {
+        let branch_prep = ctx.gen.gen("branch_prep");
+        let no_branch = ctx.gen.gen("no_branch");
+        gen_test(ctx, test, branch_prep.clone(), credits);
+        ctx.rom_items.push(jump(no_branch.clone()));
+        ctx.rom_items.push(label(branch_prep));
+        gen_br_inner(ctx, frame, target, height);
+        ctx.rom_items.push(label(no_branch));
+    }
+    debts.gen(ctx);
 }
