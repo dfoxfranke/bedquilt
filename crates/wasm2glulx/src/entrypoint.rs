@@ -11,8 +11,7 @@ where
     G: LabelGenerator,
 {
     ctx.rom_items.push(label(ctx.layout.entrypoint()));
-    ctx.rom_items
-        .push(fnhead_local(0));
+    ctx.rom_items.push(fnhead_local(0));
     ctx.rom_items.push(setiosys(imm(2), imm(0)));
 
     for element in ctx.module.elements.iter() {
@@ -101,7 +100,11 @@ where
         push_all!(
             ctx.rom_items,
             copy(imml(addr), push()),
-            glk(imm(0x0002) /*glk_interrupt_handler*/, imm(1), discard()),
+            glk(
+                imm(0x0002), /*glk_interrupt_handler*/
+                imm(1),
+                discard()
+            ),
         );
     }
 

@@ -129,6 +129,12 @@ pub enum Test {
     F32Gt,
     F32Le,
     F32Ge,
+    F64Eq,
+    F64Ne,
+    F64Lt,
+    F64Gt,
+    F64Le,
+    F64Ge,
 }
 
 pub enum InstrSubseq {
@@ -189,7 +195,8 @@ impl ClassifiedInstr for InstrClass {
         cur_stack: &'s [ValType],
     ) -> (&'s [ValType], &'m [ValType])
     where
-        'm: 's {
+        'm: 's,
+    {
         match self {
             InstrClass::Load(load) => load.stack_type(module, localfn, cur_stack),
             InstrClass::Store(store) => store.stack_type(module, localfn, cur_stack),
@@ -311,14 +318,32 @@ impl ClassifiedInstr for Block {
         &self,
         module: &'m Module,
         localfn: &LocalFunction,
-        _cur_stack: &'s [ValType],
+        cur_stack: &'s [ValType],
     ) -> (&'s [ValType], &'m [ValType])
     where
         'm: 's,
     {
         match self {
             Block::Block(block) => instrseq_type(module, localfn, block.seq),
-            Block::IfElse(_, ifelse) => instrseq_type(module, localfn, ifelse.consequent),
+            Block::IfElse(test, ifelse) => {
+                let (test_params, _) = test.stack_type(module, localfn, cur_stack);
+                let (block_params, block_results) =
+                    instrseq_type(module, localfn, ifelse.consequent);
+                assert!(cur_stack.len() >= block_params.len() + test_params.len());
+                assert_eq!(
+                    &cur_stack[cur_stack.len() - test_params.len()..],
+                    test_params
+                );
+                assert_eq!(
+                    &cur_stack[cur_stack.len() - test_params.len() - block_params.len()
+                        ..cur_stack.len() - test_params.len()],
+                    block_params
+                );
+                (
+                    &cur_stack[cur_stack.len() - test_params.len() - block_params.len()..],
+                    block_results,
+                )
+            }
         }
     }
     fn mnemonic(&self) -> &'static str {
@@ -740,9 +765,10 @@ impl ClassifiedInstr for Other {
                 | ir::UnaryOp::I32x4WidenHighI16x8U => (&[ValType::V128], &[ValType::V128]),
             },
             Other::Select(test, _) => {
-                let (params, _) = test.stack_type(module, localfn, cur_stack);
-                assert!(cur_stack.len() >= 2);
-                let results = vt_singleton(cur_stack[cur_stack.len() - 2]);
+                let (test_params, _) = test.stack_type(module, localfn, cur_stack);
+                assert!(cur_stack.len() >= 2 + test_params.len());
+                let params = &cur_stack[cur_stack.len() - test_params.len() - 2..];
+                let results = vt_singleton(cur_stack[cur_stack.len() - test_params.len() - 1]);
                 (params, results)
             }
             Other::Unreachable(_) => (&[], &[]),
@@ -1410,7 +1436,7 @@ impl ClassifiedInstr for Other {
     }
 }
 
-impl Test {
+impl ClassifiedInstr for Test {
     fn stack_type<'m, 's>(
         &self,
         _module: &'m Module,
@@ -1435,9 +1461,43 @@ impl Test {
             Test::F32Eq | Test::F32Ne | Test::F32Lt | Test::F32Gt | Test::F32Le | Test::F32Ge => {
                 (&[ValType::F32, ValType::F32], &[ValType::I32])
             }
+            Test::F64Eq | Test::F64Ne | Test::F64Lt | Test::F64Gt | Test::F64Le | Test::F64Ge => {
+                (&[ValType::F64, ValType::F64], &[ValType::I32])
+            }
         }
     }
 
+    fn mnemonic(&self) -> &'static str {
+        match self {
+            Test::I32Nez => "(pseudo i32.nez)",
+            Test::I32Eqz => "i32.eqz",
+            Test::I32Eq => "i32.eq",
+            Test::I32Ne => "i32.ne",
+            Test::I32LtS => "i32.lt_s",
+            Test::I32LtU => "i32.lt_u",
+            Test::I32GtS => "i32.gt_s",
+            Test::I32GtU => "i32.gt_u",
+            Test::I32LeS => "i32.le_s",
+            Test::I32LeU => "i32.le_u",
+            Test::I32GeS => "i32.ge_s",
+            Test::I32GeU => "i32.ge_u",
+            Test::F32Eq => "f32.eq",
+            Test::F32Ne => "f32.ne",
+            Test::F32Lt => "f32.lt",
+            Test::F32Gt => "f32.gt",
+            Test::F32Le => "f32.le",
+            Test::F32Ge => "f32.ge",
+            Test::F64Eq => "f64.eq",
+            Test::F64Ne => "f64.ne",
+            Test::F64Lt => "f64.lt",
+            Test::F64Gt => "f64.gt",
+            Test::F64Le => "f64.le",
+            Test::F64Ge => "f64.ge",
+        }
+    }
+}
+
+impl Test {
     fn from_unop(op: ir::UnaryOp) -> Option<Self> {
         match op {
             ir::UnaryOp::I32Eqz => Some(Test::I32Eqz),
@@ -1463,6 +1523,12 @@ impl Test {
             ir::BinaryOp::F32Gt => Some(Test::F32Gt),
             ir::BinaryOp::F32Le => Some(Test::F32Le),
             ir::BinaryOp::F32Ge => Some(Test::F32Ge),
+            ir::BinaryOp::F64Eq => Some(Test::F64Eq),
+            ir::BinaryOp::F64Ne => Some(Test::F64Ne),
+            ir::BinaryOp::F64Lt => Some(Test::F64Lt),
+            ir::BinaryOp::F64Gt => Some(Test::F64Gt),
+            ir::BinaryOp::F64Le => Some(Test::F64Le),
+            ir::BinaryOp::F64Ge => Some(Test::F64Ge),
             _ => None,
         }
     }

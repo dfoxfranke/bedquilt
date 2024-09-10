@@ -44,6 +44,14 @@ impl<L> Credits<L> {
         self.0.pop().unwrap_or(LoadOperand::Pop)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn gen<G>(mut self, ctx: &mut Context<G>)
     where
         G: LabelGenerator<Label = L>,
@@ -72,6 +80,14 @@ impl<L> Drop for Credits<L> {
 impl<L> Debts<L> {
     pub fn pop(&mut self) -> StoreOperand<L> {
         self.0.pop().unwrap_or(StoreOperand::Push)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     pub fn gen<G>(mut self, ctx: &mut Context<G>)
@@ -629,75 +645,147 @@ pub fn gen_copies<G>(
 ) where
     G: LabelGenerator,
 {
-    let mut credits = std::mem::take(&mut credits.0);
-    let mut debts = std::mem::take(&mut debts.0);
+    let mut poisoned: HashSet<LoadOperand<G::Label>> = HashSet::new();
+    let mut good_pairs = Vec::new();
+    while !debts.is_empty() && !credits.is_empty() {
+        let load = credits.pop();
+        let store = debts.pop();
 
-    let first_unpoisoned: usize;
+        let poison = match &store {
+            StoreOperand::Push => unreachable!("A push operand cannot be a debt"),
+            StoreOperand::Discard => None,
+            StoreOperand::DerefLabel(addr) => Some(LoadOperand::DerefLabel(addr.clone())),
+            StoreOperand::FrameAddr(addr) => Some(LoadOperand::FrameAddr(*addr)),
+        };
 
-    if credits.is_empty() {
-        first_unpoisoned = 0;
-    } else {
-        let mut poisoned = HashSet::new();
-        let mut debt_index = debts.len();
-        let mut credit_index = credits.len();
-
-        while debt_index > 0 && credit_index > 0 {
-            debt_index -= 1;
-            credit_index -= 1;
-
-            if poisoned.contains(&credits[credit_index]) {
+        if let Some(poison) = poison {
+            if poisoned.contains(&poison) {
+                credits.0.push(load);
+                debts.0.push(store);
                 break;
             }
 
-            match &debts[debt_index] {
-                StoreOperand::Push => unreachable!("Push operands cannot be debts"),
-                StoreOperand::Discard => {}
-                StoreOperand::FrameAddr(addr) => {
-                    poisoned.insert(LoadOperand::FrameAddr(*addr));
-                }
-                StoreOperand::DerefLabel(l) => {
-                    poisoned.insert(LoadOperand::DerefLabel(l.clone()));
-                }
-            }
+            poisoned.insert(poison);
         }
-        first_unpoisoned = credit_index + 1;
-        for load in &credits[0..first_unpoisoned] {
-            ctx.rom_items.push(copy(load.clone(), push()));
-        }
-    };
-
-    while let Some(debt) = debts.pop() {
-        if credits.len() > first_unpoisoned {
-            let credit = credits.pop().unwrap();
-            ctx.rom_items.push(copy(credit, debt));
-        } else {
-            ctx.rom_items.push(copy(pop(), debt));
-        }
+        good_pairs.push((load, store));
     }
+
+    credits.gen(ctx);
+    for (load, store) in good_pairs {
+        ctx.rom_items.push(copy(load, store));
+    }
+    debts.gen(ctx);
 }
 
 fn gen_block<G>(
-    _ctx: &mut Context<G>,
-    _frame: &mut Frame<G::Label>,
-    _block: Block,
-    _stack: Vec<ValType>,
-    _credits: Credits<G::Label>,
+    ctx: &mut Context<G>,
+    frame: &mut Frame<G::Label>,
+    block: Block,
+    mut stack: Vec<ValType>,
+    credits: Credits<G::Label>,
 ) where
     G: LabelGenerator,
 {
-    todo!()
+    let (params, results) = block.stack_type(ctx.module, frame.function, stack.as_slice());
+    let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let param_len: usize = params.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let arity: usize = results.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let base = stack_height - param_len;
+
+    let target = ctx.gen.gen("endblock");
+
+    match &block {
+        Block::Block(ir::Block { seq: id }) => {
+            frame.jump_targets.insert(
+                *id,
+                JumpTarget {
+                    base,
+                    arity,
+                    target: target.clone(),
+                },
+            );
+            let seq = frame.function.block(*id);
+            gen_instrseq(ctx, frame, seq, &mut stack, credits, Debts::default());
+        }
+        Block::IfElse(
+            test,
+            ir::IfElse {
+                consequent: cid,
+                alternative: aid,
+            },
+        ) => {
+            frame.jump_targets.insert(
+                *cid,
+                JumpTarget {
+                    base,
+                    arity,
+                    target: target.clone(),
+                },
+            );
+            frame.jump_targets.insert(
+                *aid,
+                JumpTarget {
+                    base,
+                    arity,
+                    target: target.clone(),
+                },
+            );
+            let test_target = ctx.gen.gen("consequent");
+            super::control::gen_test(ctx, *test, test_target.clone(), credits);
+            test.update_stack(ctx.module, frame.function, &mut stack);
+            let alternative = frame.function.block(*aid);
+            gen_instrseq(
+                ctx,
+                frame,
+                alternative,
+                &mut stack,
+                Credits::default(),
+                Debts::default(),
+            );
+            ctx.rom_items.push(jump(target.clone()));
+            ctx.rom_items.push(label(test_target));
+            let consequent = frame.function.block(*cid);
+            gen_instrseq(
+                ctx,
+                frame,
+                consequent,
+                &mut stack,
+                Credits::default(),
+                Debts::default(),
+            );
+        }
+    }
+
+    ctx.rom_items.push(label(target));
 }
 
 fn gen_loop<G>(
-    _ctx: &mut Context<G>,
-    _frame: &mut Frame<G::Label>,
-    _looop: Loop,
-    _stack: Vec<ValType>,
-    _debts: Debts<G::Label>,
+    ctx: &mut Context<G>,
+    frame: &mut Frame<G::Label>,
+    looop: Loop,
+    mut stack: Vec<ValType>,
+    debts: Debts<G::Label>,
 ) where
     G: LabelGenerator,
 {
-    todo!()
+    let Loop::Loop(ir::Loop { seq: id }) = looop;
+    let seq = frame.function.block(id);
+    let (params, _) = looop.stack_type(ctx.module, frame.function, stack.as_slice());
+
+    let arity: usize = params.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let base: usize = stack_height - arity;
+    let target = ctx.gen.gen("loop");
+    frame.jump_targets.insert(
+        id,
+        JumpTarget {
+            base,
+            arity,
+            target: target.clone(),
+        },
+    );
+    ctx.rom_items.push(label(target));
+    gen_instrseq(ctx, frame, seq, &mut stack, Credits::default(), debts);
 }
 
 fn gen_other<G>(

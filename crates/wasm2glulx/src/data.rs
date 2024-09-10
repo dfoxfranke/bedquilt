@@ -31,18 +31,15 @@ where
         };
 
         ctx.zero_items.push(zlabel(table_layout.addr.clone()));
-        ctx.zero_items
-            .push(zspace(size));
+        ctx.zero_items.push(zspace(size));
         if table_layout.min_count == 0 {
             ctx.zero_items.push(zlabel(table_layout.cur_count.clone()));
-            ctx.zero_items
-                .push(zspace(4));
+            ctx.zero_items.push(zspace(4));
         } else {
             let mut bytes = BytesMut::new();
             bytes.put_u32(table_layout.min_count);
             ctx.ram_items.push(label(table_layout.cur_count.clone()));
-            ctx.ram_items
-                .push(blob(bytes));
+            ctx.ram_items.push(blob(bytes));
         }
     }
 }
@@ -99,14 +96,12 @@ where
 
         if is_zero {
             ctx.zero_items.push(zlabel(global_label));
-            ctx.zero_items.push(
-                zspace(
-                    bytes
-                        .len()
-                        .try_into()
-                        .expect("Length of a global should always fit in a u32"),
-                )
-            );
+            ctx.zero_items.push(zspace(
+                bytes
+                    .len()
+                    .try_into()
+                    .expect("Length of a global should always fit in a u32"),
+            ));
         } else if global.mutable {
             ctx.ram_items.push(label(global_label));
             ctx.ram_items.push(blob(bytes));
@@ -158,8 +153,7 @@ where
 
         let layout = ctx.layout.element(elem.id());
         ctx.rom_items.push(label(layout.addr.clone()));
-        ctx.rom_items
-            .push(blob(bytes));
+        ctx.rom_items.push(blob(bytes));
         ctx.zero_items.push(zlabel(layout.dropped.clone()));
         ctx.zero_items.push(zspace(4));
     }
@@ -172,8 +166,7 @@ where
     for data in ctx.module.data.iter() {
         let layout = ctx.layout.data(data.id());
         ctx.rom_items.push(label(layout.addr.clone()));
-        ctx.rom_items
-            .push(blob(data.value.clone()));
+        ctx.rom_items.push(blob(data.value.clone()));
         ctx.zero_items.push(zlabel(layout.dropped.clone()));
         ctx.zero_items.push(zspace(4));
     }
@@ -194,17 +187,16 @@ where
     }
 
     ctx.rom_items.push(label(ctx.layout.fntypes().addr.clone()));
-    ctx.rom_items
-        .push(blob(bytes));
+    ctx.rom_items.push(blob(bytes));
 }
 
 pub fn gen_hi_return<G>(ctx: &mut Context<G>)
 where
     G: LabelGenerator,
 {
-    ctx.zero_items.push(zlabel(ctx.layout.hi_return().addr.clone()));
     ctx.zero_items
-        .push(zspace(ctx.layout.hi_return().size));
+        .push(zlabel(ctx.layout.hi_return().addr.clone()));
+    ctx.zero_items.push(zspace(ctx.layout.hi_return().size));
 }
 
 pub fn gen_glk_area<G>(ctx: &mut Context<G>)
@@ -212,13 +204,13 @@ where
     G: LabelGenerator,
 {
     ctx.zero_items.push(zalign(4));
-    ctx.zero_items.push(zlabel(ctx.layout.glk_area().addr.clone()));
     ctx.zero_items
-        .push(zspace(ctx.layout.glk_area().size));
+        .push(zlabel(ctx.layout.glk_area().addr.clone()));
+    ctx.zero_items.push(zspace(ctx.layout.glk_area().size));
 }
 
 pub fn gen_memory<G>(ctx: &mut Context<G>)
-where 
+where
     G: LabelGenerator,
 {
     let mut bytes = BytesMut::with_capacity(4);

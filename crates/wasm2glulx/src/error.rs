@@ -1,5 +1,5 @@
-use walrus::{Export, Import, ValType};
 use std::fmt::Display;
+use walrus::{Export, Import, ValType};
 
 #[derive(Debug)]
 pub enum CompilationError {
@@ -63,17 +63,27 @@ impl Display for CompilationError {
 
                 write!(f, "{}/{}", import.module, import.name)?;
                 if import.module == "env" {
-                    write!(f, " (Did you mean to specify a module name to override the default \"env\"?)")?;
+                    write!(
+                        f,
+                        " (Did you mean to specify a module name to override the default \"env\"?)"
+                    )?;
                 }
             }
-            CompilationError::IncorrectlyTypedImport { import, expected, actual } => {
-                let expected_params : Vec<String> = expected.0.iter().map(|vt| vt.to_string()).collect();
-                let expected_results : Vec<String> = expected.1.iter().map(|vt| vt.to_string()).collect();
-                let actual_params : Vec<String> = actual.0.iter().map(|vt| vt.to_string()).collect();
-                let actual_results : Vec<String> = actual.1.iter().map(|vt| vt.to_string()).collect();
-                
+            CompilationError::IncorrectlyTypedImport {
+                import,
+                expected,
+                actual,
+            } => {
+                let expected_params: Vec<String> =
+                    expected.0.iter().map(|vt| vt.to_string()).collect();
+                let expected_results: Vec<String> =
+                    expected.1.iter().map(|vt| vt.to_string()).collect();
+                let actual_params: Vec<String> = actual.0.iter().map(|vt| vt.to_string()).collect();
+                let actual_results: Vec<String> =
+                    actual.1.iter().map(|vt| vt.to_string()).collect();
+
                 write!(
-                    f, 
+                    f,
                     "Incorrectly-typed import of {}/{}.\n    Expected: ({}) -> ({})\n    Actual:   ({}) -> ({})", 
                     import.module,
                     import.name,
@@ -82,33 +92,46 @@ impl Display for CompilationError {
                     actual_params.join(","),
                     actual_results.join(","),
                 )?;
-            },
-            CompilationError::IncorrectlyTypedExport { export, expected, actual } => {
-                let expected_params : Vec<String> = expected.0.iter().map(|vt| vt.to_string()).collect();
-                let expected_results : Vec<String> = expected.1.iter().map(|vt| vt.to_string()).collect();
-                let actual_params : Vec<String> = actual.0.iter().map(|vt| vt.to_string()).collect();
-                let actual_results : Vec<String> = actual.1.iter().map(|vt| vt.to_string()).collect();
-                
+            }
+            CompilationError::IncorrectlyTypedExport {
+                export,
+                expected,
+                actual,
+            } => {
+                let expected_params: Vec<String> =
+                    expected.0.iter().map(|vt| vt.to_string()).collect();
+                let expected_results: Vec<String> =
+                    expected.1.iter().map(|vt| vt.to_string()).collect();
+                let actual_params: Vec<String> = actual.0.iter().map(|vt| vt.to_string()).collect();
+                let actual_results: Vec<String> =
+                    actual.1.iter().map(|vt| vt.to_string()).collect();
+
                 write!(
-                    f, 
-                    "Incorrectly-typed export of {}.\n    Expected: ({}) -> ({})\n    Actual:   ({}) -> ({})", 
+                    f,
+                    "Incorrectly-typed export of {}.\n    Expected: ({}) -> ({})\n    Actual:   ({}) -> ({})",
                     export.name,
                     expected_params.join(","),
                     expected_results.join(","),
                     actual_params.join(","),
                     actual_results.join(","),
                 )?;
-            },
+            }
             CompilationError::NoEntrypoint => {
                 write!(f, "Module contains no entrypoint. Provide a start function or export a function named glulx_main.")?;
-            },
+            }
             CompilationError::Overflow(loc) => {
                 match loc {
                     OverflowLocation::TypeDecl => write!(f, "A type declaration ")?,
                     OverflowLocation::TypeList => write!(f, "The module's list of types ")?,
                     OverflowLocation::FnList => write!(f, "The module's list of functions ")?,
-                    OverflowLocation::Locals(None) => write!(f, "The set of local variables used by an unnamed function ")?,
-                    OverflowLocation::Locals(Some(name)) => write!(f, "The set of local variables used by the function `{}` ", name)?,
+                    OverflowLocation::Locals(None) => {
+                        write!(f, "The set of local variables used by an unnamed function ")?
+                    }
+                    OverflowLocation::Locals(Some(name)) => write!(
+                        f,
+                        "The set of local variables used by the function `{}` ",
+                        name
+                    )?,
                     OverflowLocation::Table => write!(f, "A table declaration ")?,
                     OverflowLocation::Element => write!(f, "An element segment ")?,
                     OverflowLocation::Data => write!(f, "A data segment ")?,
@@ -116,30 +139,37 @@ impl Display for CompilationError {
                     OverflowLocation::FinalAssembly => write!(f, "The assembled output ")?,
                 }
                 write!(f, "overflows Glulx's 4GiB address space")?;
-            },
+            }
             CompilationError::UnsupportedMultipleMemories => {
                 write!(f, "Modules that define multiple memories are not supported")?;
-            },
+            }
             CompilationError::UnsupportedInstruction { function, instr } => {
                 if let Some(function) = function {
-                    write!(f, "Encountered an unsupported instruction in function {}: {:?}", function, instr)?
+                    write!(
+                        f,
+                        "Encountered an unsupported instruction in function {}: {:?}",
+                        function, instr
+                    )?
                 } else {
-                    write!(f, "Encountered an unsupported instruction in an unnamed function: {:?}", instr)?
+                    write!(
+                        f,
+                        "Encountered an unsupported instruction in an unnamed function: {:?}",
+                        instr
+                    )?
                 }
-            },
+            }
             CompilationError::InputError(e) => {
                 write!(f, "While reading input: {}", e)?;
-            },
+            }
             CompilationError::OutputError(e) => {
                 write!(f, "While writing output: {}", e)?;
             }
             CompilationError::OtherError(e) => {
                 write!(f, "{}", e)?;
-            },
+            }
         }
         Ok(())
     }
-    
 }
 
 impl std::error::Error for CompilationError {}

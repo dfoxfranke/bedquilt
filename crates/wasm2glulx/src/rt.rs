@@ -628,7 +628,7 @@ where
         aloadb(imml(ctz_table.clone()), pop(), push()),
         add(pop(), imm(24), push()),
         ret(pop()),
-        label(ctz_table),   
+        label(ctz_table),
         blob(table_bytes.freeze()),
     );
 }

@@ -1,5 +1,9 @@
 use core::hash::Hash;
-use std::{fmt::Display, io::{Read, Write}, sync::Arc};
+use std::{
+    fmt::Display,
+    io::{Read, Write},
+    sync::Arc,
+};
 
 use bytes::BytesMut;
 use common::{Context, LabelGenerator};

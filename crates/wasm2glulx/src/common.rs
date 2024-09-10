@@ -1,7 +1,7 @@
 #![macro_use]
 use anyhow::anyhow;
-use std::{hash::Hash, path::PathBuf};
 use glulx_asm::{Item, ZeroItem};
+use std::{hash::Hash, path::PathBuf};
 use walrus::{GlobalId, GlobalKind, Module, ValType};
 
 use crate::{layout::Layout, rt::RuntimeLabels, CompilationError};

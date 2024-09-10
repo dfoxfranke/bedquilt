@@ -52,7 +52,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    if  !args.text
+    if !args.text
         && (args.input.is_none() || args.input.as_deref() == Some(Path::new("-")))
         && args.output.is_none()
         && atty::is(atty::Stream::Stdout)

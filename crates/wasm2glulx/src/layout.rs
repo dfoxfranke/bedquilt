@@ -87,7 +87,10 @@ pub struct Layout<L> {
 
 const MIN_HI_RETURN_WORDS: u32 = 4;
 
-impl<L> Layout<L> where L: Clone {
+impl<L> Layout<L>
+where
+    L: Clone,
+{
     pub fn new<G>(
         options: &CompilationOptions,
         module: &Module,
@@ -199,7 +202,14 @@ impl<L> Layout<L> where L: Clone {
                 errors.push(CompilationError::Overflow(OverflowLocation::Element));
                 0
             });
-            elems.insert(e.id(), ElemLayout { addr, dropped, count });
+            elems.insert(
+                e.id(),
+                ElemLayout {
+                    addr,
+                    dropped,
+                    count,
+                },
+            );
         }
 
         for d in module.data.iter() {
@@ -209,7 +219,14 @@ impl<L> Layout<L> where L: Clone {
                 errors.push(CompilationError::Overflow(OverflowLocation::Data));
                 0
             });
-            datas.insert(d.id(), DataLayout { addr, dropped, size });
+            datas.insert(
+                d.id(),
+                DataLayout {
+                    addr,
+                    dropped,
+                    size,
+                },
+            );
         }
 
         if module.memories.iter().count() > 1 {
@@ -286,27 +303,39 @@ impl<L> Layout<L> where L: Clone {
     }
 
     pub fn ty(&self, id: TypeId) -> &TypeLayout {
-        self.types.get(&id).expect("Layout should contain all type IDs from module")
+        self.types
+            .get(&id)
+            .expect("Layout should contain all type IDs from module")
     }
 
     pub fn func(&self, id: FunctionId) -> &FnLayout<L> {
-        self.funcs.get(&id).expect("Layout should contain all function IDs from module")
+        self.funcs
+            .get(&id)
+            .expect("Layout should contain all function IDs from module")
     }
 
     pub fn table(&self, id: TableId) -> &TableLayout<L> {
-        self.tables.get(&id).expect("Layout should contain all table  IDs from module")
+        self.tables
+            .get(&id)
+            .expect("Layout should contain all table  IDs from module")
     }
 
     pub fn global(&self, id: GlobalId) -> &GlobalLayout<L> {
-        self.globals.get(&id).expect("Layout should contain all global IDs from module")
+        self.globals
+            .get(&id)
+            .expect("Layout should contain all global IDs from module")
     }
 
     pub fn element(&self, id: ElementId) -> &ElemLayout<L> {
-        self.elems.get(&id).expect("Layout should contain all element IDs from module")
+        self.elems
+            .get(&id)
+            .expect("Layout should contain all element IDs from module")
     }
 
     pub fn data(&self, id: DataId) -> &DataLayout<L> {
-        self.datas.get(&id).expect("Layout should contain all data IDs from module")
+        self.datas
+            .get(&id)
+            .expect("Layout should contain all data IDs from module")
     }
 
     pub fn memory(&self) -> &MemLayout<L> {
