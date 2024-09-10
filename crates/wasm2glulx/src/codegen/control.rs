@@ -5,10 +5,7 @@ use super::{
 
 use crate::common::{vt_words, Context, LabelGenerator};
 use glulx_asm::concise::*;
-use walrus::{
-    ir::{self, InstrSeq, InstrSeqId},
-    Type,
-};
+use walrus::{ir, Type, ValType};
 
 pub fn gen_test<G>(
     ctx: &mut Context<G>,
@@ -340,6 +337,33 @@ pub fn gen_br_if<G>(
         ctx.rom_items.push(label(branch_prep));
         gen_br_inner(ctx, frame, target, height);
         ctx.rom_items.push(label(no_branch));
+    }
+    debts.gen(ctx);
+}
+
+pub fn gen_select<G>(
+    ctx: &mut Context<G>,
+    _frame: &mut Frame<G::Label>,
+    test: Test,
+    _select: &ir::Select,
+    post_stack: &[ValType],
+    credits: Credits<G::Label>,
+    debts: Debts<G::Label>,
+) where
+    G: LabelGenerator,
+{
+    let noroll = ctx.gen.gen("noroll");
+    let words = vt_words(
+        *post_stack
+            .last()
+            .expect("Stack should not be empty after a select"),
+    ) as i32;
+
+    gen_test(ctx, test, noroll.clone(), credits);
+    ctx.rom_items.push(stkroll(imm(2 * words), imm(words)));
+    ctx.rom_items.push(label(noroll));
+    for _ in 0..words {
+        ctx.rom_items.push(copy(pop(), discard()));
     }
     debts.gen(ctx);
 }

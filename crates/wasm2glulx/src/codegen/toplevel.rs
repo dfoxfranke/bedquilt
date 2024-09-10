@@ -733,8 +733,8 @@ fn gen_block<G>(
             );
             let test_target = ctx.gen.gen("consequent");
             super::control::gen_test(ctx, *test, test_target.clone(), credits);
-            let mut cloned_stack = stack.clone();
             test.update_stack(ctx.module, frame.function, &mut stack);
+            let mut cloned_stack = stack.clone();
             let alternative = frame.function.block(*aid);
             gen_instrseq(
                 ctx,
@@ -795,7 +795,7 @@ fn gen_other<G>(
     frame: &mut Frame<G::Label>,
     other: Other,
     pre_height: usize,
-    _post_stack: &[ValType],
+    post_stack: &[ValType],
     credits: Credits<G::Label>,
     debts: Debts<G::Label>,
 ) where
@@ -810,6 +810,9 @@ fn gen_other<G>(
         }
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
+        }
+        Other::Select(test, select) => {
+            super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }
         _ => ctx.errors.push(CompilationError::UnsupportedInstruction {
             function: frame.function_name.map(|s| s.to_owned()),
