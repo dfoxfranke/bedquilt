@@ -276,9 +276,9 @@ where
             LoadOperand::Pop => f.write_str("pop")?,
             LoadOperand::Imm(x) => write!(f, "{x:#x}")?,
             LoadOperand::FrameAddr(a) => {
-                write!(f, "${}", a/4)?;
-                if a%4 != 0 {
-                    write!(f, ".{}", a%4)?;
+                write!(f, "${}", a / 4)?;
+                if a % 4 != 0 {
+                    write!(f, ".{}", a % 4)?;
                 }
             }
             LoadOperand::ImmLabel(LabelRef(label, offset), shift) => {
@@ -297,10 +297,10 @@ where
                     write!(f, "{offset:+#x}")?;
                 }
                 write!(f, "]")?;
-            },
+            }
             LoadOperand::Branch(label) => {
                 write!(f, "~({label})")?;
-            },
+            }
         };
         Ok(())
     }
@@ -392,15 +392,18 @@ where
     }
 }
 
-impl <L> Display for StoreOperand<L> where L: Display {
+impl<L> Display for StoreOperand<L>
+where
+    L: Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             StoreOperand::Push => f.write_str("push")?,
             StoreOperand::Discard => f.write_str("discard")?,
             StoreOperand::FrameAddr(a) => {
-                write!(f, "${}", a/4)?;
-                if a%4 != 0 {
-                    write!(f, ".{}", a%4)?;
+                write!(f, "${}", a / 4)?;
+                if a % 4 != 0 {
+                    write!(f, ".{}", a % 4)?;
                 }
             }
             StoreOperand::DerefLabel(LabelRef(label, offset)) => {

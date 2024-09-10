@@ -4,8 +4,8 @@
 // Copyright 2024 Daniel Fox Franke.
 
 use bytes::{BufMut, Bytes};
-use core::num::NonZeroU32;
 use core::fmt::Display;
+use core::num::NonZeroU32;
 
 use crate::{
     cast::Overflow,
@@ -156,7 +156,7 @@ where
         B: BufMut,
     {
         match self {
-            Item::Label(_) => {},
+            Item::Label(_) => {}
             Item::Align(x) => {
                 let align: u32 = (*x).into();
                 let modulus = position % align;
@@ -238,7 +238,10 @@ where
     }
 }
 
-impl <L> Display for Item<L> where L: Display {
+impl<L> Display for Item<L>
+where
+    L: Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Item::Label(label) => write!(f, ".label {label}")?,
@@ -260,13 +263,13 @@ impl <L> Display for Item<L> where L: Display {
                     write!(f, ">>{shift}")?;
                 }
                 write!(f, ")")?;
-            },
+            }
         }
         Ok(())
     }
 }
 
-impl <L> ZeroItem<L> {
+impl<L> ZeroItem<L> {
     /// Applies the given mapping function to the label, if any, within the zero-item.
     pub fn map<F, M>(self, mut f: F) -> ZeroItem<M>
     where
@@ -296,7 +299,10 @@ impl <L> ZeroItem<L> {
     }
 }
 
-impl <L> Display for ZeroItem<L> where L: Display {
+impl<L> Display for ZeroItem<L>
+where
+    L: Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ZeroItem::Label(label) => write!(f, ".label {label}"),

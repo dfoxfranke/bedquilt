@@ -13,7 +13,10 @@ use hashbrown::HashMap;
 use std::collections::HashMap;
 
 use crate::{
-    cast::{checked_next_multiple_of, Overflow}, error::AssemblerError, items::{Item, LabelRef, ZeroItem}, resolver::{ResolvedAddr, Resolver}
+    cast::{checked_next_multiple_of, Overflow},
+    error::AssemblerError,
+    items::{Item, LabelRef, ZeroItem},
+    resolver::{ResolvedAddr, Resolver},
 };
 
 /// Length of the story file header.
@@ -143,7 +146,10 @@ where
     }
 }
 
-impl <L> Display for Assembly<'_, L> where L: Display + Clone {
+impl<L> Display for Assembly<'_, L>
+where
+    L: Display + Clone,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, ".stack_size {}", self.stack_size)?;
         write!(f, ".start_func ({}", self.start_func.0)?;
