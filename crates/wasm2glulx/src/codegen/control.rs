@@ -4,7 +4,7 @@ use super::{
 };
 
 use crate::common::{vt_words, Context, LabelGenerator};
-use glulx_asm::concise::*;
+use glulx_asm::{concise::*, LoadOperand};
 use walrus::{ir, Type, ValType};
 
 pub fn gen_test<G>(
@@ -339,6 +339,90 @@ pub fn gen_br_if<G>(
         ctx.rom_items.push(label(no_branch));
     }
     debts.gen(ctx);
+}
+
+pub fn gen_br_table<G>(
+    ctx: &mut Context<G>,
+    frame: &mut Frame<G::Label>,
+    br_table: &ir::BrTable,
+    height: usize,
+    mut credits: Credits<G::Label>,
+    debts: Debts<G::Label>,
+) where
+    G: LabelGenerator,
+{
+    let default_target = frame
+        .jump_targets
+        .get(&br_table.default)
+        .expect("Branch target should be present on stack");
+
+    let jump_table_len: u32 = if let Ok(len) = br_table.blocks.len().try_into() {
+        len
+    } else {
+        ctx.errors.push(crate::CompilationError::Overflow(
+            crate::OverflowLocation::Table,
+        ));
+        return;
+    };
+
+    let test_value = credits.pop();
+    credits.gen(ctx);
+
+    let simple_default = if test_value == LoadOperand::Pop {
+        ctx.rom_items.push(stkpeek(imm(0), push()));
+        false
+    } else {
+        height - 1 == default_target.base + default_target.arity
+    };
+
+    let default_label = if simple_default {
+        default_target.target.clone()
+    } else {
+        ctx.gen.gen("brtable_default")
+    };
+
+    ctx.rom_items.push(jgeu(
+        test_value.clone(),
+        uimm(jump_table_len),
+        default_label.clone(),
+    ));
+
+    let jump_table_label = ctx.gen.gen("jump_table");
+    ctx.rom_items.push(aload(
+        imml(jump_table_label.clone()),
+        test_value.clone(),
+        push(),
+    ));
+    ctx.rom_items.push(jumpabs(pop()));
+
+    let mut jump_table = Vec::with_capacity(br_table.blocks.len());
+    for block in &br_table.blocks {
+        let target = frame
+            .jump_targets
+            .get(block)
+            .expect("Branch target should be present on stack");
+        if height - 1 == target.base + target.arity {
+            jump_table.push(target.target.clone());
+        } else {
+            let prepare = ctx.gen.gen("brtable_prepare");
+            jump_table.push(prepare.clone());
+            ctx.rom_items.push(label(prepare));
+            gen_br_inner(ctx, frame, target, height - 1);
+        }
+    }
+
+    frame.jump_tables.insert(jump_table_label, jump_table);
+
+    if !simple_default {
+        ctx.rom_items.push(label(default_label));
+        if test_value == LoadOperand::Pop {
+            // Corresponds to the stkpeek from earlier
+            ctx.rom_items.push(copy(pop(), discard()));
+        }
+        gen_br_inner(ctx, frame, default_target, height - 1);
+    }
+
+    debts.gen(ctx)
 }
 
 pub fn gen_select<G>(

@@ -70,6 +70,7 @@ pub enum Loop {
     Loop(ir::Loop),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Other {
     Call(ir::Call),

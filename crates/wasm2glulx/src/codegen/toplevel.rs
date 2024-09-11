@@ -44,10 +44,6 @@ impl<L> Credits<L> {
         self.0.pop().unwrap_or(LoadOperand::Pop)
     }
 
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -80,10 +76,6 @@ impl<L> Drop for Credits<L> {
 impl<L> Debts<L> {
     pub fn pop(&mut self) -> StoreOperand<L> {
         self.0.pop().unwrap_or(StoreOperand::Push)
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -371,7 +363,7 @@ fn gen_instrseq<G>(
                         build_debts(ctx, frame, stack, &stores, ret.is_some())
                     };
 
-                    gen_other(ctx, frame, other, pre_height, &stack, credits, debts);
+                    gen_other(ctx, frame, other, pre_height, stack, credits, debts);
 
                     for store in stores {
                         store.update_stack(ctx.module, frame.function, stack);
@@ -807,6 +799,9 @@ fn gen_other<G>(
         }
         Other::BrIf(test, br_if) => {
             super::control::gen_br_if(ctx, frame, *test, br_if, pre_height, credits, debts);
+        }
+        Other::BrTable(br_table) => {
+            super::control::gen_br_table(ctx, frame, br_table, pre_height, credits, debts);
         }
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
