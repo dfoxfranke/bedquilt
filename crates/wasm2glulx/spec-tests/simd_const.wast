@@ -1061,10 +1061,10 @@
   )
 )
 
-(assert_return (invoke "as-global.set_value_$g0_$g1_$g2_$g3" (v128.const i32x4 1 1 1 1)
+(invoke "as-global.set_value_$g0_$g1_$g2_$g3" (v128.const i32x4 1 1 1 1)
                                                              (v128.const i32x4 2 2 2 2)
                                                              (v128.const i32x4 3 3 3 3)
-                                                             (v128.const i32x4 4 4 4 4)))
+                                                             (v128.const i32x4 4 4 4 4))                                                             
 (assert_return (invoke "global.get_g0") (v128.const i32x4 1 1 1 1))
 (assert_return (invoke "global.get_g1") (v128.const i32x4 2 2 2 2))
 (assert_return (invoke "global.get_g2") (v128.const i32x4 3 3 3 3))

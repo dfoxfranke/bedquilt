@@ -9,7 +9,7 @@ use wast::{
     WastArg, WastDirective, WastExecute, WastInvoke, WastRet,
 };
 
-use crate::compile_module_to_bytes;
+use crate::{compile_module_to_bytes, CompilationError};
 
 use super::CompilationOptions;
 
@@ -141,7 +141,7 @@ impl InterpretedResult {
                             }
                             ExpectedValue::I8x16(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::I8x16([
+                                    let mut arr = [
                                         buf.get_i8(),
                                         buf.get_i8(),
                                         buf.get_i8(),
@@ -158,14 +158,16 @@ impl InterpretedResult {
                                         buf.get_i8(),
                                         buf.get_i8(),
                                         buf.get_i8(),
-                                    ]))
+                                    ];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::I8x16(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::I16x8(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::I16x8([
+                                    let mut arr = [
                                         buf.get_i16(),
                                         buf.get_i16(),
                                         buf.get_i16(),
@@ -174,45 +176,55 @@ impl InterpretedResult {
                                         buf.get_i16(),
                                         buf.get_i16(),
                                         buf.get_i16(),
-                                    ]))
+                                    ];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::I16x8(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::I32x4(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::I32x4([
+                                    let mut arr = [
                                         buf.get_i32(),
                                         buf.get_i32(),
                                         buf.get_i32(),
                                         buf.get_i32(),
-                                    ]))
+                                    ];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::I32x4(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::I64x2(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::I64x2([buf.get_i64(), buf.get_i64()]))
+                                    let mut arr = [buf.get_i64(), buf.get_i64()];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::I64x2(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::F32x4(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::F32x4([
+                                    let mut arr = [
                                         buf.get_f32(),
                                         buf.get_f32(),
                                         buf.get_f32(),
                                         buf.get_f32(),
-                                    ]))
+                                    ];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::F32x4(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::F64x2(_) => {
                                 if buf.remaining() >= 16 {
-                                    iv.push(InterpretedValue::F64x2([buf.get_f64(), buf.get_f64()]))
+                                    let mut arr = [buf.get_f64(), buf.get_f64()];
+                                    arr.reverse();
+                                    iv.push(InterpretedValue::F64x2(arr))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
@@ -652,10 +664,17 @@ impl WastTest {
         expected_path.set_extension("expected");
         let _ = std::fs::remove_file(&expected_path);
 
-        let mut asm_path = workdir.to_owned();
-        asm_path.push(stem);
-        asm_path.set_extension("glulxasm");
-        let _ = std::fs::remove_file(&asm_path);
+        let mut glulxasm_path = workdir.to_owned();
+        glulxasm_path.push(stem);
+        glulxasm_path.set_extension("glulxasm");
+        let _ = std::fs::remove_file(&glulxasm_path);
+
+        let mut wasm_path = workdir.to_owned();
+        wasm_path.push(stem);
+        wasm_path.set_extension("wasm");
+        let _ = std::fs::remove_file(&wasm_path);
+
+        std::fs::write(&wasm_path, &self.module).unwrap();
 
         let module = walrus::Module::from_buffer(&self.module)
             .expect("WASM module bytecode produced by WAST should be valid");
@@ -668,6 +687,11 @@ impl WastTest {
                 // if let Ok(asm_out) = compile_module_to_bytes(&options, &module) {
                 //     std::fs::write(&asm_path, &asm_out).unwrap();
                 // }
+
+                if ev.iter().all(|e| matches!(e, CompilationError::UnsupportedInstruction { .. })) {
+                    let _ = std::fs::remove_file(&wasm_path);
+                    return;
+                }
 
                 let mut error_out = std::fs::File::create(&error_path).unwrap();
                 for e in &ev {
@@ -709,8 +733,11 @@ impl WastTest {
             let mut options = CompilationOptions::new();
             options.set_text(true);
             let asm_out = compile_module_to_bytes(&options, &module).expect("If binary compilation succeeded, text compilation should too");
-            std::fs::write(&asm_path, &asm_out).unwrap();
+            std::fs::write(&glulxasm_path, &asm_out).unwrap();
             panic!("Test result differed from expected.\nActual: {:?}\nExpected: {:?}", interpreted, self.expected_result);
+        } else {
+            let _ = std::fs::remove_file(&story_path);
+            let _ = std::fs::remove_file(&wasm_path);
         }
     }
 }

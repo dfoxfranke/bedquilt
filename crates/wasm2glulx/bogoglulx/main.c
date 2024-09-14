@@ -18,7 +18,7 @@ static const char* trap_messages[TRAP_LEN] = {
   "out of bounds table access",
   "undefined element",
   "uninitialized element",
-  "call stack exhausted"
+  "call stack exhausted",
   "unknown trap code",
 };
 

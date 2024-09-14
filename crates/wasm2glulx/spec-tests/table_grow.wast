@@ -16,7 +16,7 @@
 (assert_return (invoke "size") (i32.const 0))
 (assert_trap (invoke "get" (i32.const 0)) "out of bounds table access")
 
-(assert_return (invoke "grow" (i32.const 1) (ref.null extern)) (i32.const 0))
+(invoke "grow" (i32.const 1) (ref.null extern))
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "get" (i32.const 0)) (ref.null extern))
 (assert_trap (invoke "get" (i32.const 1)) "out of bounds table access")

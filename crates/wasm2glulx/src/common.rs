@@ -1,7 +1,7 @@
 #![macro_use]
 use anyhow::anyhow;
 use glulx_asm::{Item, ZeroItem};
-use std::{hash::Hash, path::PathBuf};
+use std::{fmt::{Debug,Display}, hash::Hash, path::PathBuf};
 use walrus::{GlobalId, GlobalKind, Module, ValType};
 
 use crate::{layout::Layout, rt::RuntimeLabels, CompilationError};
@@ -15,7 +15,7 @@ macro_rules! push_all {
 }
 
 pub trait LabelGenerator {
-    type Label: Clone + Eq + Hash;
+    type Label: Clone + Eq + Hash + Debug + Display;
     fn gen(&mut self, desc: &'static str) -> Self::Label;
 }
 

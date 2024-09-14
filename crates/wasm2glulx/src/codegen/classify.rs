@@ -28,6 +28,8 @@ pub trait ClassifiedInstr {
         stack.extend_from_slice(results);
     }
 }
+
+#[derive(Debug)]
 pub enum InstrClass {
     Load(Load),
     Store(Store),
@@ -140,6 +142,7 @@ pub enum Test {
     F64Ge,
 }
 
+#[derive(Debug)]
 pub enum InstrSubseq {
     Copy {
         loads: Vec<Load>,
@@ -1477,7 +1480,7 @@ impl ClassifiedInstr for Test {
         'm: 's,
     {
         match self {
-            Test::I32Nez | Test::I32Eqz => (&[ValType::I32], &[ValType::I32]),
+            Test::I32Nez | Test::I32Eqz => (&[ValType::I32], &[]),
             Test::I32Eq
             | Test::I32Ne
             | Test::I32LtS
@@ -1487,12 +1490,12 @@ impl ClassifiedInstr for Test {
             | Test::I32LeS
             | Test::I32LeU
             | Test::I32GeS
-            | Test::I32GeU => (&[ValType::I32, ValType::I32], &[ValType::I32]),
+            | Test::I32GeU => (&[ValType::I32, ValType::I32], &[]),
             Test::F32Eq | Test::F32Ne | Test::F32Lt | Test::F32Gt | Test::F32Le | Test::F32Ge => {
-                (&[ValType::F32, ValType::F32], &[ValType::I32])
+                (&[ValType::F32, ValType::F32], &[])
             }
             Test::F64Eq | Test::F64Ne | Test::F64Lt | Test::F64Gt | Test::F64Le | Test::F64Ge => {
-                (&[ValType::F64, ValType::F64], &[ValType::I32])
+                (&[ValType::F64, ValType::F64], &[])
             }
         }
     }
@@ -1787,6 +1790,7 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
 }
 
 pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
+    #[derive(Debug)]
     enum State {
         Start,
         SeenLoad,
@@ -1911,7 +1915,8 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
                 InstrClass::Block(this_block) => {
                     subseq_done!();
                     block = Some(this_block);
-                    state = State::SeenNucleus;
+                    subseq_done!();
+                    state = State::Start;
                 }
                 InstrClass::Loop(this_loop) => {
                     subseq_done!();

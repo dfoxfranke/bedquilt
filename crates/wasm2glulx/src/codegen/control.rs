@@ -214,16 +214,19 @@ fn gen_call_inner<G>(
 
     match param_words {
         0 => {
+            std::mem::take(&mut credits).gen(ctx);
             ctx.rom_items.push(callf(imml(addr), return_operand));
         }
         1 => {
             let arg_a = credits.pop();
+            std::mem::take(&mut credits).gen(ctx);
             ctx.rom_items
                 .push(callfi(imml(addr), arg_a, return_operand));
         }
         2 => {
             let arg_a = credits.pop();
             let arg_b = credits.pop();
+            std::mem::take(&mut credits).gen(ctx);
             ctx.rom_items
                 .push(callfii(imml(addr), arg_a, arg_b, return_operand));
         }
@@ -231,6 +234,7 @@ fn gen_call_inner<G>(
             let arg_a = credits.pop();
             let arg_b = credits.pop();
             let arg_c = credits.pop();
+            std::mem::take(&mut credits).gen(ctx);
             ctx.rom_items
                 .push(callfiii(imml(addr), arg_a, arg_b, arg_c, return_operand));
         }
@@ -280,7 +284,7 @@ fn gen_br_inner<G>(
             .expect("If total fits in an i32 then the smaller drop amount should too");
 
         if drop_i32 != total_i32 {
-            ctx.rom_items.push(stkroll(imm(total_i32), imm(drop_i32)));
+            ctx.rom_items.push(stkroll(imm(total_i32), imm(total_i32 - drop_i32)));
         }
         for _ in 0..drop {
             ctx.rom_items.push(copy(pop(), discard()));

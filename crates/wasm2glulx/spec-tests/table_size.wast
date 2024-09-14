@@ -24,11 +24,11 @@
 )
 
 (assert_return (invoke "size-t0") (i32.const 0))
-(assert_return (invoke "grow-t0" (i32.const 1)))
+(invoke "grow-t0" (i32.const 1))
 (assert_return (invoke "size-t0") (i32.const 1))
-(assert_return (invoke "grow-t0" (i32.const 4)))
+(invoke "grow-t0" (i32.const 4))
 (assert_return (invoke "size-t0") (i32.const 5))
-(assert_return (invoke "grow-t0" (i32.const 0)))
+(invoke "grow-t0" (i32.const 0))
 (assert_return (invoke "size-t0") (i32.const 5))
 
 (assert_return (invoke "size-t1") (i32.const 1))

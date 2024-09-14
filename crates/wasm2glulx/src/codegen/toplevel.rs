@@ -270,7 +270,7 @@ fn gen_instrseq<G>(
                         load.update_stack(ctx.module, frame.function, stack);
                     }
 
-                    let debts = if i == n_subseqs - 1 {
+                    let mut debts = if i == n_subseqs - 1 {
                         build_debts(ctx, frame, stack, &stores, ret.is_some())
                             .prepend(std::mem::take(&mut final_debts))
                     } else {
@@ -281,11 +281,31 @@ fn gen_instrseq<G>(
                         store.update_stack(ctx.module, frame.function, stack);
                     }
 
-                    gen_copies(ctx, credits, debts);
-
                     if let Some(ret) = ret {
+                        // If we're explicitly returning from inside a loop at
+                        // the end of a function, there will be duplicate return
+                        // debts, one from the function return and one from the
+                        // one at the end of the loop. The outer return debts
+                        // may have nothing on the stack capable of satisfying
+                        // them, so we need to trim these off to prevent
+                        // gen_copies from generating pops for them.
+                        let return_words: usize = ctx
+                            .module
+                            .types
+                            .get(frame.function.ty())
+                            .results()
+                            .iter()
+                            .map(|vt| vt_words(*vt) as usize)
+                            .sum();
+                        if debts.0.len() > return_words {
+                            debts.0.drain(0..debts.0.len() - return_words);
+                            //debts.0 = debts.0.split_off(debts.0.len() - return_words);
+                        }
+                        gen_copies(ctx, credits, debts);
                         ret.update_stack(ctx.module, frame.function, stack);
                         gen_return(ctx, frame);
+                    } else {
+                        gen_copies(ctx, credits, debts);
                     }
                 }
                 super::classify::InstrSubseq::Block { loads, block } => {
