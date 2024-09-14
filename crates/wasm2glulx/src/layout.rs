@@ -1,6 +1,6 @@
-use walrus::{DataId, ElementId, ElementItems, FunctionId, GlobalId, Module, TableId, TypeId};
 use crate::{common::*, CompilationError, CompilationOptions, OverflowLocation};
 use std::collections::HashMap;
+use walrus::{DataId, ElementId, ElementItems, FunctionId, GlobalId, Module, TableId, TypeId};
 
 #[derive(Debug, Copy, Clone)]
 pub struct TypeLayout {

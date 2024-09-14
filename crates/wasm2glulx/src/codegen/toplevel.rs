@@ -66,10 +66,12 @@ impl<L> Credits<L> {
 
 impl<L> Drop for Credits<L> {
     fn drop(&mut self) {
-        assert!(
-            self.0.is_empty(),
-            "Credits should be consumed before being dropped"
-        )
+        if !std::thread::panicking() {
+            assert!(
+                self.0.is_empty(),
+                "Credits should be consumed before being dropped"
+            )
+        }
     }
 }
 
@@ -100,10 +102,12 @@ impl<L> Debts<L> {
 
 impl<L> Drop for Debts<L> {
     fn drop(&mut self) {
-        assert!(
-            self.0.is_empty(),
-            "Debts should be satisfied before being dropped"
-        )
+        if !std::thread::panicking() {
+            assert!(
+                self.0.is_empty(),
+                "Debts should be satisfied before being dropped"
+            )
+        }
     }
 }
 
@@ -188,7 +192,7 @@ pub fn gen_function<G>(
     for (jump, table) in jump_tables {
         ctx.rom_items.push(label(jump));
         for l in table {
-            ctx.rom_items.push(label(l));
+            ctx.rom_items.push(labelref(l));
         }
     }
 }
@@ -223,19 +227,15 @@ fn build_locals<G>(
                     function.block(ifelse.alternative),
                 );
             }
-            Instr::BrTable(brtable) => {
-                for seq in &brtable.blocks {
-                    build_locals(ctx, function, locals, ctr, function.block(*seq));
-                }
-                build_locals(ctx, function, locals, ctr, function.block(brtable.default))
-            }
             Instr::LocalGet(ir::LocalGet { local: id })
             | Instr::LocalSet(ir::LocalSet { local: id })
             | Instr::LocalTee(ir::LocalTee { local: id }) => {
                 let local = ctx.module.locals.get(*id);
                 let words = vt_words(local.ty());
-                locals.insert(*id, *ctr);
-                *ctr = ctr.saturating_add(words);
+                if !locals.contains_key(id) {
+                    locals.insert(*id, *ctr);
+                    *ctr = ctr.saturating_add(words);
+                }
             }
             _ => {}
         }
@@ -586,9 +586,9 @@ where
 
     if then_return {
         let ret_types = ctx.module.types.get(frame.function.ty()).results();
-        let mut pos: i32 = ret_types.iter().map(|vt| 4 * vt_words(*vt) as i32).sum();
+        let mut pos = 0;
 
-        for ret_type in ret_types.iter().copied() {
+        for ret_type in ret_types.iter().rev().copied() {
             let stack_type = *stack
                 .last()
                 .expect("There should be something on the stack for satisfying return debts");
@@ -601,19 +601,19 @@ where
             match ret_type {
                 ValType::I32 | ValType::F32 | ValType::Ref(_) => {
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
-                    pos -= 4;
+                    pos += 4;
                 }
                 ValType::I64 | ValType::F64 => {
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 4));
-                    pos -= 8;
+                    pos += 8;
                 }
                 ValType::V128 => {
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 4));
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 8));
                     debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 12));
-                    pos -= 16;
+                    pos += 16;
                 }
             }
         }
@@ -809,9 +809,13 @@ fn gen_other<G>(
         Other::Select(test, select) => {
             super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }
-        _ => ctx.errors.push(CompilationError::UnsupportedInstruction {
-            function: frame.function_name.map(|s| s.to_owned()),
-            instr: other.mnemonic(),
-        }),
+        _ => {
+            credits.gen(ctx);
+            ctx.errors.push(CompilationError::UnsupportedInstruction {
+                function: frame.function_name.map(|s| s.to_owned()),
+                instr: other.mnemonic(),
+            });
+            debts.gen(ctx);
+        }
     }
 }

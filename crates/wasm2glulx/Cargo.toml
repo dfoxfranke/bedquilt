@@ -17,4 +17,17 @@ bytes = "1"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 clap-num = "1"
 glulx-asm = { path = "../glulx-asm" }
+hex = { version = "0.4", optional = true }
+tempfile = { version = "3", optional = true }
 walrus = "0.21"
+wast = { version = "217", optional = true }
+
+[dev-dependencies]
+wasm2glulx-spectest-macro = { path = "../wasm2glulx-spectest-macro" }
+
+[build-dependencies]
+cc = "1"
+
+[features]
+default = ["spectest"]
+spectest = ["dep:hex", "dep:tempfile", "dep:wast"]

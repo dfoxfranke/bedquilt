@@ -19,6 +19,9 @@ mod intrinsics;
 mod layout;
 mod rt;
 
+#[cfg(feature = "spectest")]
+pub mod spectest;
+
 pub use common::{
     CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE, DEFAULT_TABLE_GROWTH_LIMIT,
 };

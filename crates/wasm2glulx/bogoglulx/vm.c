@@ -138,7 +138,7 @@ void vm_restart()
 
   for (lx=0; lx<endgamefile; lx++) {
     if (bufpos >= 0x100) {
-      int count = fread(buf, 1, 100, gamefile);
+      int count = fread(buf, 1, 0x100, gamefile);
       if (count != 0x100) {
         fatal_error("The game file ended unexpectedly.");
       }

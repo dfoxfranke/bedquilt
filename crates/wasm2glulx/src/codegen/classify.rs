@@ -108,6 +108,8 @@ pub enum Other {
     TableInit(ir::TableInit),
     ElemDrop(ir::ElemDrop),
     TableCopy(ir::TableCopy),
+    ReturnCall(ir::ReturnCall),
+    ReturnCallIndirect(ir::ReturnCallIndirect),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -392,7 +394,16 @@ impl ClassifiedInstr for Other {
             }
             Other::CallIndirect(call_indirect) => {
                 let ty = module.types.get(call_indirect.ty);
-                (ty.params(), ty.results())
+                assert!(cur_stack.len() > ty.params().len());
+                assert_eq!(
+                    &cur_stack[cur_stack.len() - ty.params().len() - 1..cur_stack.len() - 1],
+                    ty.params()
+                );
+                assert_eq!(cur_stack.last(), Some(&ValType::I32));
+                (
+                    &cur_stack[cur_stack.len() - ty.params().len() - 1..],
+                    ty.results(),
+                )
             }
             Other::LocalTee(tee) => {
                 let ty = module.locals.get(tee.local).ty();
@@ -630,8 +641,7 @@ impl ClassifiedInstr for Other {
                 | ir::UnaryOp::I32Popcnt
                 | ir::UnaryOp::I32Extend8S
                 | ir::UnaryOp::I32Extend16S => (&[ValType::I32], &[ValType::I32]),
-                ir::UnaryOp::I64Eqz
-                | ir::UnaryOp::I64Clz
+                ir::UnaryOp::I64Clz
                 | ir::UnaryOp::I64Ctz
                 | ir::UnaryOp::I64Popcnt
                 | ir::UnaryOp::I64Extend8S
@@ -651,7 +661,7 @@ impl ClassifiedInstr for Other {
                 | ir::UnaryOp::F64Trunc
                 | ir::UnaryOp::F64Nearest
                 | ir::UnaryOp::F64Sqrt => (&[ValType::F64], &[ValType::F64]),
-                ir::UnaryOp::I32WrapI64 => (&[ValType::I64], &[ValType::I32]),
+                ir::UnaryOp::I64Eqz | ir::UnaryOp::I32WrapI64 => (&[ValType::I64], &[ValType::I32]),
                 ir::UnaryOp::I32TruncSF32 | ir::UnaryOp::I32TruncUF32 => {
                     (&[ValType::F32], &[ValType::I32])
                 }
@@ -884,6 +894,23 @@ impl ClassifiedInstr for Other {
             Other::TableInit(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
             Other::ElemDrop(_) => (&[], &[]),
             Other::TableCopy(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
+            Other::ReturnCall(return_call) => {
+                let ty = module.types.get(module.funcs.get(return_call.func).ty());
+                (ty.params(), ty.results())
+            }
+            Other::ReturnCallIndirect(return_call_indirect) => {
+                let ty = module.types.get(return_call_indirect.ty);
+                assert!(cur_stack.len() > ty.params().len());
+                assert_eq!(
+                    &cur_stack[cur_stack.len() - ty.params().len() - 1..cur_stack.len() - 1],
+                    ty.params()
+                );
+                assert_eq!(cur_stack.last(), Some(&ValType::I32));
+                (
+                    &cur_stack[cur_stack.len() - ty.params().len() - 1..],
+                    ty.results(),
+                )
+            }
         }
     }
 
@@ -1433,6 +1460,8 @@ impl ClassifiedInstr for Other {
             Other::TableInit(_) => "table.init",
             Other::ElemDrop(_) => "elem.drop",
             Other::TableCopy(_) => "table.copy",
+            Other::ReturnCall(_) => "return_call",
+            Other::ReturnCallIndirect(_) => "return_call_indirect",
         }
     }
 }
@@ -1742,6 +1771,14 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
             }
             ir::Instr::TableCopy(table_copy) => {
                 out.push(InstrClass::Other(Other::TableCopy(table_copy.clone())));
+            }
+            ir::Instr::ReturnCall(return_call) => {
+                out.push(InstrClass::Other(Other::ReturnCall(return_call.clone())));
+            }
+            ir::Instr::ReturnCallIndirect(return_call_indirect) => {
+                out.push(InstrClass::Other(Other::ReturnCallIndirect(
+                    return_call_indirect.clone(),
+                )));
             }
         }
     }

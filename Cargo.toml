@@ -1,3 +1,3 @@
 [workspace]
-members = ["crates/glulx-asm", "crates/wasm2glulx"]
+members = ["crates/glulx-asm", "crates/wasm2glulx", "crates/wasm2glulx-spectest-macro"]
 resolver = "2"

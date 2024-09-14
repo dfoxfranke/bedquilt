@@ -1,0 +1,12 @@
+[package]
+name = "wasm2glulx-spectest-macro"
+edition = "2021"
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = "2"
+wasm2glulx = { path = "../wasm2glulx" }
+
+[lib]
+proc-macro = true

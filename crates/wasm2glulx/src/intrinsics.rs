@@ -13,7 +13,7 @@ where
     match name.as_str() {
         "spectest_result" => {
             let ty = ctx.module.types.get(imported_func.ty);
-            
+
             if !ty.results().is_empty() {
                 ctx.errors
                     .push(crate::CompilationError::IncorrectlyTypedImport {
@@ -33,12 +33,11 @@ where
                     ValType::I32 | ValType::F32 | ValType::Ref(_) => {
                         param_word -= 1;
                         ctx.rom_items.push(streamnum(lloc(param_word)));
-                    },
+                    }
                     ValType::I64 | ValType::F64 => {
                         param_word -= 2;
                         ctx.rom_items.push(streamnum(lloc(param_word)));
                         ctx.rom_items.push(streamnum(lloc(param_word + 1)));
-                        
                     }
                     ValType::V128 => {
                         param_word -= 4;
