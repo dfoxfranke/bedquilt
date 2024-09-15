@@ -3,17 +3,16 @@ use super::{
     toplevel::{gen_copies, Credits, Debts, Frame, JumpTarget},
 };
 
-use crate::common::{vt_words, Context, LabelGenerator};
+use crate::common::{vt_words, Context, Label};
 use glulx_asm::{concise::*, LoadOperand};
 use walrus::{ir, Type, ValType};
 
-pub fn gen_test<G>(
-    ctx: &mut Context<G>,
+pub fn gen_test(
+    ctx: &mut Context,
     test: Test,
-    label: G::Label,
-    mut credits: Credits<G::Label>,
-) where
-    G: LabelGenerator,
+    label: Label,
+    mut credits: Credits,
+) 
 {
     match test {
         Test::I32Nez => {
@@ -174,30 +173,28 @@ pub fn gen_test<G>(
     }
 }
 
-pub fn gen_call<G>(
-    ctx: &mut Context<G>,
-    _frame: &mut Frame<G::Label>,
+pub fn gen_call(
+    ctx: &mut Context,
+    _frame: &mut Frame,
     call: &ir::Call,
-    credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+    debts: Debts,
+)
 {
     let function = ctx.module.funcs.get(call.func);
     let ty = ctx.module.types.get(function.ty());
-    let addr = ctx.layout.func(call.func).addr.clone();
+    let addr = ctx.layout.func(call.func).addr;
 
     gen_call_inner(ctx, ty, addr, credits, debts);
 }
 
-fn gen_call_inner<G>(
-    ctx: &mut Context<G>,
+fn gen_call_inner(
+    ctx: &mut Context,
     ty: &Type,
-    addr: G::Label,
-    mut credits: Credits<G::Label>,
-    mut debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    addr: Label,
+    mut credits: Credits,
+    mut debts: Debts,
+)
 {
     let param_words: u32 = ty.params().iter().map(|vt| vt_words(*vt)).sum();
     let result_words: u32 = ty.results().iter().map(|vt| vt_words(*vt)).sum();
@@ -248,7 +245,7 @@ fn gen_call_inner<G>(
     if result_words > 0 {
         for i in (0..result_words - 1).rev() {
             credits.0.push(derefl_off(
-                ctx.layout.hi_return().addr.clone(),
+                ctx.layout.hi_return().addr,
                 4 * i as i32,
             ));
         }
@@ -257,13 +254,12 @@ fn gen_call_inner<G>(
     gen_copies(ctx, credits, debts);
 }
 
-fn gen_br_inner<G>(
-    ctx: &mut Context<G>,
-    frame: &Frame<G::Label>,
-    target: &JumpTarget<G::Label>,
+fn gen_br_inner(
+    ctx: &mut Context,
+    frame: &Frame,
+    target: &JumpTarget,
     height: usize,
-) where
-    G: LabelGenerator,
+)
 {
     if target.base + target.arity != height {
         assert!(height > target.base + target.arity);
@@ -289,19 +285,18 @@ fn gen_br_inner<G>(
         for _ in 0..drop {
             ctx.rom_items.push(copy(pop(), discard()));
         }
-        ctx.rom_items.push(jump(target.target.clone()));
+        ctx.rom_items.push(jump(target.target));
     }
 }
 
-pub fn gen_br<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+pub fn gen_br(
+    ctx: &mut Context,
+    frame: &mut Frame,
     br: &ir::Br,
     height: usize,
-    credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+    debts: Debts,
+)
 {
     let ir::Br { block: id } = br;
     let target = frame
@@ -313,16 +308,15 @@ pub fn gen_br<G>(
     debts.gen(ctx);
 }
 
-pub fn gen_br_if<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+pub fn gen_br_if(
+    ctx: &mut Context,
+    frame: &mut Frame,
     test: Test,
     br_if: &ir::BrIf,
     height: usize,
-    credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+    debts: Debts,
+)
 {
     let height = height - test.popped_words();
     let ir::BrIf { block: id } = br_if;
@@ -332,12 +326,12 @@ pub fn gen_br_if<G>(
         .expect("Branch target should be present on stack");
 
     if height == target.base + target.arity {
-        gen_test(ctx, test, target.target.clone(), credits);
+        gen_test(ctx, test, target.target, credits);
     } else {
         let branch_prep = ctx.gen.gen("branch_prep");
         let no_branch = ctx.gen.gen("no_branch");
-        gen_test(ctx, test, branch_prep.clone(), credits);
-        ctx.rom_items.push(jump(no_branch.clone()));
+        gen_test(ctx, test, branch_prep, credits);
+        ctx.rom_items.push(jump(no_branch));
         ctx.rom_items.push(label(branch_prep));
         gen_br_inner(ctx, frame, target, height);
         ctx.rom_items.push(label(no_branch));
@@ -345,15 +339,14 @@ pub fn gen_br_if<G>(
     debts.gen(ctx);
 }
 
-pub fn gen_br_table<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+pub fn gen_br_table(
+    ctx: &mut Context,
+    frame: &mut Frame,
     br_table: &ir::BrTable,
     height: usize,
-    mut credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    mut credits: Credits,
+    debts: Debts,
+)
 {
     let default_target = frame
         .jump_targets
@@ -380,21 +373,21 @@ pub fn gen_br_table<G>(
     };
 
     let default_label = if simple_default {
-        default_target.target.clone()
+        default_target.target
     } else {
         ctx.gen.gen("brtable_default")
     };
 
     ctx.rom_items.push(jgeu(
-        test_value.clone(),
+        test_value,
         uimm(jump_table_len),
-        default_label.clone(),
+        default_label,
     ));
 
     let jump_table_label = ctx.gen.gen("jump_table");
     ctx.rom_items.push(aload(
-        imml(jump_table_label.clone()),
-        test_value.clone(),
+        imml(jump_table_label),
+        test_value,
         push(),
     ));
     ctx.rom_items.push(jumpabs(pop()));
@@ -406,10 +399,10 @@ pub fn gen_br_table<G>(
             .get(block)
             .expect("Branch target should be present on stack");
         if height - 1 == target.base + target.arity {
-            jump_table.push(target.target.clone());
+            jump_table.push(target.target);
         } else {
             let prepare = ctx.gen.gen("brtable_prepare");
-            jump_table.push(prepare.clone());
+            jump_table.push(prepare);
             ctx.rom_items.push(label(prepare));
             gen_br_inner(ctx, frame, target, height - 1);
         }
@@ -429,16 +422,15 @@ pub fn gen_br_table<G>(
     debts.gen(ctx)
 }
 
-pub fn gen_select<G>(
-    ctx: &mut Context<G>,
-    _frame: &mut Frame<G::Label>,
+pub fn gen_select(
+    ctx: &mut Context,
+    _frame: &mut Frame,
     test: Test,
     _select: &ir::Select,
     post_stack: &[ValType],
-    credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+    debts: Debts,
+)
 {
     let noroll = ctx.gen.gen("noroll");
     let words = vt_words(
@@ -447,7 +439,7 @@ pub fn gen_select<G>(
             .expect("Stack should not be empty after a select"),
     ) as i32;
 
-    gen_test(ctx, test, noroll.clone(), credits);
+    gen_test(ctx, test, noroll, credits);
     ctx.rom_items.push(stkroll(imm(2 * words), imm(words)));
     ctx.rom_items.push(label(noroll));
     for _ in 0..words {

@@ -2,13 +2,11 @@ use glulx_asm::concise::*;
 use walrus::{ir::Value, ConstExpr, DataKind, ElementKind};
 
 use crate::{
-    common::{reject_global_constexpr, Context, LabelGenerator},
+    common::{reject_global_constexpr, Context},
     CompilationError,
 };
 
-pub fn gen_entrypoint<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_entrypoint(ctx: &mut Context)
 {
     ctx.rom_items.push(label(ctx.layout.entrypoint()));
     ctx.rom_items.push(fnhead_local(0));
@@ -36,13 +34,13 @@ where
                 copy(imm(table_offset), push()),
                 copy(imm(0), push()),
                 copy(uimm(elem_layout.count), push()),
-                copy(derefl(elem_layout.dropped.clone()), push()),
+                copy(derefl(elem_layout.dropped), push()),
                 copy(uimm(elem_layout.count), push()),
-                copy(imml(elem_layout.addr.clone()), push()),
-                copy(derefl(table_layout.cur_count.clone()), push()),
-                copy(imml(table_layout.addr.clone()), push()),
-                call(imml(ctx.rt.table_init.clone()), imm(8), discard()),
-                copy(imm(1), storel(elem_layout.dropped.clone())),
+                copy(imml(elem_layout.addr), push()),
+                copy(derefl(table_layout.cur_count), push()),
+                copy(imml(table_layout.addr), push()),
+                call(imml(ctx.rt.table_init), imm(8), discard()),
+                copy(imm(1), storel(elem_layout.dropped)),
             );
         }
     }
@@ -69,11 +67,11 @@ where
                 copy(imm(mem_offset), push()),
                 copy(imm(0), push()),
                 copy(uimm(data_layout.size), push()),
-                copy(derefl(data_layout.dropped.clone()), push()),
+                copy(derefl(data_layout.dropped), push()),
                 copy(uimm(data_layout.size), push()),
-                copy(imml(mem_layout.addr.clone()), push()),
-                call(imml(ctx.rt.data_init.clone()), imm(6), discard()),
-                copy(imm(1), storel(data_layout.dropped.clone())),
+                copy(imml(mem_layout.addr), push()),
+                call(imml(ctx.rt.data_init), imm(6), discard()),
+                copy(imm(1), storel(data_layout.dropped)),
             );
         }
     }
@@ -96,7 +94,7 @@ where
             });
         }
 
-        let addr = ctx.layout.func(interrupt_handler).addr.clone();
+        let addr = ctx.layout.func(interrupt_handler).addr;
         push_all!(
             ctx.rom_items,
             copy(imml(addr), push()),
@@ -130,8 +128,8 @@ where
                 });
             }
 
-            let start_addr = ctx.layout.func(start).addr.clone();
-            let glulx_main_addr = ctx.layout.func(glulx_main).addr.clone();
+            let start_addr = ctx.layout.func(start).addr;
+            let glulx_main_addr = ctx.layout.func(glulx_main).addr;
             push_all!(
                 ctx.rom_items,
                 call(imml(start_addr), imm(0), discard()),
@@ -139,7 +137,7 @@ where
             );
         }
         (Some(start), _) => {
-            let start_addr = ctx.layout.func(start).addr.clone();
+            let start_addr = ctx.layout.func(start).addr;
             ctx.rom_items.push(tailcall(imml(start_addr), imm(0)));
         }
         (None, Some(glulx_main)) => {
@@ -159,7 +157,7 @@ where
                     ),
                 });
             }
-            let glulx_main_addr = ctx.layout.func(glulx_main).addr.clone();
+            let glulx_main_addr = ctx.layout.func(glulx_main).addr;
             ctx.rom_items.push(tailcall(imml(glulx_main_addr), imm(0)));
         }
         (None, None) => {

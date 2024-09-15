@@ -3,44 +3,32 @@ use std::collections::{HashMap, HashSet};
 use walrus::ir::{self, Instr, InstrSeq, InstrSeqId};
 use walrus::{LocalFunction, LocalId, ValType};
 
-use crate::common::{vt_words, Context, LabelGenerator};
+use crate::common::{vt_words, Context, Label};
 use crate::{CompilationError, OverflowLocation};
 
 use super::classify::{Block, ClassifiedInstr, Load, Loop, Other, Store};
 
-pub struct Frame<'a, L> {
+pub struct Frame<'a> {
     pub function: &'a LocalFunction,
     pub function_name: Option<&'a str>,
     pub locals: &'a HashMap<LocalId, u32>,
-    pub jump_targets: &'a mut HashMap<InstrSeqId, JumpTarget<L>>,
-    pub jump_tables: &'a mut HashMap<L, Vec<L>>,
+    pub jump_targets: &'a mut HashMap<InstrSeqId, JumpTarget>,
+    pub jump_tables: &'a mut HashMap<Label, Vec<Label>>,
 }
-pub struct JumpTarget<L> {
+pub struct JumpTarget {
     pub base: usize,
     pub arity: usize,
-    pub target: L,
+    pub target: Label,
 }
 
-#[derive(Debug, Clone)]
-pub struct Credits<L>(pub Vec<LoadOperand<L>>);
+#[derive(Debug, Clone, Default)]
+pub struct Credits(pub Vec<LoadOperand<Label>>);
 
-#[derive(Debug, Clone)]
-pub struct Debts<L>(pub Vec<StoreOperand<L>>);
+#[derive(Debug, Clone, Default)]
+pub struct Debts(pub Vec<StoreOperand<Label>>);
 
-impl<L> Default for Credits<L> {
-    fn default() -> Self {
-        Credits(Vec::new())
-    }
-}
-
-impl<L> Default for Debts<L> {
-    fn default() -> Self {
-        Debts(Vec::new())
-    }
-}
-
-impl<L> Credits<L> {
-    pub fn pop(&mut self) -> LoadOperand<L> {
+impl Credits {
+    pub fn pop(&mut self) -> LoadOperand<Label> {
         self.0.pop().unwrap_or(LoadOperand::Pop)
     }
 
@@ -48,23 +36,21 @@ impl<L> Credits<L> {
         self.0.is_empty()
     }
 
-    pub fn gen<G>(mut self, ctx: &mut Context<G>)
-    where
-        G: LabelGenerator<Label = L>,
+    pub fn gen(mut self, ctx: &mut Context)
     {
         for credit in std::mem::take(&mut self.0) {
             ctx.rom_items.push(copy(credit, push()));
         }
     }
 
-    fn prepend(mut self, mut other: Credits<L>) -> Credits<L> {
+    fn prepend(mut self, mut other: Credits) -> Credits {
         let mut credits = std::mem::take(&mut other.0);
         credits.append(&mut self.0);
         Credits(credits)
     }
 }
 
-impl<L> Drop for Credits<L> {
+impl Drop for Credits {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             assert!(
@@ -75,8 +61,8 @@ impl<L> Drop for Credits<L> {
     }
 }
 
-impl<L> Debts<L> {
-    pub fn pop(&mut self) -> StoreOperand<L> {
+impl Debts {
+    pub fn pop(&mut self) -> StoreOperand<Label> {
         self.0.pop().unwrap_or(StoreOperand::Push)
     }
 
@@ -84,23 +70,21 @@ impl<L> Debts<L> {
         self.0.is_empty()
     }
 
-    pub fn gen<G>(mut self, ctx: &mut Context<G>)
-    where
-        G: LabelGenerator<Label = L>,
+    pub fn gen(mut self, ctx: &mut Context)
     {
         while let Some(debt) = self.0.pop() {
             ctx.rom_items.push(copy(pop(), debt));
         }
     }
 
-    fn prepend(mut self, mut other: Debts<L>) -> Debts<L> {
+    fn prepend(mut self, mut other: Debts) -> Debts {
         let mut debts = std::mem::take(&mut other.0);
         debts.append(&mut self.0);
         Debts(debts)
     }
 }
 
-impl<L> Drop for Debts<L> {
+impl Drop for Debts {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             assert!(
@@ -111,13 +95,12 @@ impl<L> Drop for Debts<L> {
     }
 }
 
-pub fn gen_function<G>(
-    ctx: &mut Context<G>,
+pub fn gen_function(
+    ctx: &mut Context,
     function: &LocalFunction,
-    my_label: G::Label,
+    my_label: Label,
     function_name: Option<&str>,
-) where
-    G: LabelGenerator,
+)
 {
     let mut locals = HashMap::new();
     let mut wasm_labels = HashMap::new();
@@ -148,7 +131,7 @@ pub fn gen_function<G>(
         return;
     }
 
-    let mut frame: Frame<G::Label> = Frame {
+    let mut frame = Frame {
         function,
         function_name,
         locals: &locals,
@@ -197,14 +180,13 @@ pub fn gen_function<G>(
     }
 }
 
-fn build_locals<G>(
-    ctx: &mut Context<G>,
+fn build_locals(
+    ctx: &mut Context,
     function: &LocalFunction,
     locals: &mut HashMap<LocalId, u32>,
     ctr: &mut u32,
     instrs: &InstrSeq,
-) where
-    G: LabelGenerator,
+)
 {
     for (instr, _) in &instrs.instrs {
         match instr {
@@ -242,15 +224,14 @@ fn build_locals<G>(
     }
 }
 
-fn gen_instrseq<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn gen_instrseq(
+    ctx: &mut Context,
+    frame: &mut Frame,
     instr_seq: &InstrSeq,
     stack: &mut Vec<ValType>,
-    mut initial_credits: Credits<G::Label>,
-    mut final_debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    mut initial_credits: Credits,
+    mut final_debts: Debts,
+)
 {
     let subseqs = super::classify::subsequences(instr_seq);
     let n_subseqs = subseqs.len();
@@ -299,7 +280,6 @@ fn gen_instrseq<G>(
                             .sum();
                         if debts.0.len() > return_words {
                             debts.0.drain(0..debts.0.len() - return_words);
-                            //debts.0 = debts.0.split_off(debts.0.len() - return_words);
                         }
                         gen_copies(ctx, credits, debts);
                         ret.update_stack(ctx.module, frame.function, stack);
@@ -401,9 +381,7 @@ fn gen_instrseq<G>(
     }
 }
 
-fn gen_return<G>(ctx: &mut Context<G>, frame: &mut Frame<G::Label>)
-where
-    G: LabelGenerator,
+fn gen_return(ctx: &mut Context, frame: &mut Frame)
 {
     let rwords: u32 = ctx
         .module
@@ -420,19 +398,17 @@ where
     } else {
         let rwords_offset = 4 * (rwords - 1);
         ctx.rom_items.push(ret(derefl_off(
-            ctx.layout.hi_return().addr.clone(),
+            ctx.layout.hi_return().addr,
             rwords_offset as i32,
         )));
     }
 }
 
-fn build_credits<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn build_credits(
+    ctx: &mut Context,
+    frame: &mut Frame,
     loads: &[Load],
-) -> Credits<G::Label>
-where
-    G: LabelGenerator,
+) -> Credits
 {
     let mut credits = Vec::new();
 
@@ -467,19 +443,19 @@ where
                 match global.ty {
                     ValType::I32 | ValType::F32 | ValType::Ref(_) => {
                         assert_eq!(layout.words, 1);
-                        credits.push(derefl(layout.addr.clone()));
+                        credits.push(derefl(layout.addr));
                     }
                     ValType::I64 | ValType::F64 => {
                         assert_eq!(layout.words, 2);
-                        credits.push(derefl_off(layout.addr.clone(), 4));
-                        credits.push(derefl(layout.addr.clone()));
+                        credits.push(derefl_off(layout.addr, 4));
+                        credits.push(derefl(layout.addr));
                     }
                     ValType::V128 => {
                         assert_eq!(layout.words, 4);
-                        credits.push(derefl_off(layout.addr.clone(), 12));
-                        credits.push(derefl_off(layout.addr.clone(), 8));
-                        credits.push(derefl_off(layout.addr.clone(), 4));
-                        credits.push(derefl(layout.addr.clone()));
+                        credits.push(derefl_off(layout.addr, 12));
+                        credits.push(derefl_off(layout.addr, 8));
+                        credits.push(derefl_off(layout.addr, 4));
+                        credits.push(derefl(layout.addr));
                     }
                 }
             }
@@ -514,7 +490,7 @@ where
             }
             Load::TableSize(ir::TableSize { table: id }) => {
                 let table = ctx.layout.table(*id);
-                let addr = table.cur_count.clone();
+                let addr = table.cur_count;
                 credits.push(derefl(addr));
             }
         }
@@ -523,15 +499,13 @@ where
     Credits(credits)
 }
 
-fn build_debts<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn build_debts(
+    ctx: &mut Context,
+    frame: &mut Frame,
     mut stack: &[ValType],
     stores: &[Store],
     then_return: bool,
-) -> Debts<G::Label>
-where
-    G: LabelGenerator,
+) -> Debts
 {
     let mut debts = Vec::new();
 
@@ -580,19 +554,19 @@ where
                 match stack_type {
                     ValType::I32 | ValType::F32 | ValType::Ref(_) => {
                         assert_eq!(layout.words, 1);
-                        debts.push(storel(layout.addr.clone()));
+                        debts.push(storel(layout.addr));
                     }
                     ValType::F64 | ValType::I64 => {
                         assert_eq!(layout.words, 2);
-                        debts.push(storel(layout.addr.clone()));
-                        debts.push(storel_off(layout.addr.clone(), 4));
+                        debts.push(storel(layout.addr));
+                        debts.push(storel_off(layout.addr, 4));
                     }
                     ValType::V128 => {
                         assert_eq!(layout.words, 4);
-                        debts.push(storel(layout.addr.clone()));
-                        debts.push(storel_off(layout.addr.clone(), 4));
-                        debts.push(storel_off(layout.addr.clone(), 8));
-                        debts.push(storel_off(layout.addr.clone(), 12));
+                        debts.push(storel(layout.addr));
+                        debts.push(storel_off(layout.addr, 4));
+                        debts.push(storel_off(layout.addr, 8));
+                        debts.push(storel_off(layout.addr, 12));
                     }
                 }
             }
@@ -620,19 +594,19 @@ where
 
             match ret_type {
                 ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
                     pos += 4;
                 }
                 ValType::I64 | ValType::F64 => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 4));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 4));
                     pos += 8;
                 }
                 ValType::V128 => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos));
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 4));
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 8));
-                    debts.push(storel_off(ctx.layout.hi_return().addr.clone(), pos + 12));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 4));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 8));
+                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 12));
                     pos += 16;
                 }
             }
@@ -651,14 +625,13 @@ where
 /// when checking this that labels don't alias each other, which is safe because
 /// all labels we're dealing with here are labels of globals and those are
 /// never aliased.
-pub fn gen_copies<G>(
-    ctx: &mut Context<G>,
-    mut credits: Credits<G::Label>,
-    mut debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+pub fn gen_copies(
+    ctx: &mut Context,
+    mut credits: Credits,
+    mut debts: Debts,
+)
 {
-    let mut poisoned: HashSet<LoadOperand<G::Label>> = HashSet::new();
+    let mut poisoned: HashSet<LoadOperand<Label>> = HashSet::new();
     let mut good_pairs = Vec::new();
     while !debts.is_empty() && !credits.is_empty() {
         let load = credits.pop();
@@ -667,7 +640,7 @@ pub fn gen_copies<G>(
         let poison = match &store {
             StoreOperand::Push => unreachable!("A push operand cannot be a debt"),
             StoreOperand::Discard => None,
-            StoreOperand::DerefLabel(addr) => Some(LoadOperand::DerefLabel(addr.clone())),
+            StoreOperand::DerefLabel(addr) => Some(LoadOperand::DerefLabel(*addr)),
             StoreOperand::FrameAddr(addr) => Some(LoadOperand::FrameAddr(*addr)),
         };
 
@@ -690,14 +663,13 @@ pub fn gen_copies<G>(
     debts.gen(ctx);
 }
 
-fn gen_block<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn gen_block(
+    ctx: &mut Context,
+    frame: &mut Frame,
     block: Block,
     mut stack: Vec<ValType>,
-    credits: Credits<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+)
 {
     let (params, results) = block.stack_type(ctx.module, frame.function, stack.as_slice());
     let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
@@ -714,7 +686,7 @@ fn gen_block<G>(
                 JumpTarget {
                     base,
                     arity,
-                    target: target.clone(),
+                    target,
                 },
             );
             let seq = frame.function.block(*id);
@@ -732,7 +704,7 @@ fn gen_block<G>(
                 JumpTarget {
                     base,
                     arity,
-                    target: target.clone(),
+                    target,
                 },
             );
             frame.jump_targets.insert(
@@ -740,11 +712,11 @@ fn gen_block<G>(
                 JumpTarget {
                     base,
                     arity,
-                    target: target.clone(),
+                    target,
                 },
             );
             let test_target = ctx.gen.gen("consequent");
-            super::control::gen_test(ctx, *test, test_target.clone(), credits);
+            super::control::gen_test(ctx, *test, test_target, credits);
             test.update_stack(ctx.module, frame.function, &mut stack);
             let mut cloned_stack = stack.clone();
             let alternative = frame.function.block(*aid);
@@ -756,7 +728,7 @@ fn gen_block<G>(
                 Credits::default(),
                 Debts::default(),
             );
-            ctx.rom_items.push(jump(target.clone()));
+            ctx.rom_items.push(jump(target));
             ctx.rom_items.push(label(test_target));
             let consequent = frame.function.block(*cid);
             gen_instrseq(
@@ -773,14 +745,13 @@ fn gen_block<G>(
     ctx.rom_items.push(label(target));
 }
 
-fn gen_loop<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn gen_loop(
+    ctx: &mut Context,
+    frame: &mut Frame,
     looop: Loop,
     mut stack: Vec<ValType>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    debts: Debts,
+)
 {
     let Loop::Loop(ir::Loop { seq: id }) = looop;
     let seq = frame.function.block(id);
@@ -795,23 +766,22 @@ fn gen_loop<G>(
         JumpTarget {
             base,
             arity,
-            target: target.clone(),
+            target,
         },
     );
     ctx.rom_items.push(label(target));
     gen_instrseq(ctx, frame, seq, &mut stack, Credits::default(), debts);
 }
 
-fn gen_other<G>(
-    ctx: &mut Context<G>,
-    frame: &mut Frame<G::Label>,
+fn gen_other(
+    ctx: &mut Context,
+    frame: &mut Frame,
     other: Other,
     pre_height: usize,
     post_stack: &[ValType],
-    credits: Credits<G::Label>,
-    debts: Debts<G::Label>,
-) where
-    G: LabelGenerator,
+    credits: Credits,
+    debts: Debts,
+)
 {
     match &other {
         Other::Br(br) => {

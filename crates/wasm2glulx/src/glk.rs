@@ -104,9 +104,7 @@ fn get_glk_function(name: &str) -> Option<GlkFunction> {
 }
 
 impl GlkFunction {
-    fn codegen<G>(&self, ctx: &mut Context<G>, my_label: G::Label)
-    where
-        G: LabelGenerator,
+    fn codegen(&self, ctx: &mut Context, my_label: Label)
     {
         use glulx_asm::concise::*;
         let nargs: u32 = self.params.len().try_into().unwrap();
@@ -123,40 +121,40 @@ impl GlkFunction {
                 }
                 GlkParam::ByteArrayPtr(_) | GlkParam::Lat1Ptr => {
                     ctx.rom_items
-                        .push(add(lloc(num), imml(mem.addr.clone()), push()));
+                        .push(add(lloc(num), imml(mem.addr), push()));
                 }
                 GlkParam::ScalarPtr(n) => {
                     ctx.rom_items.push(callfii(
-                        imml(ctx.rt.swaparray.clone()),
+                        imml(ctx.rt.swaparray),
                         lloc(num),
                         uimm(n),
                         discard(),
                     ));
                     ctx.rom_items
-                        .push(add(lloc(num), imml(mem.addr.clone()), push()));
+                        .push(add(lloc(num), imml(mem.addr), push()));
                 }
                 GlkParam::WordArrayPtr(sizearg) => {
                     ctx.rom_items.push(callfii(
-                        imml(ctx.rt.swaparray.clone()),
+                        imml(ctx.rt.swaparray),
                         lloc(num),
                         lloc(sizearg),
                         discard(),
                     ));
                     ctx.rom_items
-                        .push(add(lloc(num), imml(mem.addr.clone()), push()));
+                        .push(add(lloc(num), imml(mem.addr), push()));
                 }
                 GlkParam::UnicodePtr => {
                     ctx.rom_items.push(callfi(
-                        imml(ctx.rt.swapunistr.clone()),
+                        imml(ctx.rt.swapunistr),
                         lloc(num),
                         discard(),
                     ));
                     ctx.rom_items
-                        .push(add(lloc(num), imml(mem.addr.clone()), push()));
+                        .push(add(lloc(num), imml(mem.addr), push()));
                 }
                 GlkParam::OwnedByteArrayPtr(_) | GlkParam::OwnedWordArrayPtr(_) => {
                     ctx.rom_items
-                        .push(add(lloc(num), imml(glk_area.addr.clone()), push()));
+                        .push(add(lloc(num), imml(glk_area.addr), push()));
                 }
             }
         }
@@ -170,7 +168,7 @@ impl GlkFunction {
             match param {
                 GlkParam::ScalarPtr(n) => {
                     ctx.rom_items.push(callfii(
-                        imml(ctx.rt.swaparray.clone()),
+                        imml(ctx.rt.swaparray),
                         lloc(num),
                         uimm(n),
                         discard(),
@@ -178,7 +176,7 @@ impl GlkFunction {
                 }
                 GlkParam::WordArrayPtr(sizearg) => {
                     ctx.rom_items.push(callfii(
-                        imml(ctx.rt.swaparray.clone()),
+                        imml(ctx.rt.swaparray),
                         lloc(num),
                         lloc(sizearg),
                         discard(),
@@ -186,7 +184,7 @@ impl GlkFunction {
                 }
                 GlkParam::UnicodePtr => {
                     ctx.rom_items.push(callfi(
-                        imml(ctx.rt.swapunistr.clone()),
+                        imml(ctx.rt.swapunistr),
                         lloc(num),
                         discard(),
                     ));
@@ -202,9 +200,7 @@ impl GlkFunction {
     }
 }
 
-pub fn gen_glk<G>(ctx: &mut Context<G>, imported_func: &ImportedFunction, label: G::Label)
-where
-    G: LabelGenerator,
+pub fn gen_glk(ctx: &mut Context, imported_func: &ImportedFunction, label: Label)
 {
     let import = ctx.module.imports.get(imported_func.import);
     let name = &import.name;

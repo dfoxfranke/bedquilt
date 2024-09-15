@@ -2,83 +2,79 @@ use crate::common::*;
 use glulx_asm::concise::*;
 
 use bytes::{BufMut, BytesMut};
-pub struct RuntimeLabels<L> {
-    pub swap: L,
-    pub swaps: L,
-    pub memload64: L,
-    pub memload32: L,
-    pub memload16: L,
-    pub memload8: L,
-    pub memstore64: L,
-    pub memstore32: L,
-    pub memstore16: L,
-    pub memstore8: L,
-    pub swaparray: L,
-    pub swapunistr: L,
-    pub divu: L,
-    pub remu: L,
-    pub rotl: L,
-    pub rotr: L,
-    pub clz: L,
-    pub ctz: L,
-    pub popcnt: L,
-    pub eqz: L,
-    pub eq: L,
-    pub ne: L,
-    pub lt: L,
-    pub ltu: L,
-    pub gt: L,
-    pub gtu: L,
-    pub le: L,
-    pub leu: L,
-    pub ge: L,
-    pub geu: L,
-    pub add64: L,
-    pub sub64: L,
-    pub mul64: L,
+pub struct RuntimeLabels {
+    pub swap: Label,
+    pub swaps: Label,
+    pub memload64: Label,
+    pub memload32: Label,
+    pub memload16: Label,
+    pub memload8: Label,
+    pub memstore64: Label,
+    pub memstore32: Label,
+    pub memstore16: Label,
+    pub memstore8: Label,
+    pub swaparray: Label,
+    pub swapunistr: Label,
+    pub divu: Label,
+    pub remu: Label,
+    pub rotl: Label,
+    pub rotr: Label,
+    pub clz: Label,
+    pub ctz: Label,
+    pub popcnt: Label,
+    pub eqz: Label,
+    pub eq: Label,
+    pub ne: Label,
+    pub lt: Label,
+    pub ltu: Label,
+    pub gt: Label,
+    pub gtu: Label,
+    pub le: Label,
+    pub leu: Label,
+    pub ge: Label,
+    pub geu: Label,
+    pub add64: Label,
+    pub sub64: Label,
+    pub mul64: Label,
     #[allow(dead_code)]
-    pub div64: L,
+    pub div64: Label,
     #[allow(dead_code)]
-    pub divu64: L,
+    pub divu64: Label,
     #[allow(dead_code)]
-    pub rem64: L,
+    pub rem64: Label,
     #[allow(dead_code)]
-    pub remu64: L,
-    pub and64: L,
-    pub or64: L,
-    pub xor64: L,
-    pub shl64: L,
-    pub shr64: L,
-    pub shru64: L,
-    pub rotl64: L,
-    pub rotr64: L,
-    pub eqz64: L,
-    pub eq64: L,
-    pub ne64: L,
-    pub lt64: L,
-    pub ltu64: L,
-    pub gt64: L,
-    pub gtu64: L,
-    pub le64: L,
-    pub leu64: L,
-    pub ge64: L,
-    pub geu64: L,
-    pub clz64: L,
-    pub ctz64: L,
-    pub popcnt64: L,
-    pub trap: L,
-    pub trapjump: L,
-    pub table_init: L,
-    pub data_init: L,
+    pub remu64: Label,
+    pub and64: Label,
+    pub or64: Label,
+    pub xor64: Label,
+    pub shl64: Label,
+    pub shr64: Label,
+    pub shru64: Label,
+    pub rotl64: Label,
+    pub rotr64: Label,
+    pub eqz64: Label,
+    pub eq64: Label,
+    pub ne64: Label,
+    pub lt64: Label,
+    pub ltu64: Label,
+    pub gt64: Label,
+    pub gtu64: Label,
+    pub le64: Label,
+    pub leu64: Label,
+    pub ge64: Label,
+    pub geu64: Label,
+    pub clz64: Label,
+    pub ctz64: Label,
+    pub popcnt64: Label,
+    pub trap: Label,
+    pub trapjump: Label,
+    pub table_init: Label,
+    pub data_init: Label,
 }
 
-impl<L> RuntimeLabels<L>
-where
-    L: Clone,
+impl RuntimeLabels
 {
-    pub fn new<G>(gen: &mut G) -> Self
-    where
-        G: LabelGenerator<Label = L>,
+    pub fn new(gen: &mut LabelGenerator) -> Self
     {
         let trap = gen.gen("rt_trap");
 
@@ -120,10 +116,10 @@ where
             //divu64: gen.gen("rt_divu64"),
             //rem64: gen.gen("rt_rem64"),
             //remu64: gen.gen("rt_remu64"),
-            div64: trap.clone(),
-            divu64: trap.clone(),
-            rem64: trap.clone(),
-            remu64: trap.clone(),
+            div64: trap,
+            divu64: trap,
+            rem64: trap,
+            remu64: trap,
             and64: gen.gen("rt_and64"),
             or64: gen.gen("rt_or64"),
             xor64: gen.gen("rt_xor64"),
@@ -154,13 +150,11 @@ where
     }
 }
 
-fn gen_swap<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_swap(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.swap.clone()),
+        label(ctx.rt.swap),
         fnhead_local(1),
         shiftl(lloc(0), imm(16), push()),
         ushiftr(lloc(0), imm(16), push()),
@@ -174,13 +168,11 @@ where
     );
 }
 
-fn gen_swaps<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_swaps(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.swaps.clone()),
+        label(ctx.rt.swaps),
         fnhead_local(1),
         bitand(lloc(0), uimm(0xff00ff00), push()),
         ushiftr(pop(), imm(8), push()),
@@ -191,84 +183,74 @@ where
     );
 }
 
-fn gen_memload64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memload64(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memload64.clone()),
+        label(ctx.rt.memload64),
         fnhead_local(1),
         add(lloc(0), imm(1), push()),
         aload(
             pop(),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
         callfi(
-            imml(ctx.rt.swap.clone()),
+            imml(ctx.rt.swap),
             pop(),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         aload(
             lloc(0),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
-        tailcall(imml(ctx.rt.swap.clone()), imm(1)),
+        tailcall(imml(ctx.rt.swap), imm(1)),
     )
 }
 
-fn gen_memload32<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memload32(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memload32.clone()),
+        label(ctx.rt.memload32),
         fnhead_local(1),
         aload(
             lloc(0),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
-        tailcall(imml(ctx.rt.swap.clone()), imm(1)),
+        tailcall(imml(ctx.rt.swap), imm(1)),
     );
 }
 
-fn gen_memload16<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memload16(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memload16.clone()),
+        label(ctx.rt.memload16),
         fnhead_local(1),
         aloads(
             lloc(0),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 1),
+            imml_off_shift(ctx.layout.memory().addr, 0, 1),
             push()
         ),
-        tailcall(imml(ctx.rt.swaps.clone()), imm(1)),
+        tailcall(imml(ctx.rt.swaps), imm(1)),
     );
 }
 
-fn gen_memload8<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memload8(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memload8.clone()),
+        label(ctx.rt.memload8),
         fnhead_local(1),
-        aloadb(lloc(0), imml(ctx.layout.memory().addr.clone()), push()),
+        aloadb(lloc(0), imml(ctx.layout.memory().addr), push()),
         ret(pop()),
     );
 }
 
-fn gen_memstore64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memstore64(ctx: &mut Context)
 {
     let addr = 0;
     let val_hi = 1;
@@ -276,90 +258,82 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memstore64.clone()),
+        label(ctx.rt.memstore64),
         fnhead_local(3),
-        callfi(imml(ctx.rt.swap.clone()), lloc(val_lo), push()),
+        callfi(imml(ctx.rt.swap), lloc(val_lo), push()),
         astore(
             lloc(addr),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
-        callfi(imml(ctx.rt.swap.clone()), lloc(val_hi), push()),
+        callfi(imml(ctx.rt.swap), lloc(val_hi), push()),
         add(lloc(addr), imm(1), push()),
         astore(
             pop(),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
         ret(imm(0)),
     );
 }
 
-fn gen_memstore32<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memstore32(ctx: &mut Context)
 {
     let addr = 0;
     let val = 1;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memstore32.clone()),
+        label(ctx.rt.memstore32),
         fnhead_local(2),
-        callfi(imml(ctx.rt.swap.clone()), lloc(val), push()),
+        callfi(imml(ctx.rt.swap), lloc(val), push()),
         astore(
             lloc(addr),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
         ret(imm(0)),
     );
 }
 
-fn gen_memstore16<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memstore16(ctx: &mut Context)
 {
     let addr = 0;
     let val = 1;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memstore16.clone()),
+        label(ctx.rt.memstore16),
         fnhead_local(2),
-        callfi(imml(ctx.rt.swaps.clone()), lloc(val), push()),
+        callfi(imml(ctx.rt.swaps), lloc(val), push()),
         astores(
             lloc(addr),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 1),
+            imml_off_shift(ctx.layout.memory().addr, 0, 1),
             pop()
         ),
         ret(imm(0)),
     );
 }
 
-fn gen_memstore8<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_memstore8(ctx: &mut Context)
 {
     let addr = 0;
     let val = 1;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.memstore8.clone()),
+        label(ctx.rt.memstore8),
         fnhead_local(2),
         astore(
             lloc(addr),
-            imml(ctx.layout.memory().addr.clone()),
+            imml(ctx.layout.memory().addr),
             lloc(val)
         ),
         ret(imm(0)),
     );
 }
 
-fn gen_swaparray<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_swaparray(ctx: &mut Context)
 {
     let arraybase = 0;
     let arraylen = 1;
@@ -369,19 +343,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.swaparray.clone()),
+        label(ctx.rt.swaparray),
         fnhead_local(3),
-        label(loop_head.clone()),
-        jz(lloc(arraylen), loop_end.clone()),
+        label(loop_head),
+        jz(lloc(arraylen), loop_end),
         aload(
             lloc(arraybase),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
-        callfi(imml(ctx.rt.swap.clone()), pop(), push()),
+        callfi(imml(ctx.rt.swap), pop(), push()),
         astore(
             lloc(arraybase),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
         add(lloc(arraybase), imm(4), sloc(arraybase)),
@@ -392,9 +366,7 @@ where
     );
 }
 
-fn gen_swapunistr<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_swapunistr(ctx: &mut Context)
 {
     let arraybase = 0;
     let curword = 1;
@@ -404,19 +376,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.swapunistr.clone()),
+        label(ctx.rt.swapunistr),
         fnhead_local(2),
-        label(loop_head.clone()),
+        label(loop_head),
         aload(
             lloc(arraybase),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             sloc(curword)
         ),
-        jz(lloc(curword), loop_end.clone()),
-        callfi(imml(ctx.rt.swap.clone()), lloc(curword), push()),
+        jz(lloc(curword), loop_end),
+        callfi(imml(ctx.rt.swap), lloc(curword), push()),
         astore(
             lloc(arraybase),
-            imml_off_shift(ctx.layout.memory().addr.clone(), 0, 2),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
         add(lloc(arraybase), imm(4), sloc(arraybase)),
@@ -426,9 +398,7 @@ where
     );
 }
 
-fn gen_divu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_divu(ctx: &mut Context)
 {
     let divs = ctx.gen.gen("divu_divs");
     let div1 = ctx.gen.gen("divu_div1");
@@ -444,7 +414,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.divu.clone()),
+        label(ctx.rt.divu),
         fnhead_local(7),
         // If d > n, quotient is 0
         jgtu_ret(lloc(d), lloc(n), false),
@@ -452,10 +422,10 @@ where
         // So the quotient must be 1.
         jlt_ret(lloc(d), imm(0), true),
         // d is at most 31 bits. If n also fits in 31 bits, just do signed division.
-        jge(lloc(n), imm(0), divs.clone()),
+        jge(lloc(n), imm(0), divs),
         // Treat division by 1 as a special case so that afterward we can assume
         // 1 / d = 0 and 1 % d = 1.
-        jeq(lloc(d), imm(1), div1.clone()),
+        jeq(lloc(d), imm(1), div1),
         // We have 32-bit n, sub-32-bit d. This is the hard case. Break up n =
         // (n & 0x7fffffff + 0x7fffffff + 1). Take the sum of the quotients,
         // then add 1 if the sum of the remainders > 1.
@@ -471,7 +441,7 @@ where
         add(pop(), imm(1), push()),
         // If the remainder sum >= n, add 1 to the quotient sum, otherwise
         // don't. Either way, that's our result.
-        jltu(pop(), lloc(n), dont_add1.clone()),
+        jltu(pop(), lloc(n), dont_add1),
         add(pop(), imm(1), push()),
         label(dont_add1),
         ret(pop()),
@@ -485,28 +455,24 @@ where
     );
 }
 
-fn gen_remu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_remu(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.remu.clone()),
+        label(ctx.rt.remu),
         fnhead_local(2),
-        callfii(imml(ctx.rt.divu.clone()), lloc(0), lloc(1), push()),
+        callfii(imml(ctx.rt.divu), lloc(0), lloc(1), push()),
         mul(pop(), lloc(1), push()),
         sub(lloc(0), pop(), push()),
         ret(pop())
     )
 }
 
-fn gen_rotl<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_rotl(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.rotl.clone()),
+        label(ctx.rt.rotl),
         fnhead_local(2),
         bitand(lloc(1), imm(0x1f), sloc(1)),
         shiftl(lloc(0), lloc(1), push()),
@@ -517,13 +483,11 @@ where
     )
 }
 
-fn gen_rotr<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_rotr(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.rotr.clone()),
+        label(ctx.rt.rotr),
         fnhead_local(2),
         bitand(lloc(1), imm(0x1f), sloc(1)),
         ushiftr(lloc(0), lloc(1), push()),
@@ -534,9 +498,7 @@ where
     )
 }
 
-fn gen_clz<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_clz(ctx: &mut Context)
 {
     let lead8 = ctx.gen.gen("clz_lead8");
     let lead16 = ctx.gen.gen("clz_lead16");
@@ -555,26 +517,26 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.clz.clone()),
+        label(ctx.rt.clz),
         fnhead_local(2),
         ushiftr(lloc(0), imm(24), sloc(1)),
-        jz(lloc(1), lead8.clone()),
-        aloadb(imml(clz_table.clone()), lloc(1), push()),
+        jz(lloc(1), lead8),
+        aloadb(imml(clz_table), lloc(1), push()),
         ret(pop()),
         label(lead8),
         ushiftr(lloc(0), imm(16), sloc(1)),
-        jz(lloc(1), lead16.clone()),
-        aloadb(imml(clz_table.clone()), lloc(1), push()),
+        jz(lloc(1), lead16),
+        aloadb(imml(clz_table), lloc(1), push()),
         add(pop(), imm(8), push()),
         ret(pop()),
         label(lead16),
         ushiftr(lloc(0), imm(8), sloc(1)),
-        jz(lloc(1), lead24.clone()),
-        aloadb(imml(clz_table.clone()), lloc(1), push()),
+        jz(lloc(1), lead24),
+        aloadb(imml(clz_table), lloc(1), push()),
         add(pop(), imm(16), push()),
         ret(pop()),
         label(lead24),
-        aloadb(imml(clz_table.clone()), lloc(0), push()),
+        aloadb(imml(clz_table), lloc(0), push()),
         add(pop(), imm(24), push()),
         ret(pop()),
         label(clz_table),
@@ -582,9 +544,7 @@ where
     )
 }
 
-fn gen_ctz<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ctz(ctx: &mut Context)
 {
     let trail8 = ctx.gen.gen("ctz_trail8");
     let trail16 = ctx.gen.gen("ctz_trail16");
@@ -603,29 +563,29 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ctz.clone()),
+        label(ctx.rt.ctz),
         fnhead_local(2),
         bitand(lloc(0), imm(0xff), sloc(1)),
-        jz(lloc(1), trail8.clone()),
-        aloadb(imml(ctz_table.clone()), lloc(1), push()),
+        jz(lloc(1), trail8),
+        aloadb(imml(ctz_table), lloc(1), push()),
         ret(pop()),
         label(trail8),
         ushiftr(lloc(0), imm(8), push()),
         bitand(pop(), imm(0xff), sloc(1)),
-        jz(lloc(1), trail16.clone()),
-        aloadb(imml(ctz_table.clone()), lloc(1), push()),
+        jz(lloc(1), trail16),
+        aloadb(imml(ctz_table), lloc(1), push()),
         add(pop(), imm(8), push()),
         ret(pop()),
         label(trail16),
         ushiftr(lloc(0), imm(16), push()),
         bitand(pop(), imm(0xff), sloc(1)),
-        jz(lloc(1), trail24.clone()),
-        aloadb(imml(ctz_table.clone()), lloc(1), push()),
+        jz(lloc(1), trail24),
+        aloadb(imml(ctz_table), lloc(1), push()),
         add(pop(), imm(16), push()),
         ret(pop()),
         label(trail24),
         ushiftr(lloc(0), imm(24), push()),
-        aloadb(imml(ctz_table.clone()), pop(), push()),
+        aloadb(imml(ctz_table), pop(), push()),
         add(pop(), imm(24), push()),
         ret(pop()),
         label(ctz_table),
@@ -633,9 +593,7 @@ where
     );
 }
 
-fn gen_popcnt<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_popcnt(ctx: &mut Context)
 {
     let popcnt_table = ctx.gen.gen("popcnt_table");
     let mut table_bytes = BytesMut::with_capacity(256);
@@ -650,20 +608,20 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.popcnt.clone()),
+        label(ctx.rt.popcnt),
         fnhead_local(1),
         bitand(lloc(0), imm(0xff), push()),
-        aloadb(imml(popcnt_table.clone()), pop(), push()),
+        aloadb(imml(popcnt_table), pop(), push()),
         ushiftr(lloc(0), imm(8), push()),
         bitand(pop(), imm(0xff), push()),
-        aloadb(imml(popcnt_table.clone()), pop(), push()),
+        aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
         ushiftr(lloc(0), imm(16), push()),
         bitand(pop(), imm(0xff), push()),
-        aloadb(imml(popcnt_table.clone()), pop(), push()),
+        aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
         ushiftr(lloc(0), imm(24), push()),
-        aloadb(imml(popcnt_table.clone()), pop(), push()),
+        aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
         ret(pop()),
         label(popcnt_table),
@@ -671,152 +629,128 @@ where
     );
 }
 
-fn gen_eqz<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_eqz(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.eqz.clone()),
+        label(ctx.rt.eqz),
         fnhead_local(1),
         jz_ret(lloc(0), true),
         ret(imm(0))
     )
 }
 
-fn gen_eq<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_eq(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.eq.clone()),
+        label(ctx.rt.eq),
         fnhead_local(2),
         jeq_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_ne<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ne(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ne.clone()),
+        label(ctx.rt.ne),
         fnhead_local(2),
         jne_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_lt<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_lt(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.lt.clone()),
+        label(ctx.rt.lt),
         fnhead_local(2),
         jlt_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_ltu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ltu(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ltu.clone()),
+        label(ctx.rt.ltu),
         fnhead_local(2),
         jltu_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_le<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_le(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.le.clone()),
+        label(ctx.rt.le),
         fnhead_local(2),
         jle_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_leu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_leu(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.leu.clone()),
+        label(ctx.rt.leu),
         fnhead_local(2),
         jleu_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_gt<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_gt(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.gt.clone()),
+        label(ctx.rt.gt),
         fnhead_local(2),
         jgt_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_gtu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_gtu(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.gtu.clone()),
+        label(ctx.rt.gtu),
         fnhead_local(2),
         jgtu_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_ge<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ge(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ge.clone()),
+        label(ctx.rt.ge),
         fnhead_local(2),
         jge_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_geu<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_geu(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.geu.clone()),
+        label(ctx.rt.geu),
         fnhead_local(2),
         jgeu_ret(lloc(0), lloc(1), true),
         ret(imm(0))
     )
 }
 
-fn gen_add64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_add64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -829,21 +763,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.add64.clone()),
+        label(ctx.rt.add64),
         fnhead_local(6),
         add(lloc(x_lo), lloc(y_lo), sloc(sum_lo)),
         add(lloc(x_hi), lloc(y_hi), sloc(sum_hi)),
-        jgeu(lloc(sum_lo), lloc(x_lo), nocarry.clone()),
+        jgeu(lloc(sum_lo), lloc(x_lo), nocarry),
         add(lloc(sum_hi), imm(1), sloc(sum_hi)),
         label(nocarry),
-        copy(lloc(sum_hi), storel(ctx.layout.hi_return().addr.clone())),
+        copy(lloc(sum_hi), storel(ctx.layout.hi_return().addr)),
         ret(lloc(sum_lo)),
     );
 }
 
-fn gen_sub64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_sub64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -856,21 +788,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.sub64.clone()),
+        label(ctx.rt.sub64),
         fnhead_local(6),
         sub(lloc(x_lo), lloc(y_lo), sloc(diff_lo)),
         sub(lloc(x_hi), lloc(y_hi), sloc(diff_lo)),
-        jleu(lloc(diff_lo), lloc(x_lo), noborrow.clone()),
+        jleu(lloc(diff_lo), lloc(x_lo), noborrow),
         sub(lloc(diff_hi), imm(1), sloc(diff_hi)),
         label(noborrow),
-        copy(lloc(diff_hi), storel(ctx.layout.hi_return().addr.clone())),
+        copy(lloc(diff_hi), storel(ctx.layout.hi_return().addr)),
         ret(lloc(diff_lo)),
     );
 }
 
-fn gen_mul64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_mul64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -889,7 +819,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.mul64.clone()),
+        label(ctx.rt.mul64),
         fnhead_local(11),
         ushiftr(lloc(x_lo), imm(16), sloc(x_lohi)),
         bitand(lloc(x_lo), imm(0xffff), sloc(x_lolo)),
@@ -919,14 +849,12 @@ where
         mul(lloc(x_lo), lloc(y_hi), push()),
         add(pop(), pop(), push()),
         add(lloc(out_hi), pop(), sloc(out_hi)),
-        copy(lloc(out_hi), storel(ctx.layout.hi_return().addr.clone())),
+        copy(lloc(out_hi), storel(ctx.layout.hi_return().addr)),
         ret(lloc(out_lo)),
     )
 }
 
-fn gen_and64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_and64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -935,21 +863,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.and64.clone()),
+        label(ctx.rt.and64),
         fnhead_local(4),
         bitand(
             lloc(x_hi),
             lloc(y_hi),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         bitand(lloc(x_lo), lloc(y_lo), push()),
         ret(pop())
     );
 }
 
-fn gen_or64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_or64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -958,21 +884,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.or64.clone()),
+        label(ctx.rt.or64),
         fnhead_local(4),
         bitor(
             lloc(x_hi),
             lloc(y_hi),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         bitor(lloc(x_lo), lloc(y_lo), push()),
         ret(pop())
     );
 }
 
-fn gen_xor64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_xor64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -981,21 +905,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.xor64.clone()),
+        label(ctx.rt.xor64),
         fnhead_local(4),
         bitxor(
             lloc(x_hi),
             lloc(y_hi),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         bitxor(lloc(x_lo), lloc(y_lo), push()),
         ret(pop())
     );
 }
 
-fn gen_shl64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_shl64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1005,16 +927,16 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.shl64.clone()),
+        label(ctx.rt.shl64),
         fnhead_local(3),
-        jgeu(lloc(r), imm(32), shift32.clone()),
+        jgeu(lloc(r), imm(32), shift32),
         shiftl(lloc(x_hi), lloc(r), sloc(x_hi)),
         sub(imm(32), lloc(r), push()),
         ushiftr(lloc(x_lo), pop(), push()),
         bitor(
             lloc(x_hi),
             pop(),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         shiftl(lloc(x_lo), lloc(r), push()),
         ret(pop()),
@@ -1023,15 +945,13 @@ where
         shiftl(
             lloc(x_lo),
             pop(),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         ret(imm(0)),
     )
 }
 
-fn gen_shr64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_shr64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1041,13 +961,13 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.shr64.clone()),
+        label(ctx.rt.shr64),
         fnhead_local(3),
-        jgeu(lloc(r), imm(32), shift32.clone()),
+        jgeu(lloc(r), imm(32), shift32),
         sshiftr(
             lloc(x_hi),
             lloc(r),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         ushiftr(lloc(x_lo), lloc(r), sloc(x_lo)),
         sub(imm(32), lloc(r), push()),
@@ -1056,16 +976,14 @@ where
         ret(pop()),
         label(shift32),
         sshiftr(lloc(x_hi), imm(31), push()),
-        copy(pop(), storel(ctx.layout.hi_return().addr.clone())),
+        copy(pop(), storel(ctx.layout.hi_return().addr)),
         sub(lloc(r), imm(32), push()),
         sshiftr(lloc(x_hi), pop(), push()),
         ret(pop()),
     )
 }
 
-fn gen_shru64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_shru64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1075,13 +993,13 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.shru64.clone()),
+        label(ctx.rt.shru64),
         fnhead_local(3),
-        jgeu(lloc(r), imm(32), shift32.clone()),
+        jgeu(lloc(r), imm(32), shift32),
         ushiftr(
             lloc(x_hi),
             lloc(r),
-            storel(ctx.layout.hi_return().addr.clone())
+            storel(ctx.layout.hi_return().addr)
         ),
         ushiftr(lloc(x_lo), lloc(r), sloc(x_lo)),
         sub(imm(32), lloc(r), push()),
@@ -1089,16 +1007,14 @@ where
         bitor(lloc(x_lo), pop(), push()),
         ret(pop()),
         label(shift32),
-        copy(imm(0), storel(ctx.layout.hi_return().addr.clone())),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
         sub(lloc(r), imm(32), push()),
         ushiftr(lloc(x_hi), pop(), push()),
         ret(pop()),
     )
 }
 
-fn gen_rotl64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_rotl64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1108,23 +1024,23 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.rotl64.clone()),
+        label(ctx.rt.rotl64),
         fnhead_local(5),
         bitand(lloc(r), imm(0x3f), sloc(r)),
         callfiii(
-            imml(ctx.rt.shl64.clone()),
+            imml(ctx.rt.shl64),
             lloc(x_hi),
             lloc(x_lo),
             lloc(r),
             sloc(x_lo_shifted)
         ),
         copy(
-            derefl(ctx.layout.hi_return().addr.clone()),
+            derefl(ctx.layout.hi_return().addr),
             sloc(x_hi_shifted)
         ),
         sub(imm(64), lloc(r), push()),
         callfiii(
-            imml(ctx.rt.shru64.clone()),
+            imml(ctx.rt.shru64),
             lloc(x_hi),
             lloc(x_lo),
             pop(),
@@ -1132,17 +1048,15 @@ where
         ),
         bitor(
             lloc(x_hi_shifted),
-            derefl(ctx.layout.hi_return().addr.clone()),
-            storel(ctx.layout.hi_return().addr.clone())
+            derefl(ctx.layout.hi_return().addr),
+            storel(ctx.layout.hi_return().addr)
         ),
         bitor(lloc(x_lo_shifted), pop(), push()),
         ret(pop()),
     );
 }
 
-fn gen_rotr64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_rotr64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1152,23 +1066,23 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.rotr64.clone()),
+        label(ctx.rt.rotr64),
         fnhead_local(5),
         bitand(lloc(r), imm(0x3f), sloc(r)),
         callfiii(
-            imml(ctx.rt.shru64.clone()),
+            imml(ctx.rt.shru64),
             lloc(x_hi),
             lloc(x_lo),
             lloc(r),
             sloc(x_lo_shifted)
         ),
         copy(
-            derefl(ctx.layout.hi_return().addr.clone()),
+            derefl(ctx.layout.hi_return().addr),
             sloc(x_hi_shifted)
         ),
         sub(imm(64), lloc(r), push()),
         callfiii(
-            imml(ctx.rt.shl64.clone()),
+            imml(ctx.rt.shl64),
             lloc(x_hi),
             lloc(x_lo),
             pop(),
@@ -1176,24 +1090,22 @@ where
         ),
         bitor(
             lloc(x_hi_shifted),
-            derefl(ctx.layout.hi_return().addr.clone()),
-            storel(ctx.layout.hi_return().addr.clone())
+            derefl(ctx.layout.hi_return().addr),
+            storel(ctx.layout.hi_return().addr)
         ),
         bitor(lloc(x_lo_shifted), pop(), push()),
         ret(pop()),
     );
 }
 
-fn gen_eqz64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_eqz64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.eqz64.clone()),
+        label(ctx.rt.eqz64),
         fnhead_local(2),
         jnz_ret(lloc(x_hi), false),
         jnz_ret(lloc(x_lo), false),
@@ -1201,9 +1113,7 @@ where
     );
 }
 
-fn gen_eq64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_eq64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1212,7 +1122,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.eq64.clone()),
+        label(ctx.rt.eq64),
         fnhead_local(4),
         jne_ret(lloc(x_hi), lloc(y_hi), false),
         jne_ret(lloc(x_lo), lloc(y_lo), false),
@@ -1220,9 +1130,7 @@ where
     );
 }
 
-fn gen_ne64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ne64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1231,7 +1139,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ne64.clone()),
+        label(ctx.rt.ne64),
         fnhead_local(4),
         jne_ret(lloc(x_hi), lloc(y_hi), true),
         jne_ret(lloc(x_lo), lloc(y_lo), true),
@@ -1239,9 +1147,7 @@ where
     );
 }
 
-fn gen_lt64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_lt64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1250,7 +1156,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.lt64.clone()),
+        label(ctx.rt.lt64),
         fnhead_local(4),
         jlt_ret(lloc(x_hi), lloc(y_hi), true),
         jlt_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1259,9 +1165,7 @@ where
     );
 }
 
-fn gen_ltu64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ltu64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1270,7 +1174,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ltu64.clone()),
+        label(ctx.rt.ltu64),
         fnhead_local(4),
         jltu_ret(lloc(x_hi), lloc(y_hi), true),
         jltu_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1279,9 +1183,7 @@ where
     );
 }
 
-fn gen_gt64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_gt64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1290,7 +1192,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.gt64.clone()),
+        label(ctx.rt.gt64),
         fnhead_local(4),
         jgt_ret(lloc(x_hi), lloc(y_hi), true),
         jgt_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1299,9 +1201,7 @@ where
     );
 }
 
-fn gen_gtu64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_gtu64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1310,7 +1210,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.gtu64.clone()),
+        label(ctx.rt.gtu64),
         fnhead_local(4),
         jgtu_ret(lloc(x_hi), lloc(y_hi), true),
         jgtu_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1319,9 +1219,7 @@ where
     );
 }
 
-fn gen_le64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_le64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1330,7 +1228,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.le64.clone()),
+        label(ctx.rt.le64),
         fnhead_local(4),
         jlt_ret(lloc(x_hi), lloc(y_hi), true),
         jlt_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1339,9 +1237,7 @@ where
     );
 }
 
-fn gen_leu64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_leu64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1350,7 +1246,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.leu64.clone()),
+        label(ctx.rt.leu64),
         fnhead_local(4),
         jltu_ret(lloc(x_hi), lloc(y_hi), true),
         jltu_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1359,9 +1255,7 @@ where
     );
 }
 
-fn gen_ge64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ge64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1370,7 +1264,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ge64.clone()),
+        label(ctx.rt.ge64),
         fnhead_local(4),
         jgt_ret(lloc(x_hi), lloc(y_hi), true),
         jgt_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1379,9 +1273,7 @@ where
     );
 }
 
-fn gen_geu64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_geu64(ctx: &mut Context)
 {
     let x_hi = 0;
     let x_lo = 1;
@@ -1390,7 +1282,7 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.geu64.clone()),
+        label(ctx.rt.geu64),
         fnhead_local(4),
         jgtu_ret(lloc(x_hi), lloc(y_hi), true),
         jgtu_ret(lloc(y_hi), lloc(x_hi), false),
@@ -1399,9 +1291,7 @@ where
     );
 }
 
-fn gen_clz64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_clz64(ctx: &mut Context)
 {
     let hi = 0;
     let lo = 1;
@@ -1411,22 +1301,20 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.clz64.clone()),
+        label(ctx.rt.clz64),
         fnhead_local(3),
-        copy(imm(0), storel(ctx.layout.hi_return().addr.clone())),
-        callfi(imml(ctx.rt.clz.clone()), lloc(hi), sloc(hi_clz)),
-        jeq(lloc(hi_clz), imm(32), hi32.clone()),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        callfi(imml(ctx.rt.clz), lloc(hi), sloc(hi_clz)),
+        jeq(lloc(hi_clz), imm(32), hi32),
         ret(lloc(hi_clz)),
         label(hi32),
-        callfi(imml(ctx.rt.clz.clone()), lloc(lo), push()),
+        callfi(imml(ctx.rt.clz), lloc(lo), push()),
         add(imm(32), pop(), push()),
         ret(pop()),
     )
 }
 
-fn gen_ctz64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_ctz64(ctx: &mut Context)
 {
     let hi = 0;
     let lo = 1;
@@ -1436,55 +1324,49 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.ctz64.clone()),
+        label(ctx.rt.ctz64),
         fnhead_local(3),
-        copy(imm(0), storel(ctx.layout.hi_return().addr.clone())),
-        callfi(imml(ctx.rt.ctz.clone()), lloc(lo), sloc(lo_clz)),
-        jeq(lloc(lo_clz), imm(32), lo32.clone()),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        callfi(imml(ctx.rt.ctz), lloc(lo), sloc(lo_clz)),
+        jeq(lloc(lo_clz), imm(32), lo32),
         ret(lloc(lo_clz)),
         label(lo32),
-        callfi(imml(ctx.rt.ctz.clone()), lloc(hi), push()),
+        callfi(imml(ctx.rt.ctz), lloc(hi), push()),
         add(imm(32), pop(), push()),
         ret(pop()),
     )
 }
 
-fn gen_popcnt64<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_popcnt64(ctx: &mut Context)
 {
     let hi = 0;
     let lo = 1;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.popcnt64.clone()),
+        label(ctx.rt.popcnt64),
         fnhead_local(2),
-        copy(imm(0), storel(ctx.layout.hi_return().addr.clone())),
-        callfi(imml(ctx.rt.popcnt.clone()), lloc(hi), push()),
-        callfi(imml(ctx.rt.popcnt.clone()), lloc(lo), push()),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        callfi(imml(ctx.rt.popcnt), lloc(hi), push()),
+        callfi(imml(ctx.rt.popcnt), lloc(lo), push()),
         add(pop(), pop(), push()),
         ret(pop()),
     )
 }
 
-fn gen_trap<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_trap(ctx: &mut Context)
 {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.trap.clone()),
+        label(ctx.rt.trap),
         fnhead_local(0),
-        label(ctx.rt.trapjump.clone()),
+        label(ctx.rt.trapjump),
         debugtrap(imm(0)),
         quit(),
     )
 }
 
-fn gen_table_init<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_table_init(ctx: &mut Context)
 {
     let table_addr = 0;
     let table_size = 1;
@@ -1497,19 +1379,19 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.table_init.clone()),
+        label(ctx.rt.table_init),
         fnhead_local(8),
-        jnz(lloc(elem_dropped), ctx.rt.trapjump.clone()),
-        jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trapjump.clone()),
+        jnz(lloc(elem_dropped), ctx.rt.trapjump),
+        jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trapjump),
         sub(lloc(elem_size), lloc(elem_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump.clone()),
+        jgtu(lloc(n), pop(), ctx.rt.trapjump),
         jgtu(
             lloc(table_offset),
             lloc(table_size),
-            ctx.rt.trapjump.clone()
+            ctx.rt.trapjump
         ),
         sub(lloc(table_size), lloc(table_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump.clone()),
+        jgtu(lloc(n), pop(), ctx.rt.trapjump),
         shiftl(lloc(table_offset), imm(2), push()),
         add(pop(), lloc(table_addr), push()),
         shiftl(lloc(elem_offset), imm(2), push()),
@@ -1520,9 +1402,7 @@ where
     )
 }
 
-fn gen_data_init<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+fn gen_data_init(ctx: &mut Context)
 {
     let data_addr = 0;
     let data_size = 1;
@@ -1533,26 +1413,26 @@ where
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.data_init.clone()),
+        label(ctx.rt.data_init),
         fnhead_local(6),
-        jnz(lloc(data_dropped), ctx.rt.trapjump.clone()),
-        jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trapjump.clone()),
+        jnz(lloc(data_dropped), ctx.rt.trapjump),
+        jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trapjump),
         sub(lloc(data_size), lloc(data_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump.clone()),
+        jgtu(lloc(n), pop(), ctx.rt.trapjump),
         jgtu(
             lloc(mem_offset),
-            derefl(ctx.layout.memory().cur_size.clone()),
-            ctx.rt.trapjump.clone()
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trapjump
         ),
         sub(
-            derefl(ctx.layout.memory().cur_size.clone()),
+            derefl(ctx.layout.memory().cur_size),
             lloc(mem_offset),
             push()
         ),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump.clone()),
+        jgtu(lloc(n), pop(), ctx.rt.trapjump),
         add(
             lloc(mem_offset),
-            imml(ctx.layout.memory().addr.clone()),
+            imml(ctx.layout.memory().addr),
             push()
         ),
         add(lloc(data_offset), lloc(data_addr), push()),
@@ -1561,9 +1441,7 @@ where
     )
 }
 
-pub fn gen_rt<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_rt(ctx: &mut Context)
 {
     gen_swap(ctx);
     gen_swaps(ctx);

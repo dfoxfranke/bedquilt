@@ -4,13 +4,11 @@ use glulx_asm::concise::*;
 use walrus::{ir::Value, ConstExpr, ElementKind, GlobalKind};
 
 use crate::{
-    common::{reject_global_constexpr, Context, LabelGenerator},
+    common::{reject_global_constexpr, Context},
     CompilationError, OverflowLocation,
 };
 
-pub fn gen_tables<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_tables(ctx: &mut Context)
 {
     for table in ctx.module.tables.iter() {
         if let Some(id) = table.import {
@@ -30,23 +28,21 @@ where
             continue;
         };
 
-        ctx.zero_items.push(zlabel(table_layout.addr.clone()));
+        ctx.zero_items.push(zlabel(table_layout.addr));
         ctx.zero_items.push(zspace(size));
         if table_layout.min_count == 0 {
-            ctx.zero_items.push(zlabel(table_layout.cur_count.clone()));
+            ctx.zero_items.push(zlabel(table_layout.cur_count));
             ctx.zero_items.push(zspace(4));
         } else {
             let mut bytes = BytesMut::new();
             bytes.put_u32(table_layout.min_count);
-            ctx.ram_items.push(label(table_layout.cur_count.clone()));
+            ctx.ram_items.push(label(table_layout.cur_count));
             ctx.ram_items.push(blob(bytes));
         }
     }
 }
 
-pub fn gen_globals<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_globals(ctx: &mut Context)
 {
     for global in ctx.module.globals.iter() {
         let mut bytes = bytes::BytesMut::new();
@@ -92,7 +88,7 @@ where
             }
         }
 
-        let global_label = ctx.layout.global(global.id()).addr.clone();
+        let global_label = ctx.layout.global(global.id()).addr;
 
         if is_zero {
             ctx.zero_items.push(zlabel(global_label));
@@ -112,9 +108,7 @@ where
     }
 }
 
-pub fn gen_elems<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_elems(ctx: &mut Context)
 {
     for elem in ctx.module.elements.iter() {
         if matches!(elem.kind, ElementKind::Declared) {
@@ -152,29 +146,25 @@ where
         }
 
         let layout = ctx.layout.element(elem.id());
-        ctx.rom_items.push(label(layout.addr.clone()));
+        ctx.rom_items.push(label(layout.addr));
         ctx.rom_items.push(blob(bytes));
-        ctx.zero_items.push(zlabel(layout.dropped.clone()));
+        ctx.zero_items.push(zlabel(layout.dropped));
         ctx.zero_items.push(zspace(4));
     }
 }
 
-pub fn gen_datas<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_datas(ctx: &mut Context)
 {
     for data in ctx.module.data.iter() {
         let layout = ctx.layout.data(data.id());
-        ctx.rom_items.push(label(layout.addr.clone()));
+        ctx.rom_items.push(label(layout.addr));
         ctx.rom_items.push(blob(data.value.clone()));
-        ctx.zero_items.push(zlabel(layout.dropped.clone()));
+        ctx.zero_items.push(zlabel(layout.dropped));
         ctx.zero_items.push(zspace(4));
     }
 }
 
-pub fn gen_fntypes<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_fntypes(ctx: &mut Context)
 {
     let mut fntypes = vec![0; ctx.layout.fntypes().count as usize];
     for func in ctx.layout.iter_funcs() {
@@ -186,47 +176,39 @@ where
         bytes.put_u32(typenum);
     }
 
-    ctx.rom_items.push(label(ctx.layout.fntypes().addr.clone()));
+    ctx.rom_items.push(label(ctx.layout.fntypes().addr));
     ctx.rom_items.push(blob(bytes));
 }
 
-pub fn gen_hi_return<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_hi_return(ctx: &mut Context)
 {
     ctx.zero_items
-        .push(zlabel(ctx.layout.hi_return().addr.clone()));
+        .push(zlabel(ctx.layout.hi_return().addr));
     ctx.zero_items.push(zspace(ctx.layout.hi_return().size));
 }
 
-pub fn gen_glk_area<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_glk_area(ctx: &mut Context)
 {
     ctx.zero_items.push(zalign(4));
     ctx.zero_items
-        .push(zlabel(ctx.layout.glk_area().addr.clone()));
+        .push(zlabel(ctx.layout.glk_area().addr));
     ctx.zero_items.push(zspace(ctx.layout.glk_area().size));
 }
 
-pub fn gen_memory<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_memory(ctx: &mut Context)
 {
     let mut bytes = BytesMut::with_capacity(4);
     let mem = ctx.layout.memory();
     bytes.put_u32(mem.min_size);
 
-    ctx.ram_items.push(label(mem.cur_size.clone()));
+    ctx.ram_items.push(label(mem.cur_size));
     ctx.ram_items.push(blob(bytes));
     ctx.zero_items.push(zalign(4));
-    ctx.zero_items.push(zlabel(mem.addr.clone()));
+    ctx.zero_items.push(zlabel(mem.addr));
     ctx.zero_items.push(zspace(mem.min_size));
 }
 
-pub fn gen_data<G>(ctx: &mut Context<G>)
-where
-    G: LabelGenerator,
+pub fn gen_data(ctx: &mut Context)
 {
     gen_tables(ctx);
     gen_globals(ctx);

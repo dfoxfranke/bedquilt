@@ -14,26 +14,58 @@ macro_rules! push_all {
     }
 }
 
-pub trait LabelGenerator {
-    type Label: Clone + Eq + Hash + Debug + Display;
-    fn gen(&mut self, desc: &'static str) -> Self::Label;
+#[derive(Debug)]
+pub struct LabelGenerator(pub usize);
+
+
+#[derive(Debug, Copy, Clone)]
+pub struct Label {
+    desc: &'static str,
+    num: usize,
 }
 
-pub type ItemVec<L> = Vec<Item<L>>;
-pub type ZeroItemVec<L> = Vec<ZeroItem<L>>;
+impl PartialEq for Label {
+    fn eq(&self, other: &Self) -> bool {
+        self.num == other.num
+    }
+}
 
-pub struct Context<'a, G>
-where
-    G: LabelGenerator,
+impl Eq for Label {}
+
+impl Hash for Label {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.num.hash(state)
+    }
+}
+
+impl Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{{{}}}", self.desc, self.num)
+    }
+}
+
+impl LabelGenerator {
+    pub fn gen(&mut self, desc: &'static str) -> Label {
+        let idx = self.0;
+        self.0 += 1;
+        {
+            Label {
+                desc,
+                num: idx,
+            }
+        }
+    }
+}
+pub struct Context<'a>
 {
     pub options: &'a CompilationOptions,
     pub module: &'a Module,
-    pub layout: &'a Layout<G::Label>,
-    pub rt: &'a RuntimeLabels<G::Label>,
-    pub gen: &'a mut G,
-    pub rom_items: &'a mut ItemVec<G::Label>,
-    pub ram_items: &'a mut ItemVec<G::Label>,
-    pub zero_items: &'a mut ZeroItemVec<G::Label>,
+    pub layout: &'a Layout,
+    pub rt: &'a RuntimeLabels,
+    pub gen: &'a mut LabelGenerator,
+    pub rom_items: &'a mut Vec<Item<Label>>,
+    pub ram_items: &'a mut Vec<Item<Label>>,
+    pub zero_items: &'a mut Vec<ZeroItem<Label>>,
     pub errors: &'a mut Vec<CompilationError>,
 }
 
@@ -105,9 +137,7 @@ pub fn vt_words(vt: ValType) -> u32 {
     }
 }
 
-pub fn reject_global_constexpr<G>(ctx: &mut Context<G>, id: GlobalId)
-where
-    G: LabelGenerator,
+pub fn reject_global_constexpr(ctx: &mut Context, id: GlobalId)
 {
     match &ctx.module.globals.get(id).kind {
         GlobalKind::Import(id) => ctx.errors.push(CompilationError::UnrecognizedImport(

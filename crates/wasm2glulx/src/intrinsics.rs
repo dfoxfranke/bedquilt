@@ -1,11 +1,9 @@
 use glulx_asm::concise::*;
 use walrus::{ImportedFunction, ValType};
 
-use crate::common::{vt_words, Context, LabelGenerator};
+use crate::common::{vt_words, Context, Label};
 
-pub fn gen_intrinsic<G>(ctx: &mut Context<G>, imported_func: &ImportedFunction, my_label: G::Label)
-where
-    G: LabelGenerator,
+pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label)
 {
     let import = ctx.module.imports.get(imported_func.import);
     let name = &import.name;

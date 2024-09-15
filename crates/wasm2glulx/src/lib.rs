@@ -1,12 +1,7 @@
-use core::hash::Hash;
-use std::{
-    fmt::Display,
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::io::{Read, Write};
 
 use bytes::BytesMut;
-use common::{Context, LabelGenerator};
+use common::Context;
 use glulx_asm::AssemblerError;
 
 mod codegen;
@@ -23,61 +18,19 @@ mod rt;
 pub mod spectest;
 
 pub use common::{
-    CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE, DEFAULT_TABLE_GROWTH_LIMIT,
+    CompilationOptions, LabelGenerator, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE,
+    DEFAULT_TABLE_GROWTH_LIMIT,
 };
 pub use error::*;
-
-#[derive(Debug)]
-struct Gen(usize);
-
-#[derive(Debug, Clone)]
-struct Label {
-    desc: Arc<str>,
-    num: usize,
-}
-
-impl PartialEq for Label {
-    fn eq(&self, other: &Self) -> bool {
-        self.num == other.num
-    }
-}
-
-impl Eq for Label {}
-
-impl Hash for Label {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.num.hash(state)
-    }
-}
-
-impl Display for Label {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{{{}}}", self.desc, self.num)
-    }
-}
-
-impl LabelGenerator for Gen {
-    type Label = Label;
-    fn gen(&mut self, desc: &str) -> Self::Label {
-        let idx = self.0;
-        self.0 += 1;
-        {
-            Label {
-                desc: desc.into(),
-                num: idx,
-            }
-        }
-    }
-}
 
 pub fn compile_module_to_bytes(
     options: &CompilationOptions,
     module: &walrus::Module,
 ) -> Result<BytesMut, Vec<CompilationError>> {
-    let mut gen = Gen(0);
-    let mut rom_items = common::ItemVec::new();
-    let mut ram_items = common::ItemVec::new();
-    let mut zero_items = common::ZeroItemVec::new();
+    let mut gen = LabelGenerator(0);
+    let mut rom_items = Vec::new();
+    let mut ram_items = Vec::new();
+    let mut zero_items = Vec::new();
 
     let layout = layout::Layout::new(options, module, &mut gen)?;
     let rt = rt::RuntimeLabels::new(&mut gen);

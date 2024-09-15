@@ -10,100 +10,97 @@ pub struct TypeLayout {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct FnLayout<L> {
-    pub addr: L,
+pub struct FnLayout {
+    pub addr: Label,
     pub fnnum: u32,
     pub typenum: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct TableLayout<L> {
-    pub addr: L,
+pub struct TableLayout {
+    pub addr: Label,
     pub min_count: u32,
-    pub cur_count: L,
+    pub cur_count: Label,
     pub max_count: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct GlobalLayout<L> {
-    pub addr: L,
+pub struct GlobalLayout {
+    pub addr: Label,
     pub words: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ElemLayout<L> {
-    pub addr: L,
-    pub dropped: L,
+pub struct ElemLayout {
+    pub addr: Label,
+    pub dropped: Label,
     pub count: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct DataLayout<L> {
-    pub addr: L,
-    pub dropped: L,
+pub struct DataLayout {
+    pub addr: Label,
+    pub dropped: Label,
     pub size: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct MemLayout<L> {
-    pub addr: L,
+pub struct MemLayout{
+    pub addr: Label,
     pub min_size: u32,
-    pub cur_size: L,
+    pub cur_size: Label,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct FnTypesLayout<L> {
-    pub addr: L,
+pub struct FnTypesLayout {
+    pub addr: Label,
     pub count: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct GlkLayout<L> {
-    pub addr: L,
+pub struct GlkLayout {
+    pub addr: Label,
     pub size: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct HiReturnLayout<L> {
-    pub addr: L,
+pub struct HiReturnLayout {
+    pub addr: Label,
     pub size: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct Layout<L> {
+pub struct Layout {
     types: HashMap<TypeId, TypeLayout>,
-    funcs: HashMap<FunctionId, FnLayout<L>>,
-    tables: HashMap<TableId, TableLayout<L>>,
-    globals: HashMap<GlobalId, GlobalLayout<L>>,
-    elems: HashMap<ElementId, ElemLayout<L>>,
-    datas: HashMap<DataId, DataLayout<L>>,
-    mem: MemLayout<L>,
-    fntypes: FnTypesLayout<L>,
-    glk_area: GlkLayout<L>,
-    hi_return: HiReturnLayout<L>,
-    entrypoint: L,
+    funcs: HashMap<FunctionId, FnLayout>,
+    tables: HashMap<TableId, TableLayout>,
+    globals: HashMap<GlobalId, GlobalLayout>,
+    elems: HashMap<ElementId, ElemLayout>,
+    datas: HashMap<DataId, DataLayout>,
+    mem: MemLayout,
+    fntypes: FnTypesLayout,
+    glk_area: GlkLayout,
+    hi_return: HiReturnLayout,
+    entrypoint: Label,
 }
 
 const MIN_HI_RETURN_WORDS: u32 = 4;
 
-impl<L> Layout<L>
-where
-    L: Clone,
+impl Layout
 {
-    pub fn new<G>(
+    pub fn new(
         options: &CompilationOptions,
         module: &Module,
-        gen: &mut G,
+        gen: &mut LabelGenerator,
     ) -> Result<Self, Vec<CompilationError>>
     where
-        G: LabelGenerator<Label = L>,
     {
         let mut types: HashMap<TypeId, TypeLayout> = HashMap::new();
-        let mut funcs: HashMap<FunctionId, FnLayout<L>> = HashMap::new();
-        let mut tables: HashMap<TableId, TableLayout<L>> = HashMap::new();
-        let mut globals: HashMap<GlobalId, GlobalLayout<L>> = HashMap::new();
-        let mut elems: HashMap<ElementId, ElemLayout<L>> = HashMap::new();
-        let mut datas: HashMap<DataId, DataLayout<L>> = HashMap::new();
+        let mut funcs: HashMap<FunctionId, FnLayout> = HashMap::new();
+        let mut tables: HashMap<TableId, TableLayout> = HashMap::new();
+        let mut globals: HashMap<GlobalId, GlobalLayout> = HashMap::new();
+        let mut elems: HashMap<ElementId, ElemLayout> = HashMap::new();
+        let mut datas: HashMap<DataId, DataLayout> = HashMap::new();
 
         let mut errors: Vec<CompilationError> = Vec::new();
 
@@ -297,7 +294,7 @@ where
         }
     }
 
-    pub fn iter_funcs(&self) -> std::collections::hash_map::Values<FunctionId, FnLayout<L>> {
+    pub fn iter_funcs(&self) -> std::collections::hash_map::Values<FunctionId, FnLayout> {
         self.funcs.values()
     }
 
@@ -307,53 +304,53 @@ where
             .expect("Layout should contain all type IDs from module")
     }
 
-    pub fn func(&self, id: FunctionId) -> &FnLayout<L> {
+    pub fn func(&self, id: FunctionId) -> &FnLayout {
         self.funcs
             .get(&id)
             .expect("Layout should contain all function IDs from module")
     }
 
-    pub fn table(&self, id: TableId) -> &TableLayout<L> {
+    pub fn table(&self, id: TableId) -> &TableLayout {
         self.tables
             .get(&id)
             .expect("Layout should contain all table  IDs from module")
     }
 
-    pub fn global(&self, id: GlobalId) -> &GlobalLayout<L> {
+    pub fn global(&self, id: GlobalId) -> &GlobalLayout {
         self.globals
             .get(&id)
             .expect("Layout should contain all global IDs from module")
     }
 
-    pub fn element(&self, id: ElementId) -> &ElemLayout<L> {
+    pub fn element(&self, id: ElementId) -> &ElemLayout {
         self.elems
             .get(&id)
             .expect("Layout should contain all element IDs from module")
     }
 
-    pub fn data(&self, id: DataId) -> &DataLayout<L> {
+    pub fn data(&self, id: DataId) -> &DataLayout {
         self.datas
             .get(&id)
             .expect("Layout should contain all data IDs from module")
     }
 
-    pub fn memory(&self) -> &MemLayout<L> {
+    pub fn memory(&self) -> &MemLayout {
         &self.mem
     }
 
-    pub fn fntypes(&self) -> &FnTypesLayout<L> {
+    pub fn fntypes(&self) -> &FnTypesLayout {
         &self.fntypes
     }
 
-    pub fn glk_area(&self) -> &GlkLayout<L> {
+    pub fn glk_area(&self) -> &GlkLayout {
         &self.glk_area
     }
 
-    pub fn hi_return(&self) -> &HiReturnLayout<L> {
+    pub fn hi_return(&self) -> &HiReturnLayout {
         &self.hi_return
     }
 
-    pub fn entrypoint(&self) -> L {
-        self.entrypoint.clone()
+    pub fn entrypoint(&self) -> Label {
+        self.entrypoint
     }
 }
