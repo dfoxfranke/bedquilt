@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::common::*;
-use glulx_asm::concise::*;
+use glulx_asm::{concise::*, LabelRef};
 use glulx_asm::{LoadOperand, StoreOperand};
 use walrus::{ir, ValType};
 
@@ -390,7 +390,6 @@ impl Drop for Debts {
 /// all labels we're dealing with here are labels of globals and those are
 /// never aliased.
 pub fn gen_copies(ctx: &mut Context, mut credits: Credits, mut debts: Debts) {
-    eprintln!("CREDITS: {:?}, DEBTS: {:?}", credits, debts);
     if debts.stores.is_empty() && matches!(debts.returns, Some(Returns { m: 0, n: 1, .. })) {
         debts.returns = None;
         let ret_operand = credits.pop();
@@ -424,7 +423,18 @@ pub fn gen_copies(ctx: &mut Context, mut credits: Credits, mut debts: Debts) {
             poisoned.insert(poison);
         }
 
-        good_pairs.push((load, store));
+        match (load, store) {
+            (_, StoreOperand::Discard) if !matches!(load, LoadOperand::Pop) => {}
+            (
+                LoadOperand::DerefLabel(LabelRef(load_label, load_off)),
+                StoreOperand::DerefLabel(LabelRef(store_label, store_off)),
+            ) if load_label == store_label && load_off == store_off => {}
+            (LoadOperand::FrameAddr(load_addr), StoreOperand::FrameAddr(store_addr))
+                if load_addr == store_addr => {}
+            _ => {
+                good_pairs.push((load, store));
+            }
+        }
     }
 
     credits.gen(ctx);
