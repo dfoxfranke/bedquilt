@@ -30,16 +30,15 @@ pub fn gen_entrypoint(ctx: &mut Context) {
 
             push_all!(
                 ctx.rom_items,
-                copy(imm(table_offset), push()),
+                copy(derefl(elem_layout.cur_count), push()),
                 copy(imm(0), push()),
-                copy(uimm(elem_layout.count), push()),
-                copy(derefl(elem_layout.dropped), push()),
-                copy(uimm(elem_layout.count), push()),
-                copy(imml(elem_layout.addr), push()),
-                copy(derefl(table_layout.cur_count), push()),
+                copy(imm(table_offset), push()),
                 copy(imml(table_layout.addr), push()),
-                call(imml(ctx.rt.table_init), imm(8), discard()),
-                copy(imm(1), storel(elem_layout.dropped)),
+                copy(derefl(table_layout.cur_count), push()),
+                copy(imml(elem_layout.addr), push()),
+                copy(derefl(elem_layout.cur_count), push()),
+                call(imml(ctx.rt.table_init), imm(7), discard()),
+                copy(imm(0), storel(elem_layout.cur_count)),
             );
         }
     }
@@ -51,7 +50,6 @@ pub fn gen_entrypoint(ctx: &mut Context) {
         } = &data.kind
         {
             let data_layout = ctx.layout.data(data.id());
-            let mem_layout = ctx.layout.memory();
             let mem_offset = match offset_expr {
                 ConstExpr::Value(Value::I32(offset)) => *offset,
                 ConstExpr::Global(id) => {
@@ -63,14 +61,13 @@ pub fn gen_entrypoint(ctx: &mut Context) {
 
             push_all!(
                 ctx.rom_items,
-                copy(imm(mem_offset), push()),
+                copy(derefl(data_layout.cur_size), push()),
                 copy(imm(0), push()),
-                copy(uimm(data_layout.size), push()),
-                copy(derefl(data_layout.dropped), push()),
-                copy(uimm(data_layout.size), push()),
-                copy(imml(mem_layout.addr), push()),
-                call(imml(ctx.rt.data_init), imm(6), discard()),
-                copy(imm(1), storel(data_layout.dropped)),
+                copy(imm(mem_offset), push()),
+                copy(imml(data_layout.addr), push()),
+                copy(derefl(data_layout.cur_size), push()),
+                call(imml(ctx.rt.data_init), imm(5), discard()),
+                copy(imm(9), storel(data_layout.cur_size)),
             );
         }
     }

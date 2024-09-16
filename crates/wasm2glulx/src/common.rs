@@ -191,3 +191,70 @@ impl WordCount<u32> for Vec<ValType> {
         self.as_slice().word_count()
     }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum TrapCode {
+    Unreachable,
+    IntegerOverflow,
+    IntegerDivideByZero,
+    InvalidConversionToInteger,
+    OutOfBoundsMemoryAccess,
+    IndirectCallTypeMismatch,
+    OutOfBoundsTableAccess,
+    UndefinedElement,
+    UninitializedElement,
+    CallStackExhausted,
+}
+
+impl TrapCode {
+    pub const ALL: &[TrapCode] = &[
+        TrapCode::Unreachable,
+        TrapCode::IntegerOverflow,
+        TrapCode::IntegerDivideByZero,
+        TrapCode::InvalidConversionToInteger,
+        TrapCode::OutOfBoundsMemoryAccess,
+        TrapCode::IndirectCallTypeMismatch,
+        TrapCode::OutOfBoundsTableAccess,
+        TrapCode::UndefinedElement,
+        TrapCode::UninitializedElement,
+        TrapCode::CallStackExhausted,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TrapCode::Unreachable => "unreachable",
+            TrapCode::IntegerOverflow => "integer overflow",
+            TrapCode::IntegerDivideByZero => "integer divide by zero",
+            TrapCode::InvalidConversionToInteger => "invalid conversion to integer",
+            TrapCode::OutOfBoundsMemoryAccess => "out of bounds memory access",
+            TrapCode::IndirectCallTypeMismatch => "indirect call type mismatch",
+            TrapCode::OutOfBoundsTableAccess => "out of bounds table access",
+            TrapCode::UndefinedElement => "undefined element",
+            TrapCode::UninitializedElement => "uninitialized element",
+            TrapCode::CallStackExhausted => "call stack exhausted",
+        }
+    }
+}
+
+impl From<TrapCode> for u32 {
+    fn from(code: TrapCode) -> u32 {
+        match code {
+            TrapCode::Unreachable => 0,
+            TrapCode::IntegerOverflow => 1,
+            TrapCode::IntegerDivideByZero => 2,
+            TrapCode::InvalidConversionToInteger => 3,
+            TrapCode::OutOfBoundsMemoryAccess => 4,
+            TrapCode::IndirectCallTypeMismatch => 5,
+            TrapCode::OutOfBoundsTableAccess => 6,
+            TrapCode::UndefinedElement => 7,
+            TrapCode::UninitializedElement => 8,
+            TrapCode::CallStackExhausted => 9,
+        }
+    }
+}
+
+impl Display for TrapCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}

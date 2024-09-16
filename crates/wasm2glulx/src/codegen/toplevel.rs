@@ -433,6 +433,9 @@ fn gen_other(
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
         }
+        Other::CallIndirect(call_indirect) => {
+            super::control::gen_call_indirect(ctx, frame, call_indirect, credits, debts);
+        }
         Other::Select(test, select) => {
             super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }

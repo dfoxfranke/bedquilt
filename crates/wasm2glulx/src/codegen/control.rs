@@ -4,9 +4,9 @@ use super::{
     toplevel::{Frame, JumpTarget},
 };
 
-use crate::common::{Context, Label, WordCount};
+use crate::common::{Context, Label, TrapCode, WordCount};
 use glulx_asm::{concise::*, LoadOperand};
-use walrus::{ir, Type, ValType};
+use walrus::{ir, ValType};
 
 pub fn gen_test(ctx: &mut Context, test: Test, label: Label, mut credits: Credits) {
     match test {
@@ -172,24 +172,14 @@ pub fn gen_test(ctx: &mut Context, test: Test, label: Label, mut credits: Credit
 pub fn gen_call(
     ctx: &mut Context,
     _frame: &mut Frame,
-    call: &ir::Call,
-    credits: Credits,
-    debts: Debts,
-) {
-    let function = ctx.module.funcs.get(call.func);
-    let ty = ctx.module.types.get(function.ty());
-    let addr = ctx.layout.func(call.func).addr;
-
-    gen_call_inner(ctx, ty, addr, credits, debts);
-}
-
-fn gen_call_inner(
-    ctx: &mut Context,
-    ty: &Type,
-    addr: Label,
+    call_instr: &ir::Call,
     mut credits: Credits,
     mut debts: Debts,
 ) {
+    let function = ctx.module.funcs.get(call_instr.func);
+    let ty = ctx.module.types.get(function.ty());
+    let addr = imml(ctx.layout.func(call_instr.func).addr);
+
     let param_words: u32 = ty.params().word_count();
     let result_words: u32 = ty.results().word_count();
 
@@ -206,20 +196,19 @@ fn gen_call_inner(
     match param_words {
         0 => {
             credits.gen(ctx);
-            ctx.rom_items.push(callf(imml(addr), return_operand));
+            ctx.rom_items.push(callf(addr, return_operand));
         }
         1 => {
             let arg_a = credits.pop();
             credits.gen(ctx);
-            ctx.rom_items
-                .push(callfi(imml(addr), arg_a, return_operand));
+            ctx.rom_items.push(callfi(addr, arg_a, return_operand));
         }
         2 => {
             let arg_a = credits.pop();
             let arg_b = credits.pop();
             credits.gen(ctx);
             ctx.rom_items
-                .push(callfii(imml(addr), arg_a, arg_b, return_operand));
+                .push(callfii(addr, arg_a, arg_b, return_operand));
         }
         3 => {
             let arg_a = credits.pop();
@@ -227,14 +216,74 @@ fn gen_call_inner(
             let arg_c = credits.pop();
             credits.gen(ctx);
             ctx.rom_items
-                .push(callfiii(imml(addr), arg_a, arg_b, arg_c, return_operand));
+                .push(callfiii(addr, arg_a, arg_b, arg_c, return_operand));
         }
         _ => {
             credits.gen(ctx);
             ctx.rom_items
-                .push(call(imml(addr), uimm(param_words), return_operand));
+                .push(call(addr, uimm(param_words), return_operand));
         }
     }
+
+    let return_credits = Credits::from_returns(ctx, ty.results());
+    gen_copies(ctx, return_credits, debts);
+
+    //gen_call_inner(ctx, ty, imml(addr), credits, debts);
+}
+
+pub fn gen_call_indirect(
+    ctx: &mut Context,
+    _frame: &mut Frame,
+    call_indirect: &ir::CallIndirect,
+    mut credits: Credits,
+    mut debts: Debts,
+) {
+    let ty = ctx.module.types.get(call_indirect.ty);
+    let typenum = ctx.layout.ty(call_indirect.ty).typenum;
+    let table_addr = ctx.layout.table(call_indirect.table).addr;
+    let table_count = ctx.layout.table(call_indirect.table).cur_count;
+    let param_words = ty.params().word_count();
+    let result_words: u32 = ty.results().word_count();
+
+    let return_operand = if result_words > 0 {
+        if result_words == 1 && debts.len() == 1 {
+            debts.pop()
+        } else {
+            push()
+        }
+    } else {
+        discard()
+    };
+
+    credits.gen(ctx);
+    ctx.rom_items.push(stkpeek(imm(0), push()));
+    ctx.rom_items.push(copy(
+        uimm(TrapCode::UndefinedElement.into()),
+        storel(ctx.layout.trap().code),
+    ));
+    ctx.rom_items
+        .push(jgeu(pop(), derefl(table_count), ctx.rt.trapjump));
+    ctx.rom_items.push(aload(imml(table_addr), pop(), push()));
+    ctx.rom_items.push(shiftl(pop(), uimm(1), push()));
+    ctx.rom_items.push(stkpeek(imm(0), push()));
+    ctx.rom_items.push(stkpeek(imm(0), push()));
+    ctx.rom_items.push(copy(
+        uimm(TrapCode::UninitializedElement.into()),
+        storel(ctx.layout.trap().code),
+    ));
+    ctx.rom_items.push(jz(pop(), ctx.rt.trapjump));
+    ctx.rom_items
+        .push(aload(imml_off(ctx.layout.fntypes().addr, 4), pop(), push()));
+    ctx.rom_items.push(copy(
+        uimm(TrapCode::IndirectCallTypeMismatch.into()),
+        storel(ctx.layout.trap().code),
+    ));
+    ctx.rom_items
+        .push(jne(pop(), uimm(typenum), ctx.rt.trapjump));
+    ctx.rom_items
+        .push(aload(imml(ctx.layout.fntypes().addr), pop(), push()));
+    ctx.rom_items
+        .push(call(pop(), uimm(param_words), return_operand));
 
     let return_credits = Credits::from_returns(ctx, ty.results());
     gen_copies(ctx, return_credits, debts);

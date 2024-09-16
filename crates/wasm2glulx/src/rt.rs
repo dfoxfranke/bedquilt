@@ -36,14 +36,6 @@ pub struct RuntimeLabels {
     pub add64: Label,
     pub sub64: Label,
     pub mul64: Label,
-    #[allow(dead_code)]
-    pub div64: Label,
-    #[allow(dead_code)]
-    pub divu64: Label,
-    #[allow(dead_code)]
-    pub rem64: Label,
-    #[allow(dead_code)]
-    pub remu64: Label,
     pub and64: Label,
     pub or64: Label,
     pub xor64: Label,
@@ -66,7 +58,6 @@ pub struct RuntimeLabels {
     pub clz64: Label,
     pub ctz64: Label,
     pub popcnt64: Label,
-    pub trap: Label,
     pub trapjump: Label,
     pub table_init: Label,
     pub data_init: Label,
@@ -74,8 +65,6 @@ pub struct RuntimeLabels {
 
 impl RuntimeLabels {
     pub fn new(gen: &mut LabelGenerator) -> Self {
-        let trap = gen.gen("rt_trap");
-
         RuntimeLabels {
             swap: gen.gen("rt_swap"),
             swaps: gen.gen("rt_swaps"),
@@ -110,14 +99,6 @@ impl RuntimeLabels {
             add64: gen.gen("rt_add64"),
             sub64: gen.gen("rt_sub64"),
             mul64: gen.gen("rt_mul64"),
-            //div64: gen.gen("rt_div64"),
-            //divu64: gen.gen("rt_divu64"),
-            //rem64: gen.gen("rt_rem64"),
-            //remu64: gen.gen("rt_remu64"),
-            div64: trap,
-            divu64: trap,
-            rem64: trap,
-            remu64: trap,
             and64: gen.gen("rt_and64"),
             or64: gen.gen("rt_or64"),
             xor64: gen.gen("rt_xor64"),
@@ -140,7 +121,6 @@ impl RuntimeLabels {
             clz64: gen.gen("rt_clz64"),
             ctz64: gen.gen("rt_ctz64"),
             popcnt64: gen.gen("rt_popcnt64"),
-            trap,
             trapjump: gen.gen("rt_trampjump"),
             table_init: gen.gen("rt_table_init"),
             data_init: gen.gen("rt_data_init"),
@@ -1246,29 +1226,29 @@ fn gen_popcnt64(ctx: &mut Context) {
 fn gen_trap(ctx: &mut Context) {
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.trap),
-        fnhead_local(0),
         label(ctx.rt.trapjump),
-        debugtrap(imm(0)),
+        debugtrap(derefl(ctx.layout.trap().code)),
         quit(),
     )
 }
 
 fn gen_table_init(ctx: &mut Context) {
-    let table_addr = 0;
-    let table_size = 1;
-    let elem_addr = 2;
-    let elem_size = 3;
-    let elem_dropped = 4;
-    let n = 5;
-    let elem_offset = 6;
-    let table_offset = 7;
+    let n = 6;
+    let elem_offset = 5;
+    let table_offset = 4;
+    let table_addr = 3;
+    let table_size = 2;
+    let elem_addr = 1;
+    let elem_size = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.table_init),
-        fnhead_local(8),
-        jnz(lloc(elem_dropped), ctx.rt.trapjump),
+        fnhead_local(7),
+        copy(
+            uimm(TrapCode::OutOfBoundsTableAccess.into()),
+            storel(ctx.layout.trap().code)
+        ),
         jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trapjump),
         sub(lloc(elem_size), lloc(elem_offset), push()),
         jgtu(lloc(n), pop(), ctx.rt.trapjump),
@@ -1286,18 +1266,20 @@ fn gen_table_init(ctx: &mut Context) {
 }
 
 fn gen_data_init(ctx: &mut Context) {
-    let data_addr = 0;
-    let data_size = 1;
-    let data_dropped = 2;
-    let n = 3;
-    let data_offset = 4;
-    let mem_offset = 5;
+    let n = 4;
+    let data_offset = 3;
+    let mem_offset = 2;
+    let data_addr = 1;
+    let data_size = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.data_init),
-        fnhead_local(6),
-        jnz(lloc(data_dropped), ctx.rt.trapjump),
+        fnhead_local(5),
+        copy(
+            uimm(TrapCode::OutOfBoundsMemoryAccess.into()),
+            storel(ctx.layout.trap().code)
+        ),
         jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trapjump),
         sub(lloc(data_size), lloc(data_offset), push()),
         jgtu(lloc(n), pop(), ctx.rt.trapjump),

@@ -4,7 +4,7 @@ use glulx_asm::concise::*;
 use walrus::{ir::Value, ConstExpr, ElementKind, GlobalKind};
 
 use crate::{
-    common::{reject_global_constexpr, Context},
+    common::{reject_global_constexpr, Context, Label, TrapCode},
     CompilationError, OverflowLocation,
 };
 
@@ -145,8 +145,9 @@ pub fn gen_elems(ctx: &mut Context) {
         let layout = ctx.layout.element(elem.id());
         ctx.rom_items.push(label(layout.addr));
         ctx.rom_items.push(blob(bytes));
-        ctx.zero_items.push(zlabel(layout.dropped));
-        ctx.zero_items.push(zspace(4));
+        ctx.ram_items.push(label(layout.cur_count));
+        ctx.ram_items
+            .push(blob(Vec::from(layout.initial_count.to_be_bytes())));
     }
 }
 
@@ -155,24 +156,48 @@ pub fn gen_datas(ctx: &mut Context) {
         let layout = ctx.layout.data(data.id());
         ctx.rom_items.push(label(layout.addr));
         ctx.rom_items.push(blob(data.value.clone()));
-        ctx.zero_items.push(zlabel(layout.dropped));
-        ctx.zero_items.push(zspace(4));
+        ctx.ram_items.push(label(layout.cur_size));
+        ctx.ram_items
+            .push(blob(Vec::from(layout.initial_size.to_be_bytes())));
     }
 }
 
 pub fn gen_fntypes(ctx: &mut Context) {
-    let mut fntypes = vec![0; ctx.layout.fntypes().count as usize];
+    let mut fntypes = vec![(None, 0); ctx.layout.fntypes().count as usize];
     for func in ctx.layout.iter_funcs() {
-        fntypes[func.fnnum as usize] = func.typenum;
-    }
-
-    let mut bytes = BytesMut::with_capacity(4 * fntypes.len());
-    for typenum in fntypes {
-        bytes.put_u32(typenum);
+        fntypes[func.fnnum as usize] = (Some(func.addr), func.typenum);
     }
 
     ctx.rom_items.push(label(ctx.layout.fntypes().addr));
-    ctx.rom_items.push(blob(bytes));
+    for (addr, typenum) in fntypes {
+        if let Some(l) = addr {
+            ctx.rom_items.push(labelref(l));
+        } else {
+            ctx.rom_items.push(blob([0u8; 4].as_slice()));
+        }
+        let typenum_bytes: Vec<u8> = typenum.to_be_bytes().into();
+        ctx.rom_items.push(blob(typenum_bytes));
+    }
+}
+
+pub fn gen_trap(ctx: &mut Context) {
+    let table: Vec<(Label, TrapCode)> = TrapCode::ALL
+        .iter()
+        .map(|code| (ctx.gen.gen("trap_string"), *code))
+        .collect();
+
+    ctx.rom_items.push(label(ctx.layout.trap().string_table));
+    for (l, _) in &table {
+        ctx.rom_items.push(labelref(*l));
+    }
+
+    for (l, code) in &table {
+        ctx.rom_items.push(label(*l));
+        ctx.rom_items.push(mystery_string(&code.as_str()));
+    }
+
+    ctx.zero_items.push(zlabel(ctx.layout.trap().code));
+    ctx.zero_items.push(zspace(4));
 }
 
 pub fn gen_hi_return(ctx: &mut Context) {
@@ -199,6 +224,7 @@ pub fn gen_memory(ctx: &mut Context) {
 }
 
 pub fn gen_data(ctx: &mut Context) {
+    gen_trap(ctx);
     gen_tables(ctx);
     gen_globals(ctx);
     gen_elems(ctx);

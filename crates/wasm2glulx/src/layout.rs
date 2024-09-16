@@ -5,8 +5,6 @@ use walrus::{DataId, ElementId, ElementItems, FunctionId, GlobalId, Module, Tabl
 #[derive(Debug, Copy, Clone)]
 pub struct TypeLayout {
     pub typenum: u32,
-    pub param_words: u32,
-    pub result_words: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -33,15 +31,15 @@ pub struct GlobalLayout {
 #[derive(Debug, Copy, Clone)]
 pub struct ElemLayout {
     pub addr: Label,
-    pub dropped: Label,
-    pub count: u32,
+    pub initial_count: u32,
+    pub cur_count: Label,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct DataLayout {
     pub addr: Label,
-    pub dropped: Label,
-    pub size: u32,
+    pub initial_size: u32,
+    pub cur_size: Label,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -69,6 +67,12 @@ pub struct HiReturnLayout {
     pub size: u32,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct TrapLayout {
+    pub code: Label,
+    pub string_table: Label,
+}
+
 #[derive(Debug, Clone)]
 pub struct Layout {
     types: HashMap<TypeId, TypeLayout>,
@@ -82,9 +86,10 @@ pub struct Layout {
     glk_area: GlkLayout,
     hi_return: HiReturnLayout,
     entrypoint: Label,
+    trap: TrapLayout,
 }
 
-const MIN_HI_RETURN_WORDS: u32 = 4;
+const MIN_HI_RETURN_WORDS: usize = 4;
 
 impl Layout {
     pub fn new(
@@ -109,31 +114,8 @@ where {
                 errors.push(CompilationError::Overflow(OverflowLocation::TypeList));
                 break;
             };
-            let mut param_words: u32 = 0;
-            let mut result_words: u32 = 0;
 
-            for vt in t.params() {
-                param_words = param_words.checked_add(vt.word_count()).unwrap_or_else(|| {
-                    errors.push(CompilationError::Overflow(OverflowLocation::TypeDecl));
-                    0
-                });
-            }
-
-            for vt in t.results() {
-                result_words = result_words.checked_add(vt.word_count()).unwrap_or_else(|| {
-                    errors.push(CompilationError::Overflow(OverflowLocation::TypeDecl));
-                    0
-                });
-            }
-
-            types.insert(
-                t.id(),
-                TypeLayout {
-                    typenum,
-                    param_words,
-                    result_words,
-                },
-            );
+            types.insert(t.id(), TypeLayout { typenum });
         }
 
         for (n, f) in module.funcs.iter().enumerate() {
@@ -187,12 +169,12 @@ where {
 
         for e in module.elements.iter() {
             let addr = gen.gen("element");
-            let dropped = gen.gen("element_dropped");
+            let cur_count = gen.gen("element_count");
             let count_usize = match &e.items {
                 ElementItems::Functions(v) => v.len(),
                 ElementItems::Expressions(_, v) => v.len(),
             };
-            let count = u32::try_from(count_usize).unwrap_or_else(|_| {
+            let initial_count = u32::try_from(count_usize).unwrap_or_else(|_| {
                 errors.push(CompilationError::Overflow(OverflowLocation::Element));
                 0
             });
@@ -200,16 +182,16 @@ where {
                 e.id(),
                 ElemLayout {
                     addr,
-                    dropped,
-                    count,
+                    initial_count,
+                    cur_count,
                 },
             );
         }
 
         for d in module.data.iter() {
             let addr = gen.gen("data");
-            let dropped = gen.gen("data_dropped");
-            let size = u32::try_from(d.value.len()).unwrap_or_else(|_| {
+            let cur_size = gen.gen("data_size");
+            let initial_size = u32::try_from(d.value.len()).unwrap_or_else(|_| {
                 errors.push(CompilationError::Overflow(OverflowLocation::Data));
                 0
             });
@@ -217,8 +199,8 @@ where {
                 d.id(),
                 DataLayout {
                     addr,
-                    dropped,
-                    size,
+                    initial_size,
+                    cur_size,
                 },
             );
         }
@@ -258,13 +240,15 @@ where {
 
         let hi_return = HiReturnLayout {
             addr: gen.gen("hi_return"),
-            size: types
-                .values()
-                .map(|t| t.result_words)
+            size: module
+                .types
+                .iter()
+                .map(|t| t.results().word_count())
                 .max()
                 .unwrap_or(0)
                 .max(MIN_HI_RETURN_WORDS)
                 .checked_mul(4)
+                .and_then(|bytes| bytes.try_into().ok())
                 .unwrap_or_else(|| {
                     errors.push(CompilationError::Overflow(OverflowLocation::TypeDecl));
                     0
@@ -272,6 +256,10 @@ where {
         };
 
         let entrypoint = gen.gen("entrypoint");
+        let trap = TrapLayout {
+            code: gen.gen("trap_code"),
+            string_table: gen.gen("trap_string_table"),
+        };
 
         if errors.is_empty() {
             Ok(Layout {
@@ -286,6 +274,7 @@ where {
                 glk_area,
                 hi_return,
                 entrypoint,
+                trap,
             })
         } else {
             Err(errors)
@@ -350,5 +339,9 @@ where {
 
     pub fn entrypoint(&self) -> Label {
         self.entrypoint
+    }
+
+    pub fn trap(&self) -> TrapLayout {
+        self.trap
     }
 }
