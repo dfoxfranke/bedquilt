@@ -1,19 +1,14 @@
 use super::{
     classify::Test,
-    toplevel::{gen_copies, Credits, Debts, Frame, JumpTarget},
+    loadstore::{gen_copies, Credits, Debts},
+    toplevel::{Frame, JumpTarget},
 };
 
 use crate::common::{vt_words, Context, Label};
 use glulx_asm::{concise::*, LoadOperand};
 use walrus::{ir, Type, ValType};
 
-pub fn gen_test(
-    ctx: &mut Context,
-    test: Test,
-    label: Label,
-    mut credits: Credits,
-) 
-{
+pub fn gen_test(ctx: &mut Context, test: Test, label: Label, mut credits: Credits) {
     match test {
         Test::I32Nez => {
             let operand = credits.pop();
@@ -100,6 +95,7 @@ pub fn gen_test(
         Test::F32Lt => {
             let y = credits.pop();
             let x = credits.pop();
+            credits.gen(ctx);
             ctx.rom_items.push(jfgt(y, x, label));
         }
         Test::F32Gt => {
@@ -179,8 +175,7 @@ pub fn gen_call(
     call: &ir::Call,
     credits: Credits,
     debts: Debts,
-)
-{
+) {
     let function = ctx.module.funcs.get(call.func);
     let ty = ctx.module.types.get(function.ty());
     let addr = ctx.layout.func(call.func).addr;
@@ -194,13 +189,12 @@ fn gen_call_inner(
     addr: Label,
     mut credits: Credits,
     mut debts: Debts,
-)
-{
+) {
     let param_words: u32 = ty.params().iter().map(|vt| vt_words(*vt)).sum();
     let result_words: u32 = ty.results().iter().map(|vt| vt_words(*vt)).sum();
 
     let return_operand = if result_words > 0 {
-        if result_words == 1 && debts.0.len() == 1 {
+        if result_words == 1 && debts.len() == 1 {
             debts.pop()
         } else {
             push()
@@ -211,19 +205,19 @@ fn gen_call_inner(
 
     match param_words {
         0 => {
-            std::mem::take(&mut credits).gen(ctx);
+            credits.gen(ctx);
             ctx.rom_items.push(callf(imml(addr), return_operand));
         }
         1 => {
             let arg_a = credits.pop();
-            std::mem::take(&mut credits).gen(ctx);
+            credits.gen(ctx);
             ctx.rom_items
                 .push(callfi(imml(addr), arg_a, return_operand));
         }
         2 => {
             let arg_a = credits.pop();
             let arg_b = credits.pop();
-            std::mem::take(&mut credits).gen(ctx);
+            credits.gen(ctx);
             ctx.rom_items
                 .push(callfii(imml(addr), arg_a, arg_b, return_operand));
         }
@@ -231,36 +225,22 @@ fn gen_call_inner(
             let arg_a = credits.pop();
             let arg_b = credits.pop();
             let arg_c = credits.pop();
-            std::mem::take(&mut credits).gen(ctx);
+            credits.gen(ctx);
             ctx.rom_items
                 .push(callfiii(imml(addr), arg_a, arg_b, arg_c, return_operand));
         }
         _ => {
-            std::mem::take(&mut credits).gen(ctx);
+            credits.gen(ctx);
             ctx.rom_items
                 .push(call(imml(addr), uimm(param_words), return_operand));
         }
     }
 
-    if result_words > 0 {
-        for i in (0..result_words - 1).rev() {
-            credits.0.push(derefl_off(
-                ctx.layout.hi_return().addr,
-                4 * i as i32,
-            ));
-        }
-    }
-
-    gen_copies(ctx, credits, debts);
+    let return_credits = Credits::from_returns(ctx, ty.results());
+    gen_copies(ctx, return_credits, debts);
 }
 
-fn gen_br_inner(
-    ctx: &mut Context,
-    frame: &Frame,
-    target: &JumpTarget,
-    height: usize,
-)
-{
+fn gen_br_inner(ctx: &mut Context, frame: &Frame, target: &JumpTarget, height: usize) {
     if target.base + target.arity != height {
         assert!(height > target.base + target.arity);
         let total = height - target.base;
@@ -280,7 +260,8 @@ fn gen_br_inner(
             .expect("If total fits in an i32 then the smaller drop amount should too");
 
         if drop_i32 != total_i32 {
-            ctx.rom_items.push(stkroll(imm(total_i32), imm(total_i32 - drop_i32)));
+            ctx.rom_items
+                .push(stkroll(imm(total_i32), imm(total_i32 - drop_i32)));
         }
         for _ in 0..drop {
             ctx.rom_items.push(copy(pop(), discard()));
@@ -294,10 +275,9 @@ pub fn gen_br(
     frame: &mut Frame,
     br: &ir::Br,
     height: usize,
-    credits: Credits,
-    debts: Debts,
-)
-{
+    mut credits: Credits,
+    mut debts: Debts,
+) {
     let ir::Br { block: id } = br;
     let target = frame
         .jump_targets
@@ -315,9 +295,8 @@ pub fn gen_br_if(
     br_if: &ir::BrIf,
     height: usize,
     credits: Credits,
-    debts: Debts,
-)
-{
+    mut debts: Debts,
+) {
     let height = height - test.popped_words();
     let ir::BrIf { block: id } = br_if;
     let target = frame
@@ -345,9 +324,8 @@ pub fn gen_br_table(
     br_table: &ir::BrTable,
     height: usize,
     mut credits: Credits,
-    debts: Debts,
-)
-{
+    mut debts: Debts,
+) {
     let default_target = frame
         .jump_targets
         .get(&br_table.default)
@@ -378,18 +356,12 @@ pub fn gen_br_table(
         ctx.gen.gen("brtable_default")
     };
 
-    ctx.rom_items.push(jgeu(
-        test_value,
-        uimm(jump_table_len),
-        default_label,
-    ));
+    ctx.rom_items
+        .push(jgeu(test_value, uimm(jump_table_len), default_label));
 
     let jump_table_label = ctx.gen.gen("jump_table");
-    ctx.rom_items.push(aload(
-        imml(jump_table_label),
-        test_value,
-        push(),
-    ));
+    ctx.rom_items
+        .push(aload(imml(jump_table_label), test_value, push()));
     ctx.rom_items.push(jumpabs(pop()));
 
     let mut jump_table = Vec::with_capacity(br_table.blocks.len());
@@ -429,9 +401,8 @@ pub fn gen_select(
     _select: &ir::Select,
     post_stack: &[ValType],
     credits: Credits,
-    debts: Debts,
-)
-{
+    mut debts: Debts,
+) {
     let noroll = ctx.gen.gen("noroll");
     let words = vt_words(
         *post_stack

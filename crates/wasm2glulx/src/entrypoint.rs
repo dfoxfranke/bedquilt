@@ -6,8 +6,7 @@ use crate::{
     CompilationError,
 };
 
-pub fn gen_entrypoint(ctx: &mut Context)
-{
+pub fn gen_entrypoint(ctx: &mut Context) {
     ctx.rom_items.push(label(ctx.layout.entrypoint()));
     ctx.rom_items.push(fnhead_local(0));
     ctx.rom_items.push(setiosys(imm(2), imm(0)));

@@ -1,12 +1,15 @@
-use glulx_asm::{concise::*, LoadOperand, StoreOperand};
-use std::collections::{HashMap, HashSet};
-use walrus::ir::{self, Instr, InstrSeq, InstrSeqId};
+use glulx_asm::concise::*;
+use std::collections::HashMap;
+use walrus::ir::{self, InstrSeq, InstrSeqId};
 use walrus::{LocalFunction, LocalId, ValType};
 
 use crate::common::{vt_words, Context, Label};
 use crate::{CompilationError, OverflowLocation};
 
-use super::classify::{Block, ClassifiedInstr, Load, Loop, Other, Store};
+use super::classify::{
+    subsequences, Block, ClassifiedInstr, InstrSubseq, Load, Loop, Other, Store,
+};
+use super::loadstore::{gen_copies, Credits, Debts};
 
 pub struct Frame<'a> {
     pub function: &'a LocalFunction,
@@ -21,76 +24,50 @@ pub struct JumpTarget {
     pub target: Label,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Credits(pub Vec<LoadOperand<Label>>);
-
-#[derive(Debug, Clone, Default)]
-pub struct Debts(pub Vec<StoreOperand<Label>>);
-
-impl Credits {
-    pub fn pop(&mut self) -> LoadOperand<Label> {
-        self.0.pop().unwrap_or(LoadOperand::Pop)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn gen(mut self, ctx: &mut Context)
-    {
-        for credit in std::mem::take(&mut self.0) {
-            ctx.rom_items.push(copy(credit, push()));
-        }
-    }
-
-    fn prepend(mut self, mut other: Credits) -> Credits {
-        let mut credits = std::mem::take(&mut other.0);
-        credits.append(&mut self.0);
-        Credits(credits)
-    }
+struct LocalsBuilder<'a> {
+    ctx: &'a Context<'a>,
+    locals: &'a mut HashMap<LocalId, u32>,
+    ctr: &'a mut u32,
 }
 
-impl Drop for Credits {
-    fn drop(&mut self) {
-        if !std::thread::panicking() {
-            assert!(
-                self.0.is_empty(),
-                "Credits should be consumed before being dropped"
-            )
+impl<'a> ir::Visitor<'_> for LocalsBuilder<'a> {
+    fn visit_local_id(&mut self, id: &LocalId) {
+        let local = self.ctx.module.locals.get(*id);
+        let words = vt_words(local.ty());
+        if !self.locals.contains_key(id) {
+            self.locals.insert(*id, *self.ctr);
+            *self.ctr = self.ctr.saturating_add(words);
         }
     }
 }
 
-impl Debts {
-    pub fn pop(&mut self) -> StoreOperand<Label> {
-        self.0.pop().unwrap_or(StoreOperand::Push)
-    }
+struct BranchToEntrySearcher {
+    found: bool,
+    entry: InstrSeqId,
+}
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn gen(mut self, ctx: &mut Context)
-    {
-        while let Some(debt) = self.0.pop() {
-            ctx.rom_items.push(copy(pop(), debt));
+impl ir::Visitor<'_> for BranchToEntrySearcher {
+    fn visit_br(&mut self, instr: &ir::Br) {
+        if instr.block == self.entry {
+            self.found = true;
         }
     }
 
-    fn prepend(mut self, mut other: Debts) -> Debts {
-        let mut debts = std::mem::take(&mut other.0);
-        debts.append(&mut self.0);
-        Debts(debts)
+    fn visit_br_if(&mut self, instr: &ir::BrIf) {
+        if instr.block == self.entry {
+            self.found = true;
+        }
     }
-}
 
-impl Drop for Debts {
-    fn drop(&mut self) {
-        if !std::thread::panicking() {
-            assert!(
-                self.0.is_empty(),
-                "Debts should be satisfied before being dropped"
-            )
+    fn visit_br_table(&mut self, instr: &ir::BrTable) {
+        for block in &instr.blocks {
+            if *block == self.entry {
+                self.found = true;
+            }
+        }
+
+        if instr.default == self.entry {
+            self.found = true;
         }
     }
 }
@@ -100,12 +77,10 @@ pub fn gen_function(
     function: &LocalFunction,
     my_label: Label,
     function_name: Option<&str>,
-)
-{
+) {
     let mut locals = HashMap::new();
     let mut wasm_labels = HashMap::new();
     let mut jump_tables = HashMap::new();
-    let mut stack = Vec::new();
     let mut ctr: u32 = 0;
 
     for arg in function.args.iter().rev() {
@@ -115,13 +90,13 @@ pub fn gen_function(
         ctr = ctr.saturating_add(words);
     }
 
-    build_locals(
+    let mut locals_builder = LocalsBuilder {
         ctx,
-        function,
-        &mut locals,
-        &mut ctr,
-        function.block(function.entry_block()),
-    );
+        locals: &mut locals,
+        ctr: &mut ctr,
+    };
+
+    ir::dfs_in_order(&mut locals_builder, function, function.entry_block());
 
     if ctr >= 1 << 30 {
         ctx.errors
@@ -142,34 +117,34 @@ pub fn gen_function(
     ctx.rom_items.push(label(my_label));
     ctx.rom_items.push(fnhead_local(ctr));
 
-    let has_explicit_return = matches!(
-        function.block(function.entry_block()).instrs.last(),
-        Some((Instr::Return(_), _))
-    );
-
-    let return_debts = if has_explicit_return {
-        Debts::default()
-    } else {
-        build_debts(
-            ctx,
-            &mut frame,
-            ctx.module.types.get(function.ty()).results(),
-            &[],
-            true,
-        )
+    let mut branch_to_entry_searcher = BranchToEntrySearcher {
+        found: false,
+        entry: function.entry_block(),
     };
 
-    gen_instrseq(
-        ctx,
-        &mut frame,
-        function.block(function.entry_block()),
-        &mut stack,
-        Credits(Vec::new()),
-        return_debts,
+    ir::dfs_in_order(
+        &mut branch_to_entry_searcher,
+        function,
+        function.entry_block(),
     );
 
-    if !has_explicit_return {
-        gen_return(ctx, &mut frame);
+    let mut debts = Debts::new(
+        ctx,
+        &frame,
+        ctx.module.types.get(function.ty()).results(),
+        &[],
+        true,
+    );
+    if branch_to_entry_searcher.found {
+        let block = Block::Block(ir::Block {
+            seq: function.entry_block(),
+        });
+        gen_block(ctx, &mut frame, block, vec![], Credits::empty());
+        debts.gen(ctx);
+    } else {
+        let mut stack = Vec::new();
+        let block = frame.function.block(function.entry_block());
+        gen_instrseq(ctx, &mut frame, block, &mut stack, Credits::empty(), debts);
     }
 
     for (jump, table) in jump_tables {
@@ -180,47 +155,39 @@ pub fn gen_function(
     }
 }
 
-fn build_locals(
-    ctx: &mut Context,
-    function: &LocalFunction,
-    locals: &mut HashMap<LocalId, u32>,
-    ctr: &mut u32,
-    instrs: &InstrSeq,
-)
-{
-    for (instr, _) in &instrs.instrs {
-        match instr {
-            Instr::Block(ir::Block { seq }) | Instr::Loop(ir::Loop { seq }) => {
-                build_locals(ctx, function, locals, ctr, function.block(*seq))
-            }
-            Instr::IfElse(ifelse) => {
-                build_locals(
-                    ctx,
-                    function,
-                    locals,
-                    ctr,
-                    function.block(ifelse.consequent),
-                );
-                build_locals(
-                    ctx,
-                    function,
-                    locals,
-                    ctr,
-                    function.block(ifelse.alternative),
-                );
-            }
-            Instr::LocalGet(ir::LocalGet { local: id })
-            | Instr::LocalSet(ir::LocalSet { local: id })
-            | Instr::LocalTee(ir::LocalTee { local: id }) => {
-                let local = ctx.module.locals.get(*id);
-                let words = vt_words(local.ty());
-                if !locals.contains_key(id) {
-                    locals.insert(*id, *ctr);
-                    *ctr = ctr.saturating_add(words);
-                }
-            }
-            _ => {}
-        }
+fn make_credits(
+    ctx: &Context,
+    frame: &Frame,
+    initial: &mut Credits,
+    load_instrs: &[Load],
+    use_initial: bool,
+) -> Credits {
+    if use_initial {
+        let mut credits = initial.take();
+        let more_credits = Credits::new(ctx, frame, load_instrs);
+        credits.append_later(more_credits);
+        credits
+    } else {
+        Credits::new(ctx, frame, load_instrs)
+    }
+}
+
+fn make_debts(
+    ctx: &Context,
+    frame: &Frame,
+    stack: &[ValType],
+    final_debts: &mut Debts,
+    store_instrs: &[Store],
+    then_return: bool,
+    use_final: bool,
+) -> Debts {
+    if use_final {
+        let mut debts = final_debts.take();
+        let more_debts = Debts::new(ctx, frame, stack, store_instrs, then_return);
+        debts.append_earlier(more_debts);
+        debts
+    } else {
+        Debts::new(ctx, frame, stack, store_instrs, then_return)
     }
 }
 
@@ -231,436 +198,109 @@ fn gen_instrseq(
     stack: &mut Vec<ValType>,
     mut initial_credits: Credits,
     mut final_debts: Debts,
-)
-{
-    let subseqs = super::classify::subsequences(instr_seq);
+) {
+    let subseqs = subsequences(instr_seq);
     let n_subseqs = subseqs.len();
 
-    if n_subseqs > 0 {
-        for (i, subseq) in subseqs.into_iter().enumerate() {
-            match subseq {
-                super::classify::InstrSubseq::Copy { loads, stores, ret } => {
-                    let credits = if i == 0 {
-                        build_credits(ctx, frame, &loads)
-                            .prepend(std::mem::take(&mut initial_credits))
-                    } else {
-                        build_credits(ctx, frame, &loads)
-                    };
-
-                    for load in &loads {
-                        load.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    let mut debts = if i == n_subseqs - 1 {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                            .prepend(std::mem::take(&mut final_debts))
-                    } else {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                    };
-
-                    for store in &stores {
-                        store.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    if let Some(ret) = ret {
-                        // If we're explicitly returning from inside a loop at
-                        // the end of a function, there will be duplicate return
-                        // debts, one from the function return and one from the
-                        // one at the end of the loop. The outer return debts
-                        // may have nothing on the stack capable of satisfying
-                        // them, so we need to trim these off to prevent
-                        // gen_copies from generating pops for them.
-                        let return_words: usize = ctx
-                            .module
-                            .types
-                            .get(frame.function.ty())
-                            .results()
-                            .iter()
-                            .map(|vt| vt_words(*vt) as usize)
-                            .sum();
-                        if debts.0.len() > return_words {
-                            debts.0.drain(0..debts.0.len() - return_words);
-                        }
-                        gen_copies(ctx, credits, debts);
-                        ret.update_stack(ctx.module, frame.function, stack);
-                        gen_return(ctx, frame);
-                    } else {
-                        gen_copies(ctx, credits, debts);
-                    }
-                }
-                super::classify::InstrSubseq::Block { loads, block } => {
-                    let credits = if i == 0 {
-                        build_credits(ctx, frame, &loads)
-                            .prepend(std::mem::take(&mut initial_credits))
-                    } else {
-                        build_credits(ctx, frame, &loads)
-                    };
-
-                    for load in &loads {
-                        load.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    let cloned_stack = stack.clone();
-                    block.update_stack(ctx.module, frame.function, stack);
-
-                    gen_block(ctx, frame, block, cloned_stack, credits);
-
-                    if i == n_subseqs - 1 {
-                        std::mem::take(&mut final_debts).gen(ctx);
-                    }
-                }
-                super::classify::InstrSubseq::Loop { looop, stores, ret } => {
-                    if i == 0 {
-                        std::mem::take(&mut initial_credits).gen(ctx);
-                    }
-
-                    let cloned_stack = stack.clone();
-                    looop.update_stack(ctx.module, frame.function, stack);
-
-                    let debts = if i == n_subseqs - 1 {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                            .prepend(std::mem::take(&mut final_debts))
-                    } else {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                    };
-
-                    gen_loop(ctx, frame, looop, cloned_stack, debts);
-
-                    for store in stores {
-                        store.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    if let Some(ret) = ret {
-                        ret.update_stack(ctx.module, frame.function, stack);
-                        gen_return(ctx, frame);
-                    }
-                }
-                super::classify::InstrSubseq::Other {
-                    loads,
-                    other,
-                    stores,
-                    ret,
-                } => {
-                    let credits = if i == 0 {
-                        build_credits(ctx, frame, &loads)
-                            .prepend(std::mem::take(&mut initial_credits))
-                    } else {
-                        build_credits(ctx, frame, &loads)
-                    };
-
-                    for load in &loads {
-                        load.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    let pre_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
-
-                    other.update_stack(ctx.module, frame.function, stack);
-
-                    let debts = if i == n_subseqs - 1 {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                            .prepend(std::mem::take(&mut final_debts))
-                    } else {
-                        build_debts(ctx, frame, stack, &stores, ret.is_some())
-                    };
-
-                    gen_other(ctx, frame, other, pre_height, stack, credits, debts);
-
-                    for store in stores {
-                        store.update_stack(ctx.module, frame.function, stack);
-                    }
-
-                    if let Some(ret) = ret {
-                        ret.update_stack(ctx.module, frame.function, stack);
-                        gen_return(ctx, frame);
-                    }
-                }
-            }
-        }
-    } else {
+    if n_subseqs == 0 {
         gen_copies(ctx, initial_credits, final_debts);
-    }
-}
-
-fn gen_return(ctx: &mut Context, frame: &mut Frame)
-{
-    let rwords: u32 = ctx
-        .module
-        .types
-        .get(frame.function.ty())
-        .results()
-        .iter()
-        .copied()
-        .map(vt_words)
-        .sum();
-
-    if rwords == 0 {
-        ctx.rom_items.push(ret(imm(0)));
-    } else {
-        let rwords_offset = 4 * (rwords - 1);
-        ctx.rom_items.push(ret(derefl_off(
-            ctx.layout.hi_return().addr,
-            rwords_offset as i32,
-        )));
-    }
-}
-
-fn build_credits(
-    ctx: &mut Context,
-    frame: &mut Frame,
-    loads: &[Load],
-) -> Credits
-{
-    let mut credits = Vec::new();
-
-    for load in loads {
-        match load {
-            Load::LocalGet(ir::LocalGet { local: id }) => {
-                let local = ctx.module.locals.get(*id);
-                let glulx_local = *frame
-                    .locals
-                    .get(id)
-                    .expect("All locals should have been added to the frame's map.");
-                let ty = local.ty();
-                match ty {
-                    ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                        credits.push(lloc(glulx_local));
-                    }
-                    ValType::I64 | ValType::F64 => {
-                        credits.push(lloc(glulx_local + 1));
-                        credits.push(lloc(glulx_local));
-                    }
-                    ValType::V128 => {
-                        credits.push(lloc(glulx_local + 3));
-                        credits.push(lloc(glulx_local + 2));
-                        credits.push(lloc(glulx_local + 1));
-                        credits.push(lloc(glulx_local));
-                    }
-                }
-            }
-            Load::GlobalGet(ir::GlobalGet { global: id }) => {
-                let global = ctx.module.globals.get(*id);
-                let layout = ctx.layout.global(*id);
-                match global.ty {
-                    ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                        assert_eq!(layout.words, 1);
-                        credits.push(derefl(layout.addr));
-                    }
-                    ValType::I64 | ValType::F64 => {
-                        assert_eq!(layout.words, 2);
-                        credits.push(derefl_off(layout.addr, 4));
-                        credits.push(derefl(layout.addr));
-                    }
-                    ValType::V128 => {
-                        assert_eq!(layout.words, 4);
-                        credits.push(derefl_off(layout.addr, 12));
-                        credits.push(derefl_off(layout.addr, 8));
-                        credits.push(derefl_off(layout.addr, 4));
-                        credits.push(derefl(layout.addr));
-                    }
-                }
-            }
-            Load::Const(ir::Const { value }) => match value {
-                walrus::ir::Value::I32(x) => {
-                    credits.push(imm(*x));
-                }
-                walrus::ir::Value::I64(x) => {
-                    credits.push(imm(*x as i32));
-                    credits.push(imm((*x >> 32) as i32));
-                }
-                walrus::ir::Value::F32(x) => {
-                    credits.push(f32_to_imm(*x));
-                }
-                walrus::ir::Value::F64(x) => {
-                    let (hi, lo) = f64_to_imm(*x);
-                    credits.push(lo);
-                    credits.push(hi);
-                }
-                walrus::ir::Value::V128(x) => {
-                    credits.push(uimm(*x as u32));
-                    credits.push(uimm((*x >> 32) as u32));
-                    credits.push(uimm((*x >> 64) as u32));
-                    credits.push(uimm((*x >> 96) as u32));
-                }
-            },
-            Load::RefNull(ir::RefNull { .. }) => {
-                credits.push(imm(0));
-            }
-            Load::RefFunc(ir::RefFunc { func }) => {
-                credits.push(uimm(ctx.layout.func(*func).fnnum));
-            }
-            Load::TableSize(ir::TableSize { table: id }) => {
-                let table = ctx.layout.table(*id);
-                let addr = table.cur_count;
-                credits.push(derefl(addr));
-            }
-        }
+        return;
     }
 
-    Credits(credits)
-}
-
-fn build_debts(
-    ctx: &mut Context,
-    frame: &mut Frame,
-    mut stack: &[ValType],
-    stores: &[Store],
-    then_return: bool,
-) -> Debts
-{
-    let mut debts = Vec::new();
-
-    for store in stores {
-        let stack_type = *stack
-            .last()
-            .expect("There should be something on the stack for satisfying debts");
-        stack = &stack[..stack.len() - 1];
-
-        match store {
-            Store::LocalSet(ir::LocalSet { local: id }) => {
-                let local = ctx.module.locals.get(*id);
-                let glulx_local = *frame
-                    .locals
-                    .get(id)
-                    .expect("All locals should have been added to the frame's map.");
-                assert_eq!(
-                    local.ty(),
-                    stack_type,
-                    "Type on stack shoud match type of local being stored to"
+    for (i, subseq) in subseqs.into_iter().enumerate() {
+        match subseq {
+            InstrSubseq::Copy { loads, stores, ret } => {
+                let credits = make_credits(ctx, frame, &mut initial_credits, &loads, i == 0);
+                for load in &loads {
+                    load.update_stack(ctx.module, frame.function, stack);
+                }
+                let debts = make_debts(
+                    ctx,
+                    frame,
+                    stack,
+                    &mut final_debts,
+                    &stores,
+                    ret.is_some(),
+                    i == n_subseqs - 1,
                 );
-                match stack_type {
-                    ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                        debts.push(sloc(glulx_local));
-                    }
-                    ValType::I64 | ValType::F64 => {
-                        debts.push(sloc(glulx_local));
-                        debts.push(sloc(glulx_local + 1));
-                    }
-                    ValType::V128 => {
-                        debts.push(sloc(glulx_local));
-                        debts.push(sloc(glulx_local + 1));
-                        debts.push(sloc(glulx_local + 2));
-                        debts.push(sloc(glulx_local + 3));
-                    }
+                gen_copies(ctx, credits, debts);
+                for store in &stores {
+                    store.update_stack(ctx.module, frame.function, stack);
+                }
+                if let Some(ret) = ret {
+                    ret.update_stack(ctx.module, frame.function, stack);
                 }
             }
-            Store::GlobalSet(ir::GlobalSet { global: id }) => {
-                let global = ctx.module.globals.get(*id);
-                let layout = ctx.layout.global(*id);
-                assert_eq!(
-                    global.ty, stack_type,
-                    "Type on stack should match type of global being stored to"
+            InstrSubseq::Block { loads, block } => {
+                let credits = make_credits(ctx, frame, &mut initial_credits, &loads, i == 0);
+                for load in &loads {
+                    load.update_stack(ctx.module, frame.function, stack);
+                }
+                let cloned_stack = stack.clone();
+                block.update_stack(ctx.module, frame.function, stack);
+                gen_block(ctx, frame, block, cloned_stack, credits);
+                if i == n_subseqs - 1 {
+                    final_debts.gen(ctx);
+                }
+            }
+            InstrSubseq::Loop { looop, stores, ret } => {
+                if i == 0 {
+                    initial_credits.gen(ctx);
+                }
+                let cloned_stack = stack.clone();
+                looop.update_stack(ctx.module, frame.function, stack);
+                let debts = make_debts(
+                    ctx,
+                    frame,
+                    stack,
+                    &mut final_debts,
+                    &stores,
+                    ret.is_some(),
+                    i == n_subseqs - 1,
                 );
 
-                match stack_type {
-                    ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                        assert_eq!(layout.words, 1);
-                        debts.push(storel(layout.addr));
-                    }
-                    ValType::F64 | ValType::I64 => {
-                        assert_eq!(layout.words, 2);
-                        debts.push(storel(layout.addr));
-                        debts.push(storel_off(layout.addr, 4));
-                    }
-                    ValType::V128 => {
-                        assert_eq!(layout.words, 4);
-                        debts.push(storel(layout.addr));
-                        debts.push(storel_off(layout.addr, 4));
-                        debts.push(storel_off(layout.addr, 8));
-                        debts.push(storel_off(layout.addr, 12));
-                    }
+                gen_loop(ctx, frame, looop, cloned_stack, debts);
+                for store in &stores {
+                    store.update_stack(ctx.module, frame.function, stack);
+                }
+                if let Some(ret) = ret {
+                    ret.update_stack(ctx.module, frame.function, stack);
                 }
             }
-            Store::Drop(_) => {
-                for _ in 0..vt_words(stack_type) {
-                    debts.push(discard());
+            InstrSubseq::Other {
+                loads,
+                other,
+                stores,
+                ret,
+            } => {
+                let credits = make_credits(ctx, frame, &mut initial_credits, &loads, i == 0);
+                for load in &loads {
+                    load.update_stack(ctx.module, frame.function, stack);
                 }
-            }
-        }
-    }
 
-    if then_return {
-        let ret_types = ctx.module.types.get(frame.function.ty()).results();
-        let mut pos = 0;
+                let pre_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+                other.update_stack(ctx.module, frame.function, stack);
 
-        for ret_type in ret_types.iter().rev().copied() {
-            let stack_type = *stack
-                .last()
-                .expect("There should be something on the stack for satisfying return debts");
-            stack = &stack[..stack.len() - 1];
-            assert_eq!(
-                ret_type, stack_type,
-                "Type on stack should match function return type"
-            );
+                let debts = make_debts(
+                    ctx,
+                    frame,
+                    stack,
+                    &mut final_debts,
+                    &stores,
+                    ret.is_some(),
+                    i == n_subseqs - 1,
+                );
 
-            match ret_type {
-                ValType::I32 | ValType::F32 | ValType::Ref(_) => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
-                    pos += 4;
+                gen_other(ctx, frame, other, pre_height, stack, credits, debts);
+                for store in &stores {
+                    store.update_stack(ctx.module, frame.function, stack);
                 }
-                ValType::I64 | ValType::F64 => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 4));
-                    pos += 8;
-                }
-                ValType::V128 => {
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos));
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 4));
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 8));
-                    debts.push(storel_off(ctx.layout.hi_return().addr, pos + 12));
-                    pos += 16;
+                if let Some(ret) = ret {
+                    ret.update_stack(ctx.module, frame.function, stack);
                 }
             }
         }
     }
-
-    debts.reverse();
-    Debts(debts)
-}
-
-/// Generate an instruction sequence equivalent to pushing all credits and then
-/// popping all debts.
-///
-/// We can optimize to skip the stack in some cases, but have to be careful
-/// about stores that overwrite the locations we're loading from. We assume
-/// when checking this that labels don't alias each other, which is safe because
-/// all labels we're dealing with here are labels of globals and those are
-/// never aliased.
-pub fn gen_copies(
-    ctx: &mut Context,
-    mut credits: Credits,
-    mut debts: Debts,
-)
-{
-    let mut poisoned: HashSet<LoadOperand<Label>> = HashSet::new();
-    let mut good_pairs = Vec::new();
-    while !debts.is_empty() && !credits.is_empty() {
-        let load = credits.pop();
-        let store = debts.pop();
-
-        let poison = match &store {
-            StoreOperand::Push => unreachable!("A push operand cannot be a debt"),
-            StoreOperand::Discard => None,
-            StoreOperand::DerefLabel(addr) => Some(LoadOperand::DerefLabel(*addr)),
-            StoreOperand::FrameAddr(addr) => Some(LoadOperand::FrameAddr(*addr)),
-        };
-
-        if let Some(poison) = poison {
-            if poisoned.contains(&poison) {
-                credits.0.push(load);
-                debts.0.push(store);
-                break;
-            }
-
-            poisoned.insert(poison);
-        }
-        good_pairs.push((load, store));
-    }
-
-    credits.gen(ctx);
-    for (load, store) in good_pairs {
-        ctx.rom_items.push(copy(load, store));
-    }
-    debts.gen(ctx);
 }
 
 fn gen_block(
@@ -669,8 +309,7 @@ fn gen_block(
     block: Block,
     mut stack: Vec<ValType>,
     credits: Credits,
-)
-{
+) {
     let (params, results) = block.stack_type(ctx.module, frame.function, stack.as_slice());
     let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
     let param_len: usize = params.iter().map(|vt| vt_words(*vt) as usize).sum();
@@ -690,7 +329,7 @@ fn gen_block(
                 },
             );
             let seq = frame.function.block(*id);
-            gen_instrseq(ctx, frame, seq, &mut stack, credits, Debts::default());
+            gen_instrseq(ctx, frame, seq, &mut stack, credits, Debts::empty());
         }
         Block::IfElse(
             test,
@@ -725,8 +364,8 @@ fn gen_block(
                 frame,
                 alternative,
                 &mut stack,
-                Credits::default(),
-                Debts::default(),
+                Credits::empty(),
+                Debts::empty(),
             );
             ctx.rom_items.push(jump(target));
             ctx.rom_items.push(label(test_target));
@@ -736,8 +375,8 @@ fn gen_block(
                 frame,
                 consequent,
                 &mut cloned_stack,
-                Credits::default(),
-                Debts::default(),
+                Credits::empty(),
+                Debts::empty(),
             );
         }
     }
@@ -751,8 +390,7 @@ fn gen_loop(
     looop: Loop,
     mut stack: Vec<ValType>,
     debts: Debts,
-)
-{
+) {
     let Loop::Loop(ir::Loop { seq: id }) = looop;
     let seq = frame.function.block(id);
     let (params, _) = looop.stack_type(ctx.module, frame.function, stack.as_slice());
@@ -770,7 +408,7 @@ fn gen_loop(
         },
     );
     ctx.rom_items.push(label(target));
-    gen_instrseq(ctx, frame, seq, &mut stack, Credits::default(), debts);
+    gen_instrseq(ctx, frame, seq, &mut stack, Credits::empty(), debts);
 }
 
 fn gen_other(
@@ -779,10 +417,9 @@ fn gen_other(
     other: Other,
     pre_height: usize,
     post_stack: &[ValType],
-    credits: Credits,
-    debts: Debts,
-)
-{
+    mut credits: Credits,
+    mut debts: Debts,
+) {
     match &other {
         Other::Br(br) => {
             super::control::gen_br(ctx, frame, br, pre_height, credits, debts);

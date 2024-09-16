@@ -45,7 +45,7 @@ pub struct DataLayout {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct MemLayout{
+pub struct MemLayout {
     pub addr: Label,
     pub min_size: u32,
     pub cur_size: Label,
@@ -86,15 +86,13 @@ pub struct Layout {
 
 const MIN_HI_RETURN_WORDS: u32 = 4;
 
-impl Layout
-{
+impl Layout {
     pub fn new(
         options: &CompilationOptions,
         module: &Module,
         gen: &mut LabelGenerator,
     ) -> Result<Self, Vec<CompilationError>>
-    where
-    {
+where {
         let mut types: HashMap<TypeId, TypeLayout> = HashMap::new();
         let mut funcs: HashMap<FunctionId, FnLayout> = HashMap::new();
         let mut tables: HashMap<TableId, TableLayout> = HashMap::new();

@@ -489,11 +489,24 @@ impl ClassifiedInstr for Other {
                 | ir::BinaryOp::F64Min
                 | ir::BinaryOp::F64Max
                 | ir::BinaryOp::F64Copysign => (&[ValType::F64, ValType::F64], &[ValType::F64]),
-                ir::BinaryOp::I8x16ReplaceLane { .. }
+                ir::BinaryOp::I8x16Shl
+                | ir::BinaryOp::I8x16ShrS
+                | ir::BinaryOp::I8x16ShrU
+                | ir::BinaryOp::I16x8Shl
+                | ir::BinaryOp::I16x8ShrS
+                | ir::BinaryOp::I16x8ShrU
+                | ir::BinaryOp::I32x4Shl
+                | ir::BinaryOp::I32x4ShrS
+                | ir::BinaryOp::I32x4ShrU
+                | ir::BinaryOp::I64x2Shl
+                | ir::BinaryOp::I64x2ShrS
+                | ir::BinaryOp::I64x2ShrU
+                | ir::BinaryOp::I8x16ReplaceLane { .. }
                 | ir::BinaryOp::I16x8ReplaceLane { .. }
                 | ir::BinaryOp::I32x4ReplaceLane { .. } => {
                     (&[ValType::V128, ValType::I32], &[ValType::V128])
                 }
+
                 ir::BinaryOp::I64x2ReplaceLane { .. } => {
                     (&[ValType::V128, ValType::I64], &[ValType::V128])
                 }
@@ -555,18 +568,12 @@ impl ClassifiedInstr for Other {
                 | ir::BinaryOp::V128Or
                 | ir::BinaryOp::V128Xor
                 | ir::BinaryOp::V128AndNot
-                | ir::BinaryOp::I8x16Shl
-                | ir::BinaryOp::I8x16ShrS
-                | ir::BinaryOp::I8x16ShrU
                 | ir::BinaryOp::I8x16Add
                 | ir::BinaryOp::I8x16AddSatS
                 | ir::BinaryOp::I8x16AddSatU
                 | ir::BinaryOp::I8x16Sub
                 | ir::BinaryOp::I8x16SubSatS
                 | ir::BinaryOp::I8x16SubSatU
-                | ir::BinaryOp::I16x8Shl
-                | ir::BinaryOp::I16x8ShrS
-                | ir::BinaryOp::I16x8ShrU
                 | ir::BinaryOp::I16x8Add
                 | ir::BinaryOp::I16x8AddSatS
                 | ir::BinaryOp::I16x8AddSatU
@@ -574,15 +581,9 @@ impl ClassifiedInstr for Other {
                 | ir::BinaryOp::I16x8SubSatS
                 | ir::BinaryOp::I16x8SubSatU
                 | ir::BinaryOp::I16x8Mul
-                | ir::BinaryOp::I32x4Shl
-                | ir::BinaryOp::I32x4ShrS
-                | ir::BinaryOp::I32x4ShrU
                 | ir::BinaryOp::I32x4Add
                 | ir::BinaryOp::I32x4Sub
                 | ir::BinaryOp::I32x4Mul
-                | ir::BinaryOp::I64x2Shl
-                | ir::BinaryOp::I64x2ShrS
-                | ir::BinaryOp::I64x2ShrU
                 | ir::BinaryOp::I64x2Add
                 | ir::BinaryOp::I64x2Sub
                 | ir::BinaryOp::I64x2Mul
@@ -665,21 +666,25 @@ impl ClassifiedInstr for Other {
                 | ir::UnaryOp::F64Nearest
                 | ir::UnaryOp::F64Sqrt => (&[ValType::F64], &[ValType::F64]),
                 ir::UnaryOp::I64Eqz | ir::UnaryOp::I32WrapI64 => (&[ValType::I64], &[ValType::I32]),
-                ir::UnaryOp::I32TruncSF32 | ir::UnaryOp::I32TruncUF32 => {
-                    (&[ValType::F32], &[ValType::I32])
-                }
-                ir::UnaryOp::I32TruncSF64 | ir::UnaryOp::I32TruncUF64 => {
-                    (&[ValType::F64], &[ValType::I32])
-                }
+                ir::UnaryOp::I32TruncSSatF32
+                | ir::UnaryOp::I32TruncUSatF32
+                | ir::UnaryOp::I32TruncSF32
+                | ir::UnaryOp::I32TruncUF32 => (&[ValType::F32], &[ValType::I32]),
+                ir::UnaryOp::I32TruncSSatF64
+                | ir::UnaryOp::I32TruncUSatF64
+                | ir::UnaryOp::I32TruncSF64
+                | ir::UnaryOp::I32TruncUF64 => (&[ValType::F64], &[ValType::I32]),
                 ir::UnaryOp::I64ExtendSI32 | ir::UnaryOp::I64ExtendUI32 => {
                     (&[ValType::I32], &[ValType::I64])
                 }
-                ir::UnaryOp::I64TruncSF32 | ir::UnaryOp::I64TruncUF32 => {
-                    (&[ValType::F32], &[ValType::I64])
-                }
-                ir::UnaryOp::I64TruncSF64 | ir::UnaryOp::I64TruncUF64 => {
-                    (&[ValType::F64], &[ValType::I64])
-                }
+                ir::UnaryOp::I64TruncSSatF32
+                | ir::UnaryOp::I64TruncUSatF32
+                | ir::UnaryOp::I64TruncSF32
+                | ir::UnaryOp::I64TruncUF32 => (&[ValType::F32], &[ValType::I64]),
+                ir::UnaryOp::I64TruncSSatF64
+                | ir::UnaryOp::I64TruncUSatF64
+                | ir::UnaryOp::I64TruncSF64
+                | ir::UnaryOp::I64TruncUF64 => (&[ValType::F64], &[ValType::I64]),
                 ir::UnaryOp::F32ConvertSI32
                 | ir::UnaryOp::F32ConvertUI32
                 | ir::UnaryOp::F32ReinterpretI32 => (&[ValType::I32], &[ValType::F32]),
@@ -761,14 +766,6 @@ impl ClassifiedInstr for Other {
                 | ir::UnaryOp::I32x4TruncSatF32x4U
                 | ir::UnaryOp::F32x4ConvertI32x4S
                 | ir::UnaryOp::F32x4ConvertI32x4U
-                | ir::UnaryOp::I32TruncSSatF32
-                | ir::UnaryOp::I32TruncUSatF32
-                | ir::UnaryOp::I32TruncSSatF64
-                | ir::UnaryOp::I32TruncUSatF64
-                | ir::UnaryOp::I64TruncSSatF32
-                | ir::UnaryOp::I64TruncUSatF32
-                | ir::UnaryOp::I64TruncSSatF64
-                | ir::UnaryOp::I64TruncUSatF64
                 | ir::UnaryOp::I16x8WidenLowI8x16S
                 | ir::UnaryOp::I16x8WidenLowI8x16U
                 | ir::UnaryOp::I16x8WidenHighI8x16S
@@ -893,7 +890,30 @@ impl ClassifiedInstr for Other {
             ),
             Other::I8x16Swizzle(_) => (&[ValType::V128, ValType::V128], &[ValType::V128]),
             Other::I8x16Shuffle(_) => (&[ValType::V128, ValType::V128], &[ValType::V128]),
-            Other::LoadSimd(_) => (&[ValType::I32], &[ValType::V128]),
+            Other::LoadSimd(ir::LoadSimd { kind, .. }) => match kind {
+                ir::LoadSimdKind::Splat8
+                | ir::LoadSimdKind::Splat16
+                | ir::LoadSimdKind::Splat32
+                | ir::LoadSimdKind::Splat64
+                | ir::LoadSimdKind::V128Load8x8S
+                | ir::LoadSimdKind::V128Load8x8U
+                | ir::LoadSimdKind::V128Load16x4S
+                | ir::LoadSimdKind::V128Load16x4U
+                | ir::LoadSimdKind::V128Load32x2S
+                | ir::LoadSimdKind::V128Load32x2U
+                | ir::LoadSimdKind::V128Load32Zero
+                | ir::LoadSimdKind::V128Load64Zero => (&[ValType::I32], &[ValType::V128]),
+                ir::LoadSimdKind::V128Load8Lane(_)
+                | ir::LoadSimdKind::V128Load16Lane(_)
+                | ir::LoadSimdKind::V128Load32Lane(_)
+                | ir::LoadSimdKind::V128Load64Lane(_)
+                | ir::LoadSimdKind::V128Store8Lane(_)
+                | ir::LoadSimdKind::V128Store16Lane(_)
+                | ir::LoadSimdKind::V128Store32Lane(_)
+                | ir::LoadSimdKind::V128Store64Lane(_) => {
+                    (&[ValType::I32, ValType::V128], &[ValType::V128])
+                }
+            },
             Other::TableInit(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
             Other::ElemDrop(_) => (&[], &[]),
             Other::TableCopy(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),

@@ -565,7 +565,7 @@ fn build_module(
     }
 
     let built = builder.finish(vec![], &mut module.funcs);
-    let export_ids : Vec<ExportId> = module.exports.iter().map(|ex| ex.id()).collect();
+    let export_ids: Vec<ExportId> = module.exports.iter().map(|ex| ex.id()).collect();
     for id in export_ids {
         module.exports.delete(id);
     }
@@ -643,7 +643,7 @@ fn find_result_type(module: &Module, execute: &WastExecute) -> Result<Vec<ValTyp
 impl WastTest {
     pub fn run(&self, workdir: &Path, stem: &str) {
         std::fs::create_dir_all(workdir).unwrap();
-        
+
         let mut error_path = workdir.to_owned();
         error_path.push(stem);
         error_path.set_extension("compile_error");
@@ -688,7 +688,10 @@ impl WastTest {
                 //     std::fs::write(&asm_path, &asm_out).unwrap();
                 // }
 
-                if ev.iter().all(|e| matches!(e, CompilationError::UnsupportedInstruction { .. })) {
+                if ev
+                    .iter()
+                    .all(|e| matches!(e, CompilationError::UnsupportedInstruction { .. }))
+                {
                     let _ = std::fs::remove_file(&wasm_path);
                     return;
                 }
@@ -726,15 +729,19 @@ impl WastTest {
         };
 
         let interpreted = InterpretedResult::interpret(&self.expected_result, &actual);
-        
+
         if interpreted != self.expected_result {
             std::fs::write(&actual_path, format!("{:?}", interpreted)).unwrap();
             std::fs::write(&expected_path, format!("{:?}", self.expected_result)).unwrap();
             let mut options = CompilationOptions::new();
             options.set_text(true);
-            let asm_out = compile_module_to_bytes(&options, &module).expect("If binary compilation succeeded, text compilation should too");
+            let asm_out = compile_module_to_bytes(&options, &module)
+                .expect("If binary compilation succeeded, text compilation should too");
             std::fs::write(&glulxasm_path, &asm_out).unwrap();
-            panic!("Test result differed from expected.\nActual: {:?}\nExpected: {:?}", interpreted, self.expected_result);
+            panic!(
+                "Test result differed from expected.\nActual: {:?}\nExpected: {:?}",
+                interpreted, self.expected_result
+            );
         } else {
             let _ = std::fs::remove_file(&story_path);
             let _ = std::fs::remove_file(&wasm_path);

@@ -1,7 +1,11 @@
 #![macro_use]
 use anyhow::anyhow;
 use glulx_asm::{Item, ZeroItem};
-use std::{fmt::{Debug,Display}, hash::Hash, path::PathBuf};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+    path::PathBuf,
+};
 use walrus::{GlobalId, GlobalKind, Module, ValType};
 
 use crate::{layout::Layout, rt::RuntimeLabels, CompilationError};
@@ -16,7 +20,6 @@ macro_rules! push_all {
 
 #[derive(Debug)]
 pub struct LabelGenerator(pub usize);
-
 
 #[derive(Debug, Copy, Clone)]
 pub struct Label {
@@ -49,15 +52,11 @@ impl LabelGenerator {
         let idx = self.0;
         self.0 += 1;
         {
-            Label {
-                desc,
-                num: idx,
-            }
+            Label { desc, num: idx }
         }
     }
 }
-pub struct Context<'a>
-{
+pub struct Context<'a> {
     pub options: &'a CompilationOptions,
     pub module: &'a Module,
     pub layout: &'a Layout,
@@ -137,8 +136,7 @@ pub fn vt_words(vt: ValType) -> u32 {
     }
 }
 
-pub fn reject_global_constexpr(ctx: &mut Context, id: GlobalId)
-{
+pub fn reject_global_constexpr(ctx: &mut Context, id: GlobalId) {
     match &ctx.module.globals.get(id).kind {
         GlobalKind::Import(id) => ctx.errors.push(CompilationError::UnrecognizedImport(
             ctx.module.imports.get(*id).clone(),

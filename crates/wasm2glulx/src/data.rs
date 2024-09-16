@@ -8,8 +8,7 @@ use crate::{
     CompilationError, OverflowLocation,
 };
 
-pub fn gen_tables(ctx: &mut Context)
-{
+pub fn gen_tables(ctx: &mut Context) {
     for table in ctx.module.tables.iter() {
         if let Some(id) = table.import {
             ctx.errors.push(CompilationError::UnrecognizedImport(
@@ -42,8 +41,7 @@ pub fn gen_tables(ctx: &mut Context)
     }
 }
 
-pub fn gen_globals(ctx: &mut Context)
-{
+pub fn gen_globals(ctx: &mut Context) {
     for global in ctx.module.globals.iter() {
         let mut bytes = bytes::BytesMut::new();
         let mut is_zero = true;
@@ -108,8 +106,7 @@ pub fn gen_globals(ctx: &mut Context)
     }
 }
 
-pub fn gen_elems(ctx: &mut Context)
-{
+pub fn gen_elems(ctx: &mut Context) {
     for elem in ctx.module.elements.iter() {
         if matches!(elem.kind, ElementKind::Declared) {
             continue;
@@ -153,8 +150,7 @@ pub fn gen_elems(ctx: &mut Context)
     }
 }
 
-pub fn gen_datas(ctx: &mut Context)
-{
+pub fn gen_datas(ctx: &mut Context) {
     for data in ctx.module.data.iter() {
         let layout = ctx.layout.data(data.id());
         ctx.rom_items.push(label(layout.addr));
@@ -164,8 +160,7 @@ pub fn gen_datas(ctx: &mut Context)
     }
 }
 
-pub fn gen_fntypes(ctx: &mut Context)
-{
+pub fn gen_fntypes(ctx: &mut Context) {
     let mut fntypes = vec![0; ctx.layout.fntypes().count as usize];
     for func in ctx.layout.iter_funcs() {
         fntypes[func.fnnum as usize] = func.typenum;
@@ -180,23 +175,18 @@ pub fn gen_fntypes(ctx: &mut Context)
     ctx.rom_items.push(blob(bytes));
 }
 
-pub fn gen_hi_return(ctx: &mut Context)
-{
-    ctx.zero_items
-        .push(zlabel(ctx.layout.hi_return().addr));
+pub fn gen_hi_return(ctx: &mut Context) {
+    ctx.zero_items.push(zlabel(ctx.layout.hi_return().addr));
     ctx.zero_items.push(zspace(ctx.layout.hi_return().size));
 }
 
-pub fn gen_glk_area(ctx: &mut Context)
-{
+pub fn gen_glk_area(ctx: &mut Context) {
     ctx.zero_items.push(zalign(4));
-    ctx.zero_items
-        .push(zlabel(ctx.layout.glk_area().addr));
+    ctx.zero_items.push(zlabel(ctx.layout.glk_area().addr));
     ctx.zero_items.push(zspace(ctx.layout.glk_area().size));
 }
 
-pub fn gen_memory(ctx: &mut Context)
-{
+pub fn gen_memory(ctx: &mut Context) {
     let mut bytes = BytesMut::with_capacity(4);
     let mem = ctx.layout.memory();
     bytes.put_u32(mem.min_size);
@@ -208,8 +198,7 @@ pub fn gen_memory(ctx: &mut Context)
     ctx.zero_items.push(zspace(mem.min_size));
 }
 
-pub fn gen_data(ctx: &mut Context)
-{
+pub fn gen_data(ctx: &mut Context) {
     gen_tables(ctx);
     gen_globals(ctx);
     gen_elems(ctx);

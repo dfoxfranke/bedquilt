@@ -14,7 +14,11 @@ pub fn spectest(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let wast = std::fs::read_to_string(&input_path).unwrap();
     let tests = wasm2glulx::spectest::wast_to_tests(wast.as_str()).unwrap();
     let mut out = Vec::new();
-    let stem = input_path.file_stem().unwrap().to_string_lossy().replace('-', "_");
+    let stem = input_path
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .replace('-', "_");
 
     for test in tests {
         let module = Literal::byte_string(&test.module);
