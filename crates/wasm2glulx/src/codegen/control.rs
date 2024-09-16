@@ -4,7 +4,7 @@ use super::{
     toplevel::{Frame, JumpTarget},
 };
 
-use crate::common::{Context, Label, TrapCode, WordCount};
+use crate::common::{Context, Label, WordCount};
 use glulx_asm::{concise::*, LoadOperand};
 use walrus::{ir, ValType};
 
@@ -257,29 +257,17 @@ pub fn gen_call_indirect(
 
     credits.gen(ctx);
     ctx.rom_items.push(stkpeek(imm(0), push()));
-    ctx.rom_items.push(copy(
-        uimm(TrapCode::UndefinedElement.into()),
-        storel(ctx.layout.trap().code),
-    ));
     ctx.rom_items
-        .push(jgeu(pop(), derefl(table_count), ctx.rt.trapjump));
+        .push(jgeu(pop(), derefl(table_count), ctx.rt.trap_undefined_element));
     ctx.rom_items.push(aload(imml(table_addr), pop(), push()));
     ctx.rom_items.push(shiftl(pop(), uimm(1), push()));
     ctx.rom_items.push(stkpeek(imm(0), push()));
     ctx.rom_items.push(stkpeek(imm(0), push()));
-    ctx.rom_items.push(copy(
-        uimm(TrapCode::UninitializedElement.into()),
-        storel(ctx.layout.trap().code),
-    ));
-    ctx.rom_items.push(jz(pop(), ctx.rt.trapjump));
+    ctx.rom_items.push(jz(pop(), ctx.rt.trap_uninitialized_element));
     ctx.rom_items
         .push(aload(imml_off(ctx.layout.fntypes().addr, 4), pop(), push()));
-    ctx.rom_items.push(copy(
-        uimm(TrapCode::IndirectCallTypeMismatch.into()),
-        storel(ctx.layout.trap().code),
-    ));
     ctx.rom_items
-        .push(jne(pop(), uimm(typenum), ctx.rt.trapjump));
+        .push(jne(pop(), uimm(typenum), ctx.rt.trap_indirect_call_type_mismatch));
     ctx.rom_items
         .push(aload(imml(ctx.layout.fntypes().addr), pop(), push()));
     ctx.rom_items

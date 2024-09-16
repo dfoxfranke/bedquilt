@@ -69,7 +69,6 @@ pub struct HiReturnLayout {
 
 #[derive(Debug, Copy, Clone)]
 pub struct TrapLayout {
-    pub code: Label,
     pub string_table: Label,
 }
 
@@ -257,7 +256,6 @@ where {
 
         let entrypoint = gen.gen("entrypoint");
         let trap = TrapLayout {
-            code: gen.gen("trap_code"),
             string_table: gen.gen("trap_string_table"),
         };
 

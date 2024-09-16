@@ -195,9 +195,6 @@ pub fn gen_trap(ctx: &mut Context) {
         ctx.rom_items.push(label(*l));
         ctx.rom_items.push(mystery_string(&code.as_str()));
     }
-
-    ctx.zero_items.push(zlabel(ctx.layout.trap().code));
-    ctx.zero_items.push(zspace(4));
 }
 
 pub fn gen_hi_return(ctx: &mut Context) {

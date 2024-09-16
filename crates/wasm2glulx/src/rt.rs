@@ -58,9 +58,18 @@ pub struct RuntimeLabels {
     pub clz64: Label,
     pub ctz64: Label,
     pub popcnt64: Label,
-    pub trapjump: Label,
     pub table_init: Label,
     pub data_init: Label,
+    pub trap_unreachable: Label,
+    pub trap_integer_overflow: Label,
+    pub trap_integer_divide_by_zero: Label,
+    pub trap_invalid_conversion_to_integer: Label,
+    pub trap_out_of_bounds_memory_access: Label,
+    pub trap_indirect_call_type_mismatch: Label,
+    pub trap_out_of_bounds_table_access: Label,
+    pub trap_undefined_element: Label,
+    pub trap_uninitialized_element: Label,
+    pub trap_call_stack_exhausted: Label,
 }
 
 impl RuntimeLabels {
@@ -121,9 +130,19 @@ impl RuntimeLabels {
             clz64: gen.gen("rt_clz64"),
             ctz64: gen.gen("rt_ctz64"),
             popcnt64: gen.gen("rt_popcnt64"),
-            trapjump: gen.gen("rt_trampjump"),
             table_init: gen.gen("rt_table_init"),
             data_init: gen.gen("rt_data_init"),
+
+            trap_unreachable: gen.gen("trap_unreachable"),
+            trap_integer_overflow: gen.gen("trap_integer_overflow"),
+            trap_integer_divide_by_zero: gen.gen("trap_integer_divide_by_zero"),
+            trap_invalid_conversion_to_integer: gen.gen("trap_invalid_conversion_to_integer"),
+            trap_out_of_bounds_memory_access: gen.gen("trap_out_of_bounds_memory_access"),
+            trap_indirect_call_type_mismatch: gen.gen("trap_indirect_call_type_mismatch"),
+            trap_out_of_bounds_table_access: gen.gen("trap_out_of_bounds_table_access"),
+            trap_undefined_element: gen.gen("trap_undefined_element"),
+            trap_uninitialized_element: gen.gen("trap_uninitialized_element"),
+            trap_call_stack_exhausted: gen.gen("trap_call_stack_exhausted"),        
         }
     }
 }
@@ -1224,10 +1243,52 @@ fn gen_popcnt64(ctx: &mut Context) {
 }
 
 fn gen_trap(ctx: &mut Context) {
+
+                /*
+                TrapCode::Unreachable => 0,
+            TrapCode::IntegerOverflow => 1,
+            TrapCode::IntegerDivideByZero => 2,
+            TrapCode::InvalidConversionToInteger => 3,
+            TrapCode::OutOfBoundsMemoryAccess => 4,
+            TrapCode::IndirectCallTypeMismatch => 5,
+            TrapCode::OutOfBoundsTableAccess => 6,
+            TrapCode::UndefinedElement => 7,
+            TrapCode::UninitializedElement => 8,
+            TrapCode::CallStackExhausted => 9,
+ */
+
+    
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.trapjump),
-        debugtrap(derefl(ctx.layout.trap().code)),
+        label(ctx.rt.trap_unreachable),
+        debugtrap(uimm(TrapCode::Unreachable.into())),
+        quit(),
+        label(ctx.rt.trap_integer_overflow),
+        debugtrap(uimm(TrapCode::IntegerOverflow.into())),
+        quit(),
+        label(ctx.rt.trap_integer_divide_by_zero),
+        debugtrap(uimm(TrapCode::IntegerDivideByZero.into())),
+        quit(),
+        label(ctx.rt.trap_invalid_conversion_to_integer),
+        debugtrap(uimm(TrapCode::InvalidConversionToInteger.into())),
+        quit(),
+        label(ctx.rt.trap_out_of_bounds_memory_access),
+        debugtrap(uimm(TrapCode::OutOfBoundsMemoryAccess.into())),
+        quit(),
+        label(ctx.rt.trap_indirect_call_type_mismatch),
+        debugtrap(uimm(TrapCode::IndirectCallTypeMismatch.into())),
+        quit(),
+        label(ctx.rt.trap_out_of_bounds_table_access),
+        debugtrap(uimm(TrapCode::OutOfBoundsTableAccess.into())),
+        quit(),
+        label(ctx.rt.trap_undefined_element),
+        debugtrap(uimm(TrapCode::UndefinedElement.into())),
+        quit(),
+        label(ctx.rt.trap_uninitialized_element),
+        debugtrap(uimm(TrapCode::UninitializedElement.into())),
+        quit(),
+        label(ctx.rt.trap_call_stack_exhausted),
+        debugtrap(uimm(TrapCode::CallStackExhausted.into())),
         quit(),
     )
 }
@@ -1245,16 +1306,12 @@ fn gen_table_init(ctx: &mut Context) {
         ctx.rom_items,
         label(ctx.rt.table_init),
         fnhead_local(7),
-        copy(
-            uimm(TrapCode::OutOfBoundsTableAccess.into()),
-            storel(ctx.layout.trap().code)
-        ),
-        jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trapjump),
+        jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trap_out_of_bounds_table_access),
         sub(lloc(elem_size), lloc(elem_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump),
-        jgtu(lloc(table_offset), lloc(table_size), ctx.rt.trapjump),
+        jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_table_access),
+        jgtu(lloc(table_offset), lloc(table_size), ctx.rt.trap_out_of_bounds_table_access),
         sub(lloc(table_size), lloc(table_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump),
+        jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_table_access),
         shiftl(lloc(table_offset), imm(2), push()),
         add(pop(), lloc(table_addr), push()),
         shiftl(lloc(elem_offset), imm(2), push()),
@@ -1276,24 +1333,20 @@ fn gen_data_init(ctx: &mut Context) {
         ctx.rom_items,
         label(ctx.rt.data_init),
         fnhead_local(5),
-        copy(
-            uimm(TrapCode::OutOfBoundsMemoryAccess.into()),
-            storel(ctx.layout.trap().code)
-        ),
-        jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trapjump),
+        jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trap_out_of_bounds_memory_access),
         sub(lloc(data_size), lloc(data_offset), push()),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump),
+        jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_memory_access),
         jgtu(
             lloc(mem_offset),
             derefl(ctx.layout.memory().cur_size),
-            ctx.rt.trapjump
+            ctx.rt.trap_out_of_bounds_memory_access
         ),
         sub(
             derefl(ctx.layout.memory().cur_size),
             lloc(mem_offset),
             push()
         ),
-        jgtu(lloc(n), pop(), ctx.rt.trapjump),
+        jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_memory_access),
         add(lloc(mem_offset), imml(ctx.layout.memory().addr), push()),
         add(lloc(data_offset), lloc(data_addr), push()),
         mcopy(lloc(n), pop(), pop()),
