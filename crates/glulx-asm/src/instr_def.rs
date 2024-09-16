@@ -54,7 +54,7 @@ pub enum Instr<L> {
     /// The sign of a remainder equals the sign of the dividend. It is always
     /// true that `(A / B) * B + (A % B) == A`. Some examples (in decimal):
     ///
-    /// ```
+    /// ```text
     /// 11 /  2 =  5
     /// -11 /  2 = -5
     /// 11 / -2 = -5
@@ -191,7 +191,7 @@ pub enum Instr<L> {
     ///
     /// An example of stkcopy, starting with six values on the stack:
     ///
-    /// ```
+    /// ```text
     /// 5 4 3 2 1 0 <top>
     /// stkcopy 3
     /// 5 4 3 2 1 0 2 1 0 <top>
@@ -206,7 +206,7 @@ pub enum Instr<L> {
     ///
     /// An example of two stkrolls, starting with nine values on the stack:
     ///
-    /// ```
+    /// ```text
     /// 8 7 6 5 4 3 2 1 0 <top>
     /// stkroll 5 1
     /// 8 7 6 5 0 4 3 2 1 <top>
