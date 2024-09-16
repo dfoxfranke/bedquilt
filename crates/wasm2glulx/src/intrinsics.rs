@@ -1,7 +1,7 @@
 use glulx_asm::concise::*;
 use walrus::{ImportedFunction, ValType};
 
-use crate::common::{vt_words, Context, Label};
+use crate::common::{Context, Label, WordCount};
 
 pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
     let import = ctx.module.imports.get(imported_func.import);
@@ -21,7 +21,7 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
                 return;
             }
 
-            let mut param_word: u32 = ty.params().iter().map(|vt| vt_words(*vt)).sum();
+            let mut param_word: u32 = ty.params().word_count();
 
             ctx.rom_items.push(label(my_label));
             ctx.rom_items.push(fnhead_local(param_word));

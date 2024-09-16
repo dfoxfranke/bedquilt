@@ -4,7 +4,7 @@ use super::{
     toplevel::{Frame, JumpTarget},
 };
 
-use crate::common::{vt_words, Context, Label};
+use crate::common::{Context, Label, WordCount};
 use glulx_asm::{concise::*, LoadOperand};
 use walrus::{ir, Type, ValType};
 
@@ -190,8 +190,8 @@ fn gen_call_inner(
     mut credits: Credits,
     mut debts: Debts,
 ) {
-    let param_words: u32 = ty.params().iter().map(|vt| vt_words(*vt)).sum();
-    let result_words: u32 = ty.results().iter().map(|vt| vt_words(*vt)).sum();
+    let param_words: u32 = ty.params().word_count();
+    let result_words: u32 = ty.results().word_count();
 
     let return_operand = if result_words > 0 {
         if result_words == 1 && debts.len() == 1 {
@@ -404,17 +404,19 @@ pub fn gen_select(
     mut debts: Debts,
 ) {
     let noroll = ctx.gen.gen("noroll");
-    let words = vt_words(
-        *post_stack
-            .last()
-            .expect("Stack should not be empty after a select"),
-    ) as i32;
+    let words: u8 = post_stack
+        .last()
+        .expect("Stack should not be empty after a select")
+        .word_count();
 
     gen_test(ctx, test, noroll, credits);
-    ctx.rom_items.push(stkroll(imm(2 * words), imm(words)));
+
+    ctx.rom_items
+        .push(stkroll(uimm(u32::from(words) * 2), imm(words.into())));
     ctx.rom_items.push(label(noroll));
     for _ in 0..words {
         ctx.rom_items.push(copy(pop(), discard()));
     }
+
     debts.gen(ctx);
 }

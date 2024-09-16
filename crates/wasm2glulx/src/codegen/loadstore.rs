@@ -121,13 +121,16 @@ impl Credits {
     }
 
     pub fn from_returns(ctx: &Context, result_type: &[ValType]) -> Self {
-        let words: usize = result_type.iter().map(|vt| vt_words(*vt) as usize).sum();
+        let words: usize = result_type.word_count();
         if words == 0 {
             return Credits::empty();
         }
         let mut loads = Vec::with_capacity(words - 1);
         for i in (0..words - 1).rev() {
-            loads.push(derefl_off(ctx.layout.hi_return().addr, (4 * i).try_into().expect("hi_return offsets too large to fit in an i32 should have been rejected when building the layout")));
+            let offset: u32 = (4 * i).try_into().expect(
+                "Result types that overflow a u32 should have been caught during layout generation",
+            );
+            loads.push(derefl_uoff(ctx.layout.hi_return().addr, offset));
         }
 
         Credits { loads }
@@ -254,7 +257,7 @@ impl Debts {
                     }
                 }
                 Store::Drop(_) => {
-                    for _ in 0..vt_words(stack_type) {
+                    for _ in 0usize..stack_type.word_count() {
                         stores.push(discard());
                     }
                 }
@@ -269,7 +272,7 @@ impl Debts {
                 stack.ends_with(ret_types),
                 "types on stack should match return type of function"
             );
-            let words: usize = ret_types.iter().map(|vt| vt_words(*vt) as usize).sum();
+            let words: usize = ret_types.word_count();
             Some(Returns {
                 m: 0,
                 n: words,

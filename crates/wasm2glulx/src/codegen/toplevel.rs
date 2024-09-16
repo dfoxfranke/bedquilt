@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use walrus::ir::{self, InstrSeq, InstrSeqId};
 use walrus::{LocalFunction, LocalId, ValType};
 
-use crate::common::{vt_words, Context, Label};
+use crate::common::{Context, Label, WordCount};
 use crate::{CompilationError, OverflowLocation};
 
 use super::classify::{
@@ -33,7 +33,7 @@ struct LocalsBuilder<'a> {
 impl<'a> ir::Visitor<'_> for LocalsBuilder<'a> {
     fn visit_local_id(&mut self, id: &LocalId) {
         let local = self.ctx.module.locals.get(*id);
-        let words = vt_words(local.ty());
+        let words = local.ty().word_count();
         if !self.locals.contains_key(id) {
             self.locals.insert(*id, *self.ctr);
             *self.ctr = self.ctr.saturating_add(words);
@@ -85,7 +85,7 @@ pub fn gen_function(
 
     for arg in function.args.iter().rev() {
         let local = ctx.module.locals.get(*arg);
-        let words = vt_words(local.ty());
+        let words = local.ty().word_count();
         locals.insert(*arg, ctr);
         ctr = ctr.saturating_add(words);
     }
@@ -278,7 +278,7 @@ fn gen_instrseq(
                     load.update_stack(ctx.module, frame.function, stack);
                 }
 
-                let pre_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+                let pre_height: usize = stack.word_count();
                 other.update_stack(ctx.module, frame.function, stack);
 
                 let debts = make_debts(
@@ -311,9 +311,9 @@ fn gen_block(
     credits: Credits,
 ) {
     let (params, results) = block.stack_type(ctx.module, frame.function, stack.as_slice());
-    let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
-    let param_len: usize = params.iter().map(|vt| vt_words(*vt) as usize).sum();
-    let arity: usize = results.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let stack_height: usize = stack.word_count();
+    let param_len: usize = params.word_count();
+    let arity: usize = results.word_count();
     let base = stack_height - param_len;
 
     let target = ctx.gen.gen("endblock");
@@ -395,8 +395,8 @@ fn gen_loop(
     let seq = frame.function.block(id);
     let (params, _) = looop.stack_type(ctx.module, frame.function, stack.as_slice());
 
-    let arity: usize = params.iter().map(|vt| vt_words(*vt) as usize).sum();
-    let stack_height: usize = stack.iter().map(|vt| vt_words(*vt) as usize).sum();
+    let arity: usize = params.word_count();
+    let stack_height: usize = stack.word_count();
     let base: usize = stack_height - arity;
     let target = ctx.gen.gen("loop");
     frame.jump_targets.insert(

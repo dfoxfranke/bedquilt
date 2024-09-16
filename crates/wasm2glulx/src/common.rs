@@ -17,7 +17,6 @@ macro_rules! push_all {
         }
     }
 }
-
 #[derive(Debug)]
 pub struct LabelGenerator(pub usize);
 
@@ -125,17 +124,6 @@ impl CompilationOptions {
     }
 }
 
-pub fn vt_words(vt: ValType) -> u32 {
-    match vt {
-        ValType::I32 => 1,
-        ValType::I64 => 2,
-        ValType::F32 => 1,
-        ValType::F64 => 2,
-        ValType::V128 => 4,
-        ValType::Ref(_) => 1,
-    }
-}
-
 pub fn reject_global_constexpr(ctx: &mut Context, id: GlobalId) {
     match &ctx.module.globals.get(id).kind {
         GlobalKind::Import(id) => ctx.errors.push(CompilationError::UnrecognizedImport(
@@ -146,5 +134,60 @@ pub fn reject_global_constexpr(ctx: &mut Context, id: GlobalId) {
                 "Constexprs which take their value from non-imported globals are not supported."
             )));
         }
+    }
+}
+
+pub trait WordCount<Output> {
+    fn word_count(&self) -> Output;
+}
+
+impl WordCount<u8> for ValType {
+    fn word_count(&self) -> u8 {
+        match self {
+            ValType::I32 => 1,
+            ValType::I64 => 2,
+            ValType::F32 => 1,
+            ValType::F64 => 2,
+            ValType::V128 => 4,
+            ValType::Ref(_) => 1,
+        }
+    }
+}
+
+impl WordCount<u32> for ValType {
+    fn word_count(&self) -> u32 {
+        WordCount::<u8>::word_count(self).into()
+    }
+}
+
+impl WordCount<usize> for ValType {
+    fn word_count(&self) -> usize {
+        WordCount::<u8>::word_count(self).into()
+    }
+}
+
+impl WordCount<usize> for [ValType] {
+    fn word_count(&self) -> usize {
+        self.iter().map(WordCount::<usize>::word_count).sum()
+    }
+}
+
+impl WordCount<usize> for Vec<ValType> {
+    fn word_count(&self) -> usize {
+        self.as_slice().word_count()
+    }
+}
+
+impl WordCount<u32> for [ValType] {
+    fn word_count(&self) -> u32 {
+        WordCount::<usize>::word_count(self)
+            .try_into()
+            .expect("Types that overflow a u32 should have been rejected during layout creation")
+    }
+}
+
+impl WordCount<u32> for Vec<ValType> {
+    fn word_count(&self) -> u32 {
+        self.as_slice().word_count()
     }
 }

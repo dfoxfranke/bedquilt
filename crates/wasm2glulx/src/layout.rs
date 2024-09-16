@@ -113,14 +113,14 @@ where {
             let mut result_words: u32 = 0;
 
             for vt in t.params() {
-                param_words = param_words.checked_add(vt_words(*vt)).unwrap_or_else(|| {
+                param_words = param_words.checked_add(vt.word_count()).unwrap_or_else(|| {
                     errors.push(CompilationError::Overflow(OverflowLocation::TypeDecl));
                     0
                 });
             }
 
             for vt in t.results() {
-                result_words = result_words.checked_add(vt_words(*vt)).unwrap_or_else(|| {
+                result_words = result_words.checked_add(vt.word_count()).unwrap_or_else(|| {
                     errors.push(CompilationError::Overflow(OverflowLocation::TypeDecl));
                     0
                 });
@@ -181,7 +181,7 @@ where {
 
         for g in module.globals.iter() {
             let addr = gen.gen("global");
-            let words = vt_words(g.ty);
+            let words = g.ty.word_count();
             globals.insert(g.id(), GlobalLayout { addr, words });
         }
 
