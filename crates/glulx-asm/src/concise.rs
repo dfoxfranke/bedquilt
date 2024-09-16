@@ -77,9 +77,19 @@ pub fn imml_off<L>(x: L, offset: i32) -> LoadOperand<L> {
     LoadOperand::ImmLabel(LabelRef(x, offset), 0)
 }
 
+/// Constructs an immedate load operand from a label and an unsigned offset.
+pub fn imml_uoff<L>(x: L, offset: u32) -> LoadOperand<L> {
+    LoadOperand::ImmLabel(LabelRef(x, offset.cast_sign()), 0)
+}
+
 /// Constructs an immedate load operand from a label, offset, and right-shift.
 pub fn imml_off_shift<L>(x: L, offset: i32, shift: u8) -> LoadOperand<L> {
     LoadOperand::ImmLabel(LabelRef(x, offset), shift)
+}
+
+/// Constructs an immedate load operand from a label, unsigned offset, and right-shift.
+pub fn imml_uoff_shift<L>(x: L, offset: u32, shift: u8) -> LoadOperand<L> {
+    LoadOperand::ImmLabel(LabelRef(x, offset.cast_sign()), shift)
 }
 
 /// Constructs a load operand which derefernces a label.
@@ -90,6 +100,11 @@ pub fn derefl<L>(x: L) -> LoadOperand<L> {
 /// Constructs a load operand which derefernces a label and offset.
 pub fn derefl_off<L>(x: L, offset: i32) -> LoadOperand<L> {
     LoadOperand::DerefLabel(LabelRef(x, offset))
+}
+
+/// Constructs a load operand which derefernces a label and unsigend offset.
+pub fn derefl_uoff<L>(x: L, offset: u32) -> LoadOperand<L> {
+    LoadOperand::DerefLabel(LabelRef(x, offset.cast_sign()))
 }
 
 /// Constructs a store operand which pushes to the stack.
@@ -110,6 +125,11 @@ pub fn storel<L>(l: L) -> StoreOperand<L> {
 /// Constructs a store operand which stores to a labeled address with offset.
 pub fn storel_off<L>(l: L, offset: i32) -> StoreOperand<L> {
     StoreOperand::DerefLabel(LabelRef(l, offset))
+}
+
+/// Constructs a store operand which stores to a labeled address with unsigned offset.
+pub fn storel_uoff<L>(l: L, offset: u32) -> StoreOperand<L> {
+    StoreOperand::DerefLabel(LabelRef(l, offset.cast_sign()))
 }
 
 /// Constructs a load operand which loads from the `n`'th local.
@@ -185,9 +205,19 @@ pub fn labelref_off<L>(label: L, offset: i32) -> Item<L> {
     Item::LabelRef(LabelRef(label, offset), 0)
 }
 
+/// Constructs a `LabelRef` item with an unsigned offset.
+pub fn labelref_uoff<L>(label: L, offset: u32) -> Item<L> {
+    Item::LabelRef(LabelRef(label, offset.cast_sign()), 0)
+}
+
 /// Constructs a `LabelRef` item with an offset and right shift.
 pub fn labelref_off_shift<L>(label: L, offset: i32, shift: u8) -> Item<L> {
     Item::LabelRef(LabelRef(label, offset), shift)
+}
+
+/// Constructs a `LabelRef` item with an unsigned offset and right shift.
+pub fn labelref_uoff_shift<L>(label: L, offset: u32, shift: u8) -> Item<L> {
+    Item::LabelRef(LabelRef(label, offset.cast_sign()), shift)
 }
 
 /// Constructs a `Label` zero-item.
