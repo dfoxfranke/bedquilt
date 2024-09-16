@@ -339,6 +339,9 @@ impl<L> LabelRef<L> {
     where
         R: Resolver<Label = L>,
     {
-        resolver.resolve_absolute(&self.0)
+        resolver
+            .resolve_absolute(&self.0)?
+            .checked_add_signed(self.1)
+            .overflow()
     }
 }
