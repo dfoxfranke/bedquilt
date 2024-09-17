@@ -45,6 +45,7 @@ pub fn gen_globals(ctx: &mut Context) {
     for global in ctx.module.globals.iter() {
         let mut bytes = bytes::BytesMut::new();
         let mut is_zero = true;
+        let global_label = ctx.layout.global(global.id()).addr;
 
         match &global.kind {
             GlobalKind::Import(id) => {
@@ -81,12 +82,16 @@ pub fn gen_globals(ctx: &mut Context) {
                 bytes.put_u32(0);
             }
             GlobalKind::Local(ConstExpr::RefFunc(f)) => {
-                bytes.put_u32(ctx.layout.func(*f).fnnum);
-                is_zero = false;
+                if global.mutable {
+                    ctx.ram_items.push(label(global_label));
+                    ctx.ram_items.push(labelref(ctx.layout.func(*f).addr));
+                } else {
+                    ctx.rom_items.push(label(global_label));
+                    ctx.rom_items.push(labelref(ctx.layout.func(*f).addr));
+                }
+                continue;
             }
         }
-
-        let global_label = ctx.layout.global(global.id()).addr;
 
         if is_zero {
             ctx.zero_items.push(zlabel(global_label));
@@ -112,12 +117,13 @@ pub fn gen_elems(ctx: &mut Context) {
             continue;
         }
 
-        let mut bytes = BytesMut::new();
+        let layout = ctx.layout.element(elem.id());
+        ctx.rom_items.push(label(layout.addr));
 
         match &elem.items {
             walrus::ElementItems::Functions(v) => {
                 for id in v {
-                    bytes.put_u32(ctx.layout.func(*id).fnnum);
+                    ctx.rom_items.push(labelref(ctx.layout.func(*id).addr));
                 }
             }
 
@@ -129,22 +135,16 @@ pub fn gen_elems(ctx: &mut Context) {
                             reject_global_constexpr(ctx, *id);
                         }
                         ConstExpr::RefNull(_) => {
-                            bytes.put_u32(0)
+                            ctx.rom_items.push(blob([0u8; 4].as_slice()));
                         }
                         ConstExpr::RefFunc(id) => {
-                            bytes.put_u32(
-                                ctx.layout.func(*id)
-                                    .fnnum,
-                            );
+                            ctx.rom_items.push(labelref(ctx.layout.func(*id).addr));
                         }
                     }
                 }
             }
         }
 
-        let layout = ctx.layout.element(elem.id());
-        ctx.rom_items.push(label(layout.addr));
-        ctx.rom_items.push(blob(bytes));
         ctx.ram_items.push(label(layout.cur_count));
         ctx.ram_items
             .push(blob(Vec::from(layout.initial_count.to_be_bytes())));
@@ -159,24 +159,6 @@ pub fn gen_datas(ctx: &mut Context) {
         ctx.ram_items.push(label(layout.cur_size));
         ctx.ram_items
             .push(blob(Vec::from(layout.initial_size.to_be_bytes())));
-    }
-}
-
-pub fn gen_fntypes(ctx: &mut Context) {
-    let mut fntypes = vec![(None, 0); ctx.layout.fntypes().count as usize];
-    for func in ctx.layout.iter_funcs() {
-        fntypes[func.fnnum as usize] = (Some(func.addr), func.typenum);
-    }
-
-    ctx.rom_items.push(label(ctx.layout.fntypes().addr));
-    for (addr, typenum) in fntypes {
-        if let Some(l) = addr {
-            ctx.rom_items.push(labelref(l));
-        } else {
-            ctx.rom_items.push(blob([0u8; 4].as_slice()));
-        }
-        let typenum_bytes: Vec<u8> = typenum.to_be_bytes().into();
-        ctx.rom_items.push(blob(typenum_bytes));
     }
 }
 
@@ -226,7 +208,6 @@ pub fn gen_data(ctx: &mut Context) {
     gen_globals(ctx);
     gen_elems(ctx);
     gen_datas(ctx);
-    gen_fntypes(ctx);
     gen_hi_return(ctx);
     gen_glk_area(ctx);
     gen_memory(ctx);

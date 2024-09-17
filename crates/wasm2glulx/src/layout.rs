@@ -10,8 +10,6 @@ pub struct TypeLayout {
 #[derive(Debug, Copy, Clone)]
 pub struct FnLayout {
     pub addr: Label,
-    pub fnnum: u32,
-    pub typenum: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -51,12 +49,6 @@ pub struct MemLayout {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct FnTypesLayout {
-    pub addr: Label,
-    pub count: u32,
-}
-
-#[derive(Debug, Copy, Clone)]
 pub struct GlkLayout {
     pub addr: Label,
     pub size: u32,
@@ -82,7 +74,6 @@ pub struct Layout {
     elems: HashMap<ElementId, ElemLayout>,
     datas: HashMap<DataId, DataLayout>,
     mem: MemLayout,
-    fntypes: FnTypesLayout,
     glk_area: GlkLayout,
     hi_return: HiReturnLayout,
     entrypoint: Label,
@@ -118,26 +109,9 @@ where {
             types.insert(t.id(), TypeLayout { typenum });
         }
 
-        for (n, f) in module.funcs.iter().enumerate() {
-            let typenum = types
-                .get(&f.ty())
-                .expect("function should have a known type number")
-                .typenum;
-            let fnnum = if let Ok(fnnum) = u32::try_from(n + 1) {
-                fnnum
-            } else {
-                errors.push(CompilationError::Overflow(OverflowLocation::FnList));
-                break;
-            };
+        for f in module.funcs.iter() {
             let addr = gen.gen("function");
-            funcs.insert(
-                f.id(),
-                FnLayout {
-                    addr,
-                    fnnum,
-                    typenum,
-                },
-            );
+            funcs.insert(f.id(), FnLayout { addr });
         }
 
         for t in module.tables.iter() {
@@ -231,17 +205,6 @@ where {
             },
         };
 
-        let fntypes = FnTypesLayout {
-            addr: gen.gen("fntypes"),
-            count: u32::try_from(funcs.len() + 1).unwrap_or_else(|_| {
-                assert!(
-                    !errors.is_empty(),
-                    "overflow in function list should have been caught above"
-                );
-                0
-            }),
-        };
-
         let glk_area = GlkLayout {
             addr: gen.gen("glk_area"),
             size: options.glk_area_size,
@@ -278,7 +241,6 @@ where {
                 elems,
                 datas,
                 mem,
-                fntypes,
                 glk_area,
                 hi_return,
                 entrypoint,
@@ -287,10 +249,6 @@ where {
         } else {
             Err(errors)
         }
-    }
-
-    pub fn iter_funcs(&self) -> std::collections::hash_map::Values<FunctionId, FnLayout> {
-        self.funcs.values()
     }
 
     pub fn ty(&self, id: TypeId) -> &TypeLayout {
@@ -331,10 +289,6 @@ where {
 
     pub fn memory(&self) -> &MemLayout {
         &self.mem
-    }
-
-    pub fn fntypes(&self) -> &FnTypesLayout {
-        &self.fntypes
     }
 
     pub fn glk_area(&self) -> &GlkLayout {

@@ -108,7 +108,7 @@ impl Credits {
                     loads.push(imm(0));
                 }
                 Load::RefFunc(ir::RefFunc { func }) => {
-                    loads.push(uimm(ctx.layout.func(*func).fnnum));
+                    loads.push(imml(ctx.layout.func(*func).addr));
                 }
                 Load::TableSize(ir::TableSize { table: id }) => {
                     let table = ctx.layout.table(*id);

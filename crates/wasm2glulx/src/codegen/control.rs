@@ -227,8 +227,6 @@ pub fn gen_call(
 
     let return_credits = Credits::from_returns(ctx, ty.results());
     gen_copies(ctx, return_credits, debts);
-
-    //gen_call_inner(ctx, ty, imml(addr), credits, debts);
 }
 
 pub fn gen_call_indirect(
@@ -259,7 +257,7 @@ pub fn gen_call_indirect(
     credits.gen(ctx);
 
     // Steal hi_return as a scratch register
-    let shifted_fnnum = ctx.layout.hi_return().addr;
+    let fnptr = ctx.layout.hi_return().addr;
 
     if matches!(table_index, LoadOperand::Pop) {
         ctx.rom_items.push(stkpeek(imm(0), push()));
@@ -276,28 +274,17 @@ pub fn gen_call_indirect(
         ));
     }
     ctx.rom_items
-        .push(aload(imml(table_addr), table_index, push()));
+        .push(aload(imml(table_addr), table_index, storel(fnptr)));
     ctx.rom_items
-        .push(shiftl(pop(), uimm(1), storel(shifted_fnnum)));
-    ctx.rom_items
-        .push(jz(derefl(shifted_fnnum), ctx.rt.trap_uninitialized_element));
-    ctx.rom_items.push(aload(
-        imml_off(ctx.layout.fntypes().addr, 4),
-        derefl(shifted_fnnum),
-        push(),
-    ));
+        .push(jz(derefl(fnptr), ctx.rt.trap_uninitialized_element));
+    ctx.rom_items.push(aload(derefl(fnptr), imm(-1), push()));
     ctx.rom_items.push(jne(
         pop(),
         uimm(typenum),
         ctx.rt.trap_indirect_call_type_mismatch,
     ));
-    ctx.rom_items.push(aload(
-        imml(ctx.layout.fntypes().addr),
-        derefl(shifted_fnnum),
-        push(),
-    ));
     ctx.rom_items
-        .push(call(pop(), uimm(param_words), return_operand));
+        .push(call(derefl(fnptr), uimm(param_words), return_operand));
 
     let return_credits = Credits::from_returns(ctx, ty.results());
     gen_copies(ctx, return_credits, debts);

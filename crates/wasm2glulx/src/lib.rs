@@ -55,6 +55,10 @@ pub fn compile_module_to_bytes(
         let fn_layout = ctx.layout.func(function.id());
         #[allow(clippy::clone_on_copy)]
         let label = fn_layout.addr.clone();
+        let typenum = ctx.layout.ty(function.ty()).typenum;
+        ctx.rom_items.push(glulx_asm::concise::blob(
+            typenum.to_be_bytes().as_slice().to_owned(),
+        ));
         match &function.kind {
             walrus::FunctionKind::Import(imported_function) => {
                 let import = ctx.module.imports.get(imported_function.import);
