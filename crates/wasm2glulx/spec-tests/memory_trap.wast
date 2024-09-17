@@ -272,6 +272,7 @@
 ;; Check that out of bounds store do not store partial data.
 ;; Zero last 8 bytes.
 (assert_return (invoke "i64.store" (i32.const 0xfff8) (i64.const 0)))
+(invoke "i64.store" (i32.const 0xfff8) (i64.const 0))
 (assert_trap (invoke "i32.store" (i32.const 0xfffd) (i32.const 0x12345678)) "out of bounds memory access")
 (assert_return (invoke "i32.load" (i32.const 0xfffc)) (i32.const 0))
 (assert_trap (invoke "i64.store" (i32.const 0xfff9) (i64.const 0x1234567890abcdef)) "out of bounds memory access")

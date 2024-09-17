@@ -5,6 +5,7 @@ use bytes::{BufMut, BytesMut};
 pub struct RuntimeLabels {
     pub swap: Label,
     pub swaps: Label,
+    pub checkaddr: Label,
     pub memload64: Label,
     pub memload32: Label,
     pub memload16: Label,
@@ -58,8 +59,11 @@ pub struct RuntimeLabels {
     pub clz64: Label,
     pub ctz64: Label,
     pub popcnt64: Label,
-    pub table_init: Label,
-    pub data_init: Label,
+    pub table_init_or_copy: Label,
+    pub memory_init: Label,
+    pub memory_copy: Label,
+    pub memory_fill: Label,
+    pub memory_grow: Label,
     pub trap_unreachable: Label,
     pub trap_integer_overflow: Label,
     pub trap_integer_divide_by_zero: Label,
@@ -77,14 +81,15 @@ impl RuntimeLabels {
         RuntimeLabels {
             swap: gen.gen("rt_swap"),
             swaps: gen.gen("rt_swaps"),
+            checkaddr: gen.gen("rt_checkaddr"),
             memload64: gen.gen("rt_memload64"),
             memload32: gen.gen("rt_memload32"),
             memload16: gen.gen("rt_memload16"),
             memload8: gen.gen("rt_memload8"),
-            memstore64: gen.gen("rt_memload64"),
-            memstore32: gen.gen("rt_memload32"),
-            memstore16: gen.gen("rt_memload16"),
-            memstore8: gen.gen("rt_memload8"),
+            memstore64: gen.gen("rt_memstore64"),
+            memstore32: gen.gen("rt_memstore32"),
+            memstore16: gen.gen("rt_memstore16"),
+            memstore8: gen.gen("rt_memstore8"),
             swaparray: gen.gen("rt_swaparray"),
             swapunistr: gen.gen("rt_swapunistr"),
             divu: gen.gen("rt_divu"),
@@ -130,9 +135,11 @@ impl RuntimeLabels {
             clz64: gen.gen("rt_clz64"),
             ctz64: gen.gen("rt_ctz64"),
             popcnt64: gen.gen("rt_popcnt64"),
-            table_init: gen.gen("rt_table_init"),
-            data_init: gen.gen("rt_data_init"),
-
+            table_init_or_copy: gen.gen("rt_table_init"),
+            memory_init: gen.gen("rt_memory_init"),
+            memory_copy: gen.gen("rt_memory_copy"),
+            memory_fill: gen.gen("rt_memory_fill"),
+            memory_grow: gen.gen("rt_memory_grow"),
             trap_unreachable: gen.gen("trap_unreachable"),
             trap_integer_overflow: gen.gen("trap_integer_overflow"),
             trap_integer_divide_by_zero: gen.gen("trap_integer_divide_by_zero"),
@@ -142,7 +149,7 @@ impl RuntimeLabels {
             trap_out_of_bounds_table_access: gen.gen("trap_out_of_bounds_table_access"),
             trap_undefined_element: gen.gen("trap_undefined_element"),
             trap_uninitialized_element: gen.gen("trap_uninitialized_element"),
-            trap_call_stack_exhausted: gen.gen("trap_call_stack_exhausted"),        
+            trap_call_stack_exhausted: gen.gen("trap_call_stack_exhausted"),
         }
     }
 }
@@ -178,15 +185,63 @@ fn gen_swaps(ctx: &mut Context) {
     );
 }
 
+fn gen_checkaddr(ctx: &mut Context) {
+    let addr = 0;
+    let offset = 1;
+    let size = 2;
+
+    let end_minus_size = 3;
+    let addr_plus_offset = 4;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkaddr),
+        fnhead_local(5),
+        jgtu(
+            lloc(size),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(
+            derefl(ctx.layout.memory().cur_size),
+            lloc(size),
+            sloc(end_minus_size)
+        ),
+        add(lloc(addr), lloc(offset), sloc(addr_plus_offset)),
+        jltu(
+            lloc(addr_plus_offset),
+            lloc(addr),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jgtu(
+            lloc(addr_plus_offset),
+            lloc(end_minus_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        ret(lloc(addr_plus_offset))
+    );
+}
+
 fn gen_memload64(ctx: &mut Context) {
+    let addr = 1;
+    let offset = 0;
+
+    let addr_plus_offset = 2;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memload64),
-        fnhead_local(1),
-        add(lloc(0), imm(1), push()),
+        fnhead_local(3),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(8),
+            sloc(addr_plus_offset)
+        ),
         aload(
-            pop(),
-            imml_off_shift(ctx.layout.memory().addr, 0, 2),
+            lloc(addr_plus_offset),
+            imml_off_shift(ctx.layout.memory().addr, 4, 2),
             push()
         ),
         callfi(
@@ -195,7 +250,7 @@ fn gen_memload64(ctx: &mut Context) {
             storel(ctx.layout.hi_return().addr)
         ),
         aload(
-            lloc(0),
+            lloc(addr_plus_offset),
             imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
@@ -204,12 +259,22 @@ fn gen_memload64(ctx: &mut Context) {
 }
 
 fn gen_memload32(ctx: &mut Context) {
+    let addr = 1;
+    let offset = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memload32),
-        fnhead_local(1),
+        fnhead_local(2),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(4),
+            push()
+        ),
         aload(
-            lloc(0),
+            pop(),
             imml_off_shift(ctx.layout.memory().addr, 0, 2),
             push()
         ),
@@ -218,12 +283,22 @@ fn gen_memload32(ctx: &mut Context) {
 }
 
 fn gen_memload16(ctx: &mut Context) {
+    let addr = 1;
+    let offset = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memload16),
-        fnhead_local(1),
+        fnhead_local(2),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(2),
+            push()
+        ),
         aloads(
-            lloc(0),
+            pop(),
             imml_off_shift(ctx.layout.memory().addr, 0, 1),
             push()
         ),
@@ -232,82 +307,121 @@ fn gen_memload16(ctx: &mut Context) {
 }
 
 fn gen_memload8(ctx: &mut Context) {
+    let addr = 1;
+    let offset = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memload8),
-        fnhead_local(1),
-        aloadb(lloc(0), imml(ctx.layout.memory().addr), push()),
+        fnhead_local(2),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(1),
+            push()
+        ),
+        aloadb(pop(), imml(ctx.layout.memory().addr), push()),
         ret(pop()),
     );
 }
 
 fn gen_memstore64(ctx: &mut Context) {
-    let addr = 0;
-    let val_hi = 1;
+    let addr = 3;
     let val_lo = 2;
+    let val_hi = 1;
+    let offset = 0;
+
+    let addr_plus_offset = 4;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memstore64),
-        fnhead_local(3),
+        fnhead_local(5),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(8),
+            sloc(addr_plus_offset)
+        ),
         callfi(imml(ctx.rt.swap), lloc(val_lo), push()),
         astore(
-            lloc(addr),
+            lloc(addr_plus_offset),
             imml_off_shift(ctx.layout.memory().addr, 0, 2),
             pop()
         ),
         callfi(imml(ctx.rt.swap), lloc(val_hi), push()),
-        add(lloc(addr), imm(1), push()),
-        astore(pop(), imml_off_shift(ctx.layout.memory().addr, 0, 2), pop()),
+        astore(
+            lloc(addr_plus_offset),
+            imml_off_shift(ctx.layout.memory().addr, 4, 2),
+            pop()
+        ),
         ret(imm(0)),
     );
 }
 
 fn gen_memstore32(ctx: &mut Context) {
-    let addr = 0;
+    let addr = 2;
     let val = 1;
+    let offset = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memstore32),
-        fnhead_local(2),
+        fnhead_local(3),
         callfi(imml(ctx.rt.swap), lloc(val), push()),
-        astore(
+        callfiii(
+            imml(ctx.rt.checkaddr),
             lloc(addr),
-            imml_off_shift(ctx.layout.memory().addr, 0, 2),
-            pop()
+            lloc(offset),
+            imm(4),
+            push(),
         ),
+        astore(pop(), imml_off_shift(ctx.layout.memory().addr, 0, 2), pop()),
         ret(imm(0)),
     );
 }
 
 fn gen_memstore16(ctx: &mut Context) {
-    let addr = 0;
+    let addr = 2;
     let val = 1;
+    let offset = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memstore16),
-        fnhead_local(2),
+        fnhead_local(3),
         callfi(imml(ctx.rt.swaps), lloc(val), push()),
-        astores(
+        callfiii(
+            imml(ctx.rt.checkaddr),
             lloc(addr),
-            imml_off_shift(ctx.layout.memory().addr, 0, 1),
-            pop()
+            lloc(offset),
+            imm(2),
+            push(),
         ),
+        astores(pop(), imml_off_shift(ctx.layout.memory().addr, 0, 1), pop()),
         ret(imm(0)),
     );
 }
 
 fn gen_memstore8(ctx: &mut Context) {
-    let addr = 0;
+    let addr = 2;
     let val = 1;
+    let offset = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.memstore8),
-        fnhead_local(2),
-        astore(lloc(addr), imml(ctx.layout.memory().addr), lloc(val)),
+        fnhead_local(3),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            lloc(offset),
+            imm(1),
+            push(),
+        ),
+        astoreb(pop(), imml(ctx.layout.memory().addr), lloc(val)),
         ret(imm(0)),
     );
 }
@@ -1243,21 +1357,19 @@ fn gen_popcnt64(ctx: &mut Context) {
 }
 
 fn gen_trap(ctx: &mut Context) {
+    /*
+                   TrapCode::Unreachable => 0,
+               TrapCode::IntegerOverflow => 1,
+               TrapCode::IntegerDivideByZero => 2,
+               TrapCode::InvalidConversionToInteger => 3,
+               TrapCode::OutOfBoundsMemoryAccess => 4,
+               TrapCode::IndirectCallTypeMismatch => 5,
+               TrapCode::OutOfBoundsTableAccess => 6,
+               TrapCode::UndefinedElement => 7,
+               TrapCode::UninitializedElement => 8,
+               TrapCode::CallStackExhausted => 9,
+    */
 
-                /*
-                TrapCode::Unreachable => 0,
-            TrapCode::IntegerOverflow => 1,
-            TrapCode::IntegerDivideByZero => 2,
-            TrapCode::InvalidConversionToInteger => 3,
-            TrapCode::OutOfBoundsMemoryAccess => 4,
-            TrapCode::IndirectCallTypeMismatch => 5,
-            TrapCode::OutOfBoundsTableAccess => 6,
-            TrapCode::UndefinedElement => 7,
-            TrapCode::UninitializedElement => 8,
-            TrapCode::CallStackExhausted => 9,
- */
-
-    
     push_all!(
         ctx.rom_items,
         label(ctx.rt.trap_unreachable),
@@ -1293,47 +1405,59 @@ fn gen_trap(ctx: &mut Context) {
     )
 }
 
-fn gen_table_init(ctx: &mut Context) {
-    let n = 6;
-    let elem_offset = 5;
-    let table_offset = 4;
-    let table_addr = 3;
-    let table_size = 2;
-    let elem_addr = 1;
-    let elem_size = 0;
+fn gen_table_init_or_copy(ctx: &mut Context) {
+    let d_offset = 6;
+    let s_offset = 5;
+    let n = 4;
+    let d_addr = 3;
+    let d_size = 2;
+    let s_addr = 1;
+    let s_size = 0;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.table_init),
+        label(ctx.rt.table_init_or_copy),
         fnhead_local(7),
-        jgtu(lloc(elem_offset), lloc(elem_size), ctx.rt.trap_out_of_bounds_table_access),
-        sub(lloc(elem_size), lloc(elem_offset), push()),
+        jgtu(
+            lloc(s_offset),
+            lloc(s_size),
+            ctx.rt.trap_out_of_bounds_table_access
+        ),
+        sub(lloc(s_size), lloc(s_offset), push()),
         jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_table_access),
-        jgtu(lloc(table_offset), lloc(table_size), ctx.rt.trap_out_of_bounds_table_access),
-        sub(lloc(table_size), lloc(table_offset), push()),
+        jgtu(
+            lloc(d_offset),
+            lloc(d_size),
+            ctx.rt.trap_out_of_bounds_table_access
+        ),
+        sub(lloc(d_size), lloc(d_offset), push()),
         jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_table_access),
-        shiftl(lloc(table_offset), imm(2), push()),
-        add(pop(), lloc(table_addr), push()),
-        shiftl(lloc(elem_offset), imm(2), push()),
-        add(pop(), lloc(elem_addr), push()),
+        shiftl(lloc(d_offset), imm(2), push()),
+        add(pop(), lloc(d_addr), push()),
+        shiftl(lloc(s_offset), imm(2), push()),
+        add(pop(), lloc(s_addr), push()),
         shiftl(lloc(n), imm(2), push()),
         mcopy(pop(), pop(), pop()),
         ret(imm(0)),
     )
 }
 
-fn gen_data_init(ctx: &mut Context) {
-    let n = 4;
+fn gen_memory_init(ctx: &mut Context) {
+    let mem_offset = 4;
     let data_offset = 3;
-    let mem_offset = 2;
+    let n = 2;
     let data_addr = 1;
     let data_size = 0;
 
     push_all!(
         ctx.rom_items,
-        label(ctx.rt.data_init),
+        label(ctx.rt.memory_init),
         fnhead_local(5),
-        jgtu(lloc(data_offset), lloc(data_size), ctx.rt.trap_out_of_bounds_memory_access),
+        jgtu(
+            lloc(data_offset),
+            lloc(data_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
         sub(lloc(data_size), lloc(data_offset), push()),
         jgtu(lloc(n), pop(), ctx.rt.trap_out_of_bounds_memory_access),
         jgtu(
@@ -1354,9 +1478,144 @@ fn gen_data_init(ctx: &mut Context) {
     )
 }
 
+fn gen_memory_copy(ctx: &mut Context) {
+    let d = 2;
+    let s = 1;
+    let n = 0;
+
+    let d_plus_n = 3;
+    let s_plus_n = 4;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.memory_copy),
+        fnhead_local(5),
+        add(lloc(s), lloc(n), sloc(s_plus_n)),
+        add(lloc(d), lloc(n), sloc(d_plus_n)),
+        jltu(
+            lloc(s_plus_n),
+            lloc(s),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jltu(
+            lloc(d_plus_n),
+            lloc(d),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jgtu(
+            lloc(s_plus_n),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jgtu(
+            lloc(d_plus_n),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        add(imml(ctx.layout.memory().addr), lloc(d), push()),
+        add(imml(ctx.layout.memory().addr), lloc(s), push()),
+        mcopy(lloc(n), pop(), pop()),
+        ret(imm(0))
+    )
+}
+
+fn gen_memory_fill(ctx: &mut Context) {
+    let d = 2;
+    let val = 1;
+    let n = 0;
+
+    let d_plus_n = 3;
+
+    let memzero = ctx.gen.gen("rt_memory_fill_zero");
+    let loop_start = ctx.gen.gen("rt_memory_fill_loop_start");
+    let loop_done = ctx.gen.gen("rt_memory_fill_loop_done");
+    let halfword_done = ctx.gen.gen("rt_memory_fill_halfword_done");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.memory_fill),
+        fnhead_local(4),
+        add(lloc(d), lloc(d), sloc(d_plus_n)),
+        jltu(
+            lloc(d_plus_n),
+            lloc(d),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jgtu(
+            lloc(d_plus_n),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        jz(lloc(1), memzero),
+        bitand(lloc(val), imm(0xff), sloc(val)),
+        shiftl(lloc(val), imm(8), push()),
+        bitor(lloc(val), pop(), sloc(val)),
+        shiftl(lloc(val), imm(16), push()),
+        bitor(lloc(val), pop(), sloc(val)),
+        label(loop_start),
+        jltu(lloc(n), uimm(4), loop_done),
+        astore(
+            lloc(d),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
+            lloc(val)
+        ),
+        sub(lloc(n), uimm(4), sloc(n)),
+        add(lloc(d), uimm(4), sloc(d)),
+        jump(loop_start),
+        label(loop_done),
+        jltu(lloc(n), uimm(2), halfword_done),
+        astores(
+            lloc(d),
+            imml_off_shift(ctx.layout.memory().addr, 0, 1),
+            lloc(val)
+        ),
+        sub(lloc(n), uimm(2), sloc(n)),
+        add(lloc(d), uimm(2), sloc(d)),
+        label(halfword_done),
+        jz_ret(lloc(n), false),
+        astoreb(lloc(d), imml_off(ctx.layout.memory().addr, 0), lloc(val)),
+        ret(imm(0)),
+        label(memzero),
+        add(imml(ctx.layout.memory().addr), lloc(d), push()),
+        mzero(lloc(n), pop()),
+        ret(imm(0)),
+    )
+}
+
+pub fn gen_memory_grow(ctx: &mut Context) {
+    let growth = 0;
+    let fail = ctx.gen.gen("rt_memory_grow_fail");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.memory_grow),
+        fnhead_local(1),
+        jgtu(lloc(growth), uimm(65535), fail),
+        shiftl(lloc(growth), imm(16), sloc(growth)),
+        jgtu(lloc(growth), uimm(ctx.layout.memory().max_size), fail),
+        sub(uimm(ctx.layout.memory().max_size), lloc(growth), push()),
+        jltu(pop(), derefl(ctx.layout.memory().cur_size), fail),
+        getmemsize(push()),
+        add(lloc(growth), pop(), push()),
+        setmemsize(pop(), push()),
+        jnz(pop(), fail),
+        copy(derefl(ctx.layout.memory().cur_size), push()),
+        add(
+            derefl(ctx.layout.memory().cur_size),
+            lloc(growth),
+            storel(ctx.layout.memory().cur_size)
+        ),
+        ushiftr(pop(), imm(16), push()),
+        ret(pop()),
+        label(fail),
+        ret(imm(-1)),
+    );
+}
+
 pub fn gen_rt(ctx: &mut Context) {
     gen_swap(ctx);
     gen_swaps(ctx);
+    gen_checkaddr(ctx);
     gen_memload64(ctx);
     gen_memload32(ctx);
     gen_memload16(ctx);
@@ -1411,6 +1670,9 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_ctz64(ctx);
     gen_popcnt64(ctx);
     gen_trap(ctx);
-    gen_table_init(ctx);
-    gen_data_init(ctx);
+    gen_table_init_or_copy(ctx);
+    gen_memory_init(ctx);
+    gen_memory_copy(ctx);
+    gen_memory_fill(ctx);
+    gen_memory_grow(ctx);
 }

@@ -439,6 +439,30 @@ fn gen_other(
         Other::Select(test, select) => {
             super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }
+        Other::MemoryCopy(memory_copy) => {
+            super::memory::gen_memory_copy(ctx, frame, memory_copy, credits, debts);
+        }
+        Other::MemoryGrow(memory_grow) => {
+            super::memory::gen_memory_grow(ctx, frame, memory_grow, credits, debts);
+        }
+        Other::MemoryInit(memory_init) => {
+            super::memory::gen_memory_init(ctx, frame, memory_init, credits, debts);
+        }
+        Other::MemoryFill(memory_fill) => {
+            super::memory::gen_memory_fill(ctx, frame, memory_fill, credits, debts);
+        }
+        Other::MemorySize(memory_size) => {
+            super::memory::gen_memory_size(ctx, frame, memory_size, credits, debts);
+        }
+        Other::DataDrop(data_drop) => {
+            super::memory::gen_data_drop(ctx, frame, data_drop, credits, debts);
+        }
+        Other::Load(load) => {
+            super::memory::gen_load(ctx, frame, load, credits, debts);
+        }
+        Other::Store(store) => {
+            super::memory::gen_store(ctx, frame, store, credits, debts);
+        }
         _ => {
             credits.gen(ctx);
             ctx.errors.push(CompilationError::UnsupportedInstruction {

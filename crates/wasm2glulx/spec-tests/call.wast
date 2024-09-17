@@ -354,7 +354,9 @@
 (assert_trap (invoke "as-call_indirect-last") "undefined element")
 
 (assert_return (invoke "as-store-first"))
+(invoke "as-store-first")
 (assert_return (invoke "as-store-last"))
+(invoke "as-store-last")
 
 (assert_return (invoke "as-memory.grow-value") (i32.const 1))
 (assert_return (invoke "as-return-value") (i32.const 0x132))

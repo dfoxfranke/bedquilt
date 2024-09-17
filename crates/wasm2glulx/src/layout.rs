@@ -47,6 +47,7 @@ pub struct MemLayout {
     pub addr: Label,
     pub min_size: u32,
     pub cur_size: Label,
+    pub max_size: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -216,6 +217,15 @@ where {
                     errors.push(CompilationError::Overflow(OverflowLocation::Memory));
                     0
                 })
+            } else {
+                0
+            },
+            max_size: if let Some(mem) = module.memories.iter().next() {
+                if let Some(maximum) = mem.maximum {
+                    u32::try_from(maximum.saturating_mul(65536)).unwrap_or(u32::MAX)
+                } else {
+                    u32::MAX
+                }
             } else {
                 0
             },

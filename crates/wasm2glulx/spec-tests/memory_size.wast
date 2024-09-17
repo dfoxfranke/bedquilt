@@ -6,10 +6,13 @@
 
 (assert_return (invoke "size") (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "grow" (i32.const 4)))
+(invoke "grow" (i32.const 4))
 (assert_return (invoke "size") (i32.const 5))
 (assert_return (invoke "grow" (i32.const 0)))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "size") (i32.const 5))
 
 (module
@@ -20,10 +23,13 @@
 
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 2))
 (assert_return (invoke "grow" (i32.const 4)))
+(invoke "grow" (i32.const 4))
 (assert_return (invoke "size") (i32.const 6))
 (assert_return (invoke "grow" (i32.const 0)))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "size") (i32.const 6))
 
 (module
@@ -34,14 +40,19 @@
 
 (assert_return (invoke "size") (i32.const 0))
 (assert_return (invoke "grow" (i32.const 3)))
+(invoke "grow" (i32.const 3))
 (assert_return (invoke "size") (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "grow" (i32.const 0)))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "grow" (i32.const 4)))
+(invoke "grow" (i32.const 4))
 (assert_return (invoke "size") (i32.const 1))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 2))
 
 (module
@@ -52,14 +63,19 @@
 
 (assert_return (invoke "size") (i32.const 3))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 4))
 (assert_return (invoke "grow" (i32.const 3)))
+(invoke "grow" (i32.const 3))
 (assert_return (invoke "size") (i32.const 7))
 (assert_return (invoke "grow" (i32.const 0)))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "size") (i32.const 7))
 (assert_return (invoke "grow" (i32.const 2)))
+(invoke "grow" (i32.const 2))
 (assert_return (invoke "size") (i32.const 7))
 (assert_return (invoke "grow" (i32.const 1)))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "size") (i32.const 8))
 
 

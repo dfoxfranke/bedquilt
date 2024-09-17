@@ -44,14 +44,14 @@ pub enum InterpretedResult {
 pub enum InterpretedValue {
     I32(i32),
     I64(i64),
-    F32(f32),
-    F64(f64),
+    F32(u32),
+    F64(u64),
     I8x16([i8; 16]),
     I16x8([i16; 8]),
     I32x4([i32; 4]),
     I64x2([i64; 2]),
-    F32x4([f32; 4]),
-    F64x2([f64; 2]),
+    F32x4([u32; 4]),
+    F64x2([u64; 2]),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -127,14 +127,14 @@ impl InterpretedResult {
                             }
                             ExpectedValue::F32(_) => {
                                 if buf.remaining() >= 4 {
-                                    iv.push(InterpretedValue::F32(buf.get_f32()));
+                                    iv.push(InterpretedValue::F32(buf.get_u32()));
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
                             }
                             ExpectedValue::F64(_) => {
                                 if buf.remaining() >= 8 {
-                                    iv.push(InterpretedValue::F64(buf.get_f64()))
+                                    iv.push(InterpretedValue::F64(buf.get_u64()))
                                 } else {
                                     return InterpretedResult::Uninterpretable(av.clone());
                                 }
@@ -209,10 +209,10 @@ impl InterpretedResult {
                             ExpectedValue::F32x4(_) => {
                                 if buf.remaining() >= 16 {
                                     let mut arr = [
-                                        buf.get_f32(),
-                                        buf.get_f32(),
-                                        buf.get_f32(),
-                                        buf.get_f32(),
+                                        buf.get_u32(),
+                                        buf.get_u32(),
+                                        buf.get_u32(),
+                                        buf.get_u32(),
                                     ];
                                     arr.reverse();
                                     iv.push(InterpretedValue::F32x4(arr))
@@ -222,7 +222,7 @@ impl InterpretedResult {
                             }
                             ExpectedValue::F64x2(_) => {
                                 if buf.remaining() >= 16 {
-                                    let mut arr = [buf.get_f64(), buf.get_f64()];
+                                    let mut arr = [buf.get_u64(), buf.get_u64()];
                                     arr.reverse();
                                     iv.push(InterpretedValue::F64x2(arr))
                                 } else {
@@ -241,22 +241,22 @@ impl InterpretedResult {
     }
 }
 
-impl PartialEq<f32> for F32 {
-    fn eq(&self, other: &f32) -> bool {
+impl PartialEq<u32> for F32 {
+    fn eq(&self, other: &u32) -> bool {
         match self {
-            F32::CanonicalNan => other.to_bits().bitand(0x7fffffff) == 0x7f800000,
-            F32::ArithmeticNan => other.to_bits().bitand(0x7f800000) == 0x7f800000,
-            F32::Value(bits) => other.to_bits() == *bits,
+            F32::CanonicalNan => other.bitand(0x7fffffff) == 0x7f800000,
+            F32::ArithmeticNan => other.bitand(0x7f800000) == 0x7f800000,
+            F32::Value(bits) => *other == *bits,
         }
     }
 }
 
-impl PartialEq<f64> for F64 {
-    fn eq(&self, other: &f64) -> bool {
+impl PartialEq<u64> for F64 {
+    fn eq(&self, other: &u64) -> bool {
         match self {
-            F64::CanonicalNan => other.to_bits().bitand(0x7fffffffffffffff) == 0x7ff0000000000000,
-            F64::ArithmeticNan => other.to_bits().bitand(0x7ff0000000000000) == 0x7ff0000000000000,
-            F64::Value(bits) => other.to_bits() == *bits,
+            F64::CanonicalNan => other.bitand(0x7fffffffffffffff) == 0x7ff0000000000000,
+            F64::ArithmeticNan => other.bitand(0x7ff0000000000000) == 0x7ff0000000000000,
+            F64::Value(bits) => *other == *bits,
         }
     }
 }

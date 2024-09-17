@@ -1443,6 +1443,7 @@
 )
 
 (assert_return (invoke "f32.simple_x4_sum" (i32.const 0) (i32.const 16) (i32.const 32)))
+(invoke "f32.simple_x4_sum" (i32.const 0) (i32.const 16) (i32.const 32))
 (assert_return (invoke "f32.load" (i32.const 32)) (f32.const 0x1p-148))
 (assert_return (invoke "f32.load" (i32.const 36)) (f32.const 0x0p+0))
 (assert_return (invoke "f32.load" (i32.const 40)) (f32.const 0x1p-149))
@@ -1482,6 +1483,7 @@
 )
 
 (assert_return (invoke "f64.simple_x4_sum" (i32.const 0) (i32.const 32) (i32.const 64)))
+(invoke "f64.simple_x4_sum" (i32.const 0) (i32.const 32) (i32.const 64))
 (assert_return (invoke "f64.load" (i32.const 64)) (f64.const 0x0.0000000000001p-1021))
 (assert_return (invoke "f64.load" (i32.const 72)) (f64.const 0x0p+0))
 (assert_return (invoke "f64.load" (i32.const 80)) (f64.const 0x0.0000000000001p-1022))

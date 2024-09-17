@@ -169,10 +169,12 @@
 (invoke "drop_passive")
 (invoke "drop_passive")
 (assert_return (invoke "init_passive" (i32.const 0)))
+(invoke "init_passive" (i32.const 0))
 (assert_trap (invoke "init_passive" (i32.const 1)) "out of bounds memory access")
 (invoke "init_passive" (i32.const 0))
 (invoke "drop_active")
 (assert_return (invoke "init_active" (i32.const 0)))
+(invoke "init_active" (i32.const 0))
 (assert_trap (invoke "init_active" (i32.const 1)) "out of bounds memory access")
 (invoke "init_active" (i32.const 0))
 

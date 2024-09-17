@@ -30,14 +30,14 @@ pub fn gen_entrypoint(ctx: &mut Context) {
 
             push_all!(
                 ctx.rom_items,
-                copy(derefl(elem_layout.cur_count), push()),
-                copy(imm(0), push()),
                 copy(imm(table_offset), push()),
+                copy(imm(0), push()),
+                copy(derefl(elem_layout.cur_count), push()),
                 copy(imml(table_layout.addr), push()),
                 copy(derefl(table_layout.cur_count), push()),
                 copy(imml(elem_layout.addr), push()),
                 copy(derefl(elem_layout.cur_count), push()),
-                call(imml(ctx.rt.table_init), imm(7), discard()),
+                call(imml(ctx.rt.table_init_or_copy), imm(7), discard()),
                 copy(imm(0), storel(elem_layout.cur_count)),
             );
         }
@@ -61,13 +61,13 @@ pub fn gen_entrypoint(ctx: &mut Context) {
 
             push_all!(
                 ctx.rom_items,
-                copy(derefl(data_layout.cur_size), push()),
-                copy(imm(0), push()),
                 copy(imm(mem_offset), push()),
+                copy(imm(0), push()),
+                copy(derefl(data_layout.cur_size), push()),
                 copy(imml(data_layout.addr), push()),
                 copy(derefl(data_layout.cur_size), push()),
-                call(imml(ctx.rt.data_init), imm(5), discard()),
-                copy(imm(9), storel(data_layout.cur_size)),
+                call(imml(ctx.rt.memory_init), imm(5), discard()),
+                copy(imm(0), storel(data_layout.cur_size)),
             );
         }
     }

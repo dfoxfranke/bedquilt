@@ -255,21 +255,47 @@ pub fn gen_call_indirect(
         discard()
     };
 
+    let table_index = credits.pop();
     credits.gen(ctx);
-    ctx.rom_items.push(stkpeek(imm(0), push()));
+
+    // Steal hi_return as a scratch register
+    let shifted_fnnum = ctx.layout.hi_return().addr;
+
+    if matches!(table_index, LoadOperand::Pop) {
+        ctx.rom_items.push(stkpeek(imm(0), push()));
+        ctx.rom_items.push(jgeu(
+            pop(),
+            derefl(table_count),
+            ctx.rt.trap_undefined_element,
+        ));
+    } else {
+        ctx.rom_items.push(jgeu(
+            table_index,
+            derefl(table_count),
+            ctx.rt.trap_undefined_element,
+        ));
+    }
     ctx.rom_items
-        .push(jgeu(pop(), derefl(table_count), ctx.rt.trap_undefined_element));
-    ctx.rom_items.push(aload(imml(table_addr), pop(), push()));
-    ctx.rom_items.push(shiftl(pop(), uimm(1), push()));
-    ctx.rom_items.push(stkpeek(imm(0), push()));
-    ctx.rom_items.push(stkpeek(imm(0), push()));
-    ctx.rom_items.push(jz(pop(), ctx.rt.trap_uninitialized_element));
+        .push(aload(imml(table_addr), table_index, push()));
     ctx.rom_items
-        .push(aload(imml_off(ctx.layout.fntypes().addr, 4), pop(), push()));
+        .push(shiftl(pop(), uimm(1), storel(shifted_fnnum)));
     ctx.rom_items
-        .push(jne(pop(), uimm(typenum), ctx.rt.trap_indirect_call_type_mismatch));
-    ctx.rom_items
-        .push(aload(imml(ctx.layout.fntypes().addr), pop(), push()));
+        .push(jz(derefl(shifted_fnnum), ctx.rt.trap_uninitialized_element));
+    ctx.rom_items.push(aload(
+        imml_off(ctx.layout.fntypes().addr, 4),
+        derefl(shifted_fnnum),
+        push(),
+    ));
+    ctx.rom_items.push(jne(
+        pop(),
+        uimm(typenum),
+        ctx.rt.trap_indirect_call_type_mismatch,
+    ));
+    ctx.rom_items.push(aload(
+        imml(ctx.layout.fntypes().addr),
+        derefl(shifted_fnnum),
+        push(),
+    ));
     ctx.rom_items
         .push(call(pop(), uimm(param_words), return_operand));
 

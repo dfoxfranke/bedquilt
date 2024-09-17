@@ -276,12 +276,18 @@
 (assert_trap (invoke "as-call_indirect-last" (i32.const 1)) "undefined element")
 
 (assert_return (invoke "as-store-first" (i32.const 0)))
+(invoke "as-store-first" (i32.const 0))
 (assert_return (invoke "as-store-first" (i32.const 1)))
+(invoke "as-store-first" (i32.const 1))
 (assert_return (invoke "as-store-last" (i32.const 0)))
+(invoke "as-store-last" (i32.const 0))
 (assert_return (invoke "as-store-last" (i32.const 1)))
+(invoke "as-store-last" (i32.const 1))
 
 (assert_return (invoke "as-memory.grow-value" (i32.const 0)) (i32.const 1))
+(invoke "as-memory.grow-value" (i32.const 0))
 (assert_return (invoke "as-memory.grow-value" (i32.const 1)) (i32.const 3))
+(invoke "as-memory.grow-value" (i32.const 1))
 
 (assert_return (invoke "as-call-value" (i32.const 0)) (i32.const 2))
 (assert_return (invoke "as-call-value" (i32.const 1)) (i32.const 1))
