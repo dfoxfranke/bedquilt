@@ -483,3 +483,15 @@ pub fn gen_select(
 
     debts.gen(ctx);
 }
+
+pub fn gen_unreachable(
+    ctx: &mut Context,
+    _frame: &mut Frame,
+    _unreachable: &ir::Unreachable,
+    mut credits: Credits,
+    mut debts: Debts,
+) {
+    credits.gen(ctx);
+    ctx.rom_items.push(jump(ctx.rt.trap_unreachable));
+    debts.gen(ctx);
+}

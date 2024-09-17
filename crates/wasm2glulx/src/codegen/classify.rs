@@ -1768,9 +1768,29 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
             ir::Instr::RefNull(ref_null) => {
                 out.push(InstrClass::Load(Load::RefNull(ref_null.clone())));
             }
-            ir::Instr::RefIsNull(ref_is_null) => {
-                out.push(InstrClass::Other(Other::RefIsNull(ref_is_null.clone())));
-            }
+            ir::Instr::RefIsNull(ref_is_null) => match seqiter.peek() {
+                Some((ir::Instr::Select(select), _)) => {
+                    out.push(InstrClass::Other(Other::Select(
+                        Test::I32Eqz,
+                        select.clone(),
+                    )));
+                    seqiter.next();
+                }
+                Some((ir::Instr::BrIf(brif), _)) => {
+                    out.push(InstrClass::Other(Other::BrIf(Test::I32Eqz, brif.clone())));
+                    seqiter.next();
+                }
+                Some((ir::Instr::IfElse(ifelse), _)) => {
+                    out.push(InstrClass::Block(Block::IfElse(
+                        Test::I32Eqz,
+                        ifelse.clone(),
+                    )));
+                    seqiter.next();
+                }
+                _ => {
+                    out.push(InstrClass::Other(Other::RefIsNull(ref_is_null.clone())));
+                }
+            },
             ir::Instr::RefFunc(ref_func) => {
                 out.push(InstrClass::Load(Load::RefFunc(ref_func.clone())));
             }

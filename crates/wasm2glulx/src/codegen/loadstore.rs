@@ -453,3 +453,33 @@ pub fn gen_copies(ctx: &mut Context, mut credits: Credits, mut debts: Debts) {
     }
     debts.gen(ctx);
 }
+
+pub fn gen_local_tee(
+    ctx: &mut Context,
+    frame: &mut Frame,
+    tee: &ir::LocalTee,
+    mut credits: Credits,
+    mut debts: Debts,
+) {
+    credits.gen(ctx);
+    let localnum = *frame
+        .locals
+        .get(&tee.local)
+        .expect("All locals should have been added to the frame's map.");
+    match ctx.module.locals.get(tee.local).ty() {
+        ValType::I32 | ValType::F32 | ValType::Ref(_) => {
+            ctx.rom_items.push(stkpeek(imm(0), sloc(localnum)));
+        }
+        ValType::I64 | ValType::F64 => {
+            ctx.rom_items.push(stkpeek(imm(0), sloc(localnum)));
+            ctx.rom_items.push(stkpeek(imm(1), sloc(localnum + 1)));
+        }
+        ValType::V128 => {
+            ctx.rom_items.push(stkpeek(imm(0), sloc(localnum)));
+            ctx.rom_items.push(stkpeek(imm(1), sloc(localnum + 1)));
+            ctx.rom_items.push(stkpeek(imm(2), sloc(localnum + 2)));
+            ctx.rom_items.push(stkpeek(imm(3), sloc(localnum + 3)));
+        }
+    }
+    debts.gen(ctx);
+}

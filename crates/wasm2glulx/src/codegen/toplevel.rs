@@ -436,8 +436,14 @@ fn gen_other(
         Other::CallIndirect(call_indirect) => {
             super::control::gen_call_indirect(ctx, frame, call_indirect, credits, debts);
         }
-        Other::Select(test, select) => {
-            super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
+        Other::DataDrop(data_drop) => {
+            super::memory::gen_data_drop(ctx, frame, data_drop, credits, debts);
+        }
+        Other::Load(load) => {
+            super::memory::gen_load(ctx, frame, load, credits, debts);
+        }
+        Other::LocalTee(local_tee) => {
+            super::loadstore::gen_local_tee(ctx, frame, local_tee, credits, debts);
         }
         Other::MemoryCopy(memory_copy) => {
             super::memory::gen_memory_copy(ctx, frame, memory_copy, credits, debts);
@@ -445,23 +451,41 @@ fn gen_other(
         Other::MemoryGrow(memory_grow) => {
             super::memory::gen_memory_grow(ctx, frame, memory_grow, credits, debts);
         }
-        Other::MemoryInit(memory_init) => {
-            super::memory::gen_memory_init(ctx, frame, memory_init, credits, debts);
-        }
         Other::MemoryFill(memory_fill) => {
             super::memory::gen_memory_fill(ctx, frame, memory_fill, credits, debts);
+        }
+        Other::MemoryInit(memory_init) => {
+            super::memory::gen_memory_init(ctx, frame, memory_init, credits, debts);
         }
         Other::MemorySize(memory_size) => {
             super::memory::gen_memory_size(ctx, frame, memory_size, credits, debts);
         }
-        Other::DataDrop(data_drop) => {
-            super::memory::gen_data_drop(ctx, frame, data_drop, credits, debts);
-        }
-        Other::Load(load) => {
-            super::memory::gen_load(ctx, frame, load, credits, debts);
+        Other::Select(test, select) => {
+            super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }
         Other::Store(store) => {
             super::memory::gen_store(ctx, frame, store, credits, debts);
+        }
+        Other::TableCopy(table_copy) => {
+            super::table::gen_table_copy(ctx, frame, table_copy, credits, debts);
+        }
+        Other::TableFill(table_fill) => {
+            super::table::gen_table_fill(ctx, frame, table_fill, credits, debts);
+        }
+        Other::TableGet(table_get) => {
+            super::table::gen_table_get(ctx, frame, table_get, credits, debts);
+        }
+        Other::TableGrow(table_grow) => {
+            super::table::gen_table_grow(ctx, frame, table_grow, credits, debts);
+        }
+        Other::TableInit(table_init) => {
+            super::table::gen_table_init(ctx, frame, table_init, credits, debts);
+        }
+        Other::TableSet(table_set) => {
+            super::table::gen_table_set(ctx, frame, table_set, credits, debts);
+        }
+        Other::Unreachable(unreachable) => {
+            super::control::gen_unreachable(ctx, frame, unreachable, credits, debts);
         }
         _ => {
             credits.gen(ctx);

@@ -60,6 +60,8 @@ pub struct RuntimeLabels {
     pub ctz64: Label,
     pub popcnt64: Label,
     pub table_init_or_copy: Label,
+    pub table_grow: Label,
+    pub table_fill: Label,
     pub memory_init: Label,
     pub memory_copy: Label,
     pub memory_fill: Label,
@@ -136,6 +138,8 @@ impl RuntimeLabels {
             ctz64: gen.gen("rt_ctz64"),
             popcnt64: gen.gen("rt_popcnt64"),
             table_init_or_copy: gen.gen("rt_table_init"),
+            table_grow: gen.gen("rt_table_grow"),
+            table_fill: gen.gen("rt_table_fill"),
             memory_init: gen.gen("rt_memory_init"),
             memory_copy: gen.gen("rt_memory_copy"),
             memory_fill: gen.gen("rt_memory_fill"),
@@ -1442,6 +1446,62 @@ fn gen_table_init_or_copy(ctx: &mut Context) {
     )
 }
 
+fn gen_table_grow(ctx: &mut Context) {
+    let n = 2;
+    let cur_size = 1;
+    let max_size = 0;
+
+    let old_size = 3;
+    let new_size = 4;
+
+    let fail = ctx.gen.gen("table_grow_fail");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.table_grow),
+        fnhead_local(5),
+        aload(lloc(cur_size), imm(0), sloc(old_size)),
+        add(lloc(n), lloc(old_size), sloc(new_size)),
+        jltu(lloc(new_size), lloc(old_size), fail),
+        jgtu(lloc(new_size), lloc(max_size), fail),
+        astore(lloc(cur_size), imm(0), lloc(new_size)),
+        ret(lloc(old_size)),
+        label(fail),
+        ret(imm(-1)),
+    )
+}
+
+fn gen_table_fill(ctx: &mut Context) {
+    let i = 4;
+    let val = 3;
+    let n = 2;
+    let table_addr = 1;
+    let table_count = 0;
+
+    let loop_label = ctx.gen.gen("table_fill_loop");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.table_fill),
+        fnhead_local(5),
+        jgtu(
+            lloc(n),
+            lloc(table_count),
+            ctx.rt.trap_out_of_bounds_table_access
+        ),
+        sub(lloc(table_count), lloc(n), push()),
+        jgtu(lloc(i), pop(), ctx.rt.trap_out_of_bounds_table_access),
+        shiftl(lloc(i), imm(2), push()),
+        add(lloc(table_addr), pop(), sloc(table_addr)),
+        copy(imm(0), sloc(i)),
+        label(loop_label),
+        jeq_ret(lloc(i), lloc(n), false),
+        astore(lloc(table_addr), lloc(i), lloc(val)),
+        add(lloc(i), imm(1), sloc(i)),
+        jump(loop_label),
+    );
+}
+
 fn gen_memory_init(ctx: &mut Context) {
     let mem_offset = 4;
     let data_offset = 3;
@@ -1671,6 +1731,8 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_popcnt64(ctx);
     gen_trap(ctx);
     gen_table_init_or_copy(ctx);
+    gen_table_grow(ctx);
+    gen_table_fill(ctx);
     gen_memory_init(ctx);
     gen_memory_copy(ctx);
     gen_memory_fill(ctx);

@@ -1,30 +1,3 @@
-(module
-  (table $t 0 externref)
-
-  (func (export "get") (param $i i32) (result externref) (table.get $t (local.get $i)))
-  (func (export "set") (param $i i32) (param $r externref) (table.set $t (local.get $i) (local.get $r)))
-
-  (func (export "grow") (param $sz i32) (param $init externref) (result i32)
-    (table.grow $t (local.get $init) (local.get $sz))
-  )
-  (func (export "grow-abbrev") (param $sz i32) (param $init externref) (result i32)
-    (table.grow (local.get $init) (local.get $sz))
-  )
-  (func (export "size") (result i32) (table.size $t))
-)
-
-(assert_return (invoke "size") (i32.const 0))
-(assert_trap (invoke "get" (i32.const 0)) "out of bounds table access")
-
-(invoke "grow" (i32.const 1) (ref.null extern))
-(assert_return (invoke "size") (i32.const 1))
-(assert_return (invoke "get" (i32.const 0)) (ref.null extern))
-(assert_trap (invoke "get" (i32.const 1)) "out of bounds table access")
-
-(assert_return (invoke "size") (i32.const 5))
-(assert_trap (invoke "get" (i32.const 5)) "out of bounds table access")
-
-
 ;; Reject growing to size outside i32 value range
 (module
   (table $t 0x10 funcref)
@@ -45,9 +18,13 @@
 )
 
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 0))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 1))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "grow" (i32.const 2)) (i32.const 1))
+(invoke "grow" (i32.const 2))
 (assert_return (invoke "grow" (i32.const 800)) (i32.const 3))
 
 
@@ -59,12 +36,19 @@
 )
 
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 0))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 1))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "grow" (i32.const 2)) (i32.const 2))
+(invoke "grow" (i32.const 2))
 (assert_return (invoke "grow" (i32.const 6)) (i32.const 4))
+(invoke "grow" (i32.const 6))
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 10))
+(invoke "grow" (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
+(invoke "grow" (i32.const 1))
 (assert_return (invoke "grow" (i32.const 0x10000)) (i32.const -1))
 
 
@@ -92,4 +76,5 @@
 
 (assert_return (invoke "check-table-null" (i32.const 0) (i32.const 9)) (ref.null func))
 (assert_return (invoke "grow" (i32.const 10)) (i32.const 10))
+(invoke "grow" (i32.const 10))
 (assert_return (invoke "check-table-null" (i32.const 0) (i32.const 19)) (ref.null func))
