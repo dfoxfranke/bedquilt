@@ -316,8 +316,8 @@ fn gen_br_inner(ctx: &mut Context, frame: &Frame, target: &JumpTarget, height: u
         for _ in 0..drop {
             ctx.rom_items.push(copy(pop(), discard()));
         }
-        ctx.rom_items.push(jump(target.target));
     }
+    ctx.rom_items.push(jump(target.target));
 }
 
 pub fn gen_br(

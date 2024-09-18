@@ -421,6 +421,9 @@ fn gen_other(
     mut debts: Debts,
 ) {
     match &other {
+        Other::Binop(binop) => {
+            super::arith::gen_binop(ctx, frame, binop, credits, debts);
+        }
         Other::Br(br) => {
             super::control::gen_br(ctx, frame, br, pre_height, credits, debts);
         }
@@ -483,6 +486,9 @@ fn gen_other(
         }
         Other::TableSet(table_set) => {
             super::table::gen_table_set(ctx, frame, table_set, credits, debts);
+        }
+        Other::Unop(unop) => {
+            super::arith::gen_unop(ctx, frame, unop, credits, debts);
         }
         Other::Unreachable(unreachable) => {
             super::control::gen_unreachable(ctx, frame, unreachable, credits, debts);

@@ -18,6 +18,9 @@ pub struct RuntimeLabels {
     pub swapunistr: Label,
     pub divu: Label,
     pub remu: Label,
+    pub shl: Label,
+    pub shr: Label,
+    pub shru: Label,
     pub rotl: Label,
     pub rotr: Label,
     pub clz: Label,
@@ -96,6 +99,9 @@ impl RuntimeLabels {
             swapunistr: gen.gen("rt_swapunistr"),
             divu: gen.gen("rt_divu"),
             remu: gen.gen("rt_remu"),
+            shl: gen.gen("rt_shl"),
+            shr: gen.gen("rt_shr"),
+            shru: gen.gen("rt_shu"),
             rotl: gen.gen("rt_rotl"),
             rotr: gen.gen("rt_rotr"),
             clz: gen.gen("rt_clz"),
@@ -498,8 +504,9 @@ fn gen_divu(ctx: &mut Context) {
     let div1 = ctx.gen.gen("divu_div1");
     let dont_add1 = ctx.gen.gen("divu_dontadd1");
 
-    let n = 0; // numerator
-    let d = 1; // denominator
+    let n = 1; // numerator
+    let d = 0; // denominator
+
     let n_lo = 2; // n & 0x7fffffff
     let hi_quot = 3; // 0x7fffffff / d
     let hi_rem = 4; // 0x7fffffff % d
@@ -533,9 +540,9 @@ fn gen_divu(ctx: &mut Context) {
         // ...then push the sum of the three remainders
         add(lloc(hi_rem), lloc(lo_rem), push()),
         add(pop(), imm(1), push()),
-        // If the remainder sum >= n, add 1 to the quotient sum, otherwise
+        // If the remainder sum >= d, add 1 to the quotient sum, otherwise
         // don't. Either way, that's our result.
-        jltu(pop(), lloc(n), dont_add1),
+        jltu(pop(), lloc(d), dont_add1),
         add(pop(), imm(1), push()),
         label(dont_add1),
         ret(pop()),
@@ -550,40 +557,90 @@ fn gen_divu(ctx: &mut Context) {
 }
 
 fn gen_remu(ctx: &mut Context) {
+    let n = 1;
+    let d = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.remu),
         fnhead_local(2),
-        callfii(imml(ctx.rt.divu), lloc(0), lloc(1), push()),
-        mul(pop(), lloc(1), push()),
-        sub(lloc(0), pop(), push()),
+        callfii(imml(ctx.rt.divu), lloc(d), lloc(n), push()),
+        mul(pop(), lloc(d), push()),
+        sub(lloc(n), pop(), push()),
         ret(pop())
     )
 }
 
+fn gen_shl(ctx: &mut Context) {
+    let x = 1;
+    let r = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.shl),
+        fnhead_local(2),
+        bitand(lloc(r), imm(0x1f), push()),
+        shiftl(lloc(x), pop(), push()),
+        ret(pop())
+    );
+}
+
+fn gen_shr(ctx: &mut Context) {
+    let x = 1;
+    let r = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.shr),
+        fnhead_local(2),
+        bitand(lloc(r), imm(0x1f), push()),
+        sshiftr(lloc(x), pop(), push()),
+        ret(pop())
+    );
+}
+
+fn gen_shru(ctx: &mut Context) {
+    let x = 1;
+    let r = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.shru),
+        fnhead_local(2),
+        bitand(lloc(r), imm(0x1f), push()),
+        ushiftr(lloc(x), pop(), push()),
+        ret(pop())
+    );
+}
+
 fn gen_rotl(ctx: &mut Context) {
+    let x = 1;
+    let r = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.rotl),
         fnhead_local(2),
-        bitand(lloc(1), imm(0x1f), sloc(1)),
-        shiftl(lloc(0), lloc(1), push()),
-        sub(imm(32), lloc(1), push()),
-        ushiftr(lloc(0), pop(), push()),
+        bitand(lloc(r), imm(0x1f), sloc(r)),
+        shiftl(lloc(x), lloc(r), push()),
+        sub(imm(32), lloc(r), push()),
+        ushiftr(lloc(x), pop(), push()),
         bitor(pop(), pop(), push()),
         ret(pop()),
     )
 }
 
 fn gen_rotr(ctx: &mut Context) {
+    let x = 1;
+    let r = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.rotr),
         fnhead_local(2),
-        bitand(lloc(1), imm(0x1f), sloc(1)),
-        ushiftr(lloc(0), lloc(1), push()),
-        sub(imm(32), lloc(1), push()),
-        shiftl(lloc(0), pop(), push()),
+        bitand(lloc(r), imm(0x1f), sloc(r)),
+        ushiftr(lloc(x), lloc(r), push()),
+        sub(imm(32), lloc(r), push()),
+        shiftl(lloc(x), pop(), push()),
         bitor(pop(), pop(), push()),
         ret(pop()),
     )
@@ -605,28 +662,31 @@ fn gen_clz(ctx: &mut Context) {
         );
     }
 
+    let arg = 0;
+    let tmp = 1;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.clz),
         fnhead_local(2),
-        ushiftr(lloc(0), imm(24), sloc(1)),
-        jz(lloc(1), lead8),
-        aloadb(imml(clz_table), lloc(1), push()),
+        ushiftr(lloc(arg), imm(24), sloc(tmp)),
+        jz(lloc(tmp), lead8),
+        aloadb(imml(clz_table), lloc(tmp), push()),
         ret(pop()),
         label(lead8),
-        ushiftr(lloc(0), imm(16), sloc(1)),
-        jz(lloc(1), lead16),
-        aloadb(imml(clz_table), lloc(1), push()),
+        ushiftr(lloc(0), imm(16), sloc(tmp)),
+        jz(lloc(tmp), lead16),
+        aloadb(imml(clz_table), lloc(tmp), push()),
         add(pop(), imm(8), push()),
         ret(pop()),
         label(lead16),
-        ushiftr(lloc(0), imm(8), sloc(1)),
-        jz(lloc(1), lead24),
-        aloadb(imml(clz_table), lloc(1), push()),
+        ushiftr(lloc(arg), imm(8), sloc(tmp)),
+        jz(lloc(tmp), lead24),
+        aloadb(imml(clz_table), lloc(tmp), push()),
         add(pop(), imm(16), push()),
         ret(pop()),
         label(lead24),
-        aloadb(imml(clz_table), lloc(0), push()),
+        aloadb(imml(clz_table), lloc(arg), push()),
         add(pop(), imm(24), push()),
         ret(pop()),
         label(clz_table),
@@ -650,30 +710,33 @@ fn gen_ctz(ctx: &mut Context) {
         );
     }
 
+    let arg = 0;
+    let tmp = 1;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.ctz),
         fnhead_local(2),
-        bitand(lloc(0), imm(0xff), sloc(1)),
-        jz(lloc(1), trail8),
-        aloadb(imml(ctz_table), lloc(1), push()),
+        bitand(lloc(arg), imm(0xff), sloc(tmp)),
+        jz(lloc(tmp), trail8),
+        aloadb(imml(ctz_table), lloc(tmp), push()),
         ret(pop()),
         label(trail8),
-        ushiftr(lloc(0), imm(8), push()),
-        bitand(pop(), imm(0xff), sloc(1)),
-        jz(lloc(1), trail16),
-        aloadb(imml(ctz_table), lloc(1), push()),
+        ushiftr(lloc(arg), imm(8), push()),
+        bitand(pop(), imm(0xff), sloc(tmp)),
+        jz(lloc(tmp), trail16),
+        aloadb(imml(ctz_table), lloc(tmp), push()),
         add(pop(), imm(8), push()),
         ret(pop()),
         label(trail16),
-        ushiftr(lloc(0), imm(16), push()),
-        bitand(pop(), imm(0xff), sloc(1)),
-        jz(lloc(1), trail24),
-        aloadb(imml(ctz_table), lloc(1), push()),
+        ushiftr(lloc(arg), imm(16), push()),
+        bitand(pop(), imm(0xff), sloc(tmp)),
+        jz(lloc(tmp), trail24),
+        aloadb(imml(ctz_table), lloc(tmp), push()),
         add(pop(), imm(16), push()),
         ret(pop()),
         label(trail24),
-        ushiftr(lloc(0), imm(24), push()),
+        ushiftr(lloc(arg), imm(24), push()),
         aloadb(imml(ctz_table), pop(), push()),
         add(pop(), imm(24), push()),
         ret(pop()),
@@ -694,21 +757,23 @@ fn gen_popcnt(ctx: &mut Context) {
         );
     }
 
+    let arg = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.popcnt),
         fnhead_local(1),
-        bitand(lloc(0), imm(0xff), push()),
+        bitand(lloc(arg), imm(0xff), push()),
         aloadb(imml(popcnt_table), pop(), push()),
-        ushiftr(lloc(0), imm(8), push()),
+        ushiftr(lloc(arg), imm(8), push()),
         bitand(pop(), imm(0xff), push()),
         aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
-        ushiftr(lloc(0), imm(16), push()),
+        ushiftr(lloc(arg), imm(16), push()),
         bitand(pop(), imm(0xff), push()),
         aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
-        ushiftr(lloc(0), imm(24), push()),
+        ushiftr(lloc(arg), imm(24), push()),
         aloadb(imml(popcnt_table), pop(), push()),
         add(pop(), pop(), push()),
         ret(pop()),
@@ -718,111 +783,135 @@ fn gen_popcnt(ctx: &mut Context) {
 }
 
 fn gen_eqz(ctx: &mut Context) {
+    let x = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.eqz),
         fnhead_local(1),
-        jz_ret(lloc(0), true),
+        jz_ret(lloc(x), true),
         ret(imm(0))
     )
 }
 
 fn gen_eq(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.eq),
         fnhead_local(2),
-        jeq_ret(lloc(0), lloc(1), true),
+        jeq_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_ne(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.ne),
         fnhead_local(2),
-        jne_ret(lloc(0), lloc(1), true),
+        jne_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_lt(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.lt),
         fnhead_local(2),
-        jlt_ret(lloc(0), lloc(1), true),
+        jlt_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_ltu(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.ltu),
         fnhead_local(2),
-        jltu_ret(lloc(0), lloc(1), true),
+        jltu_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_le(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.le),
         fnhead_local(2),
-        jle_ret(lloc(0), lloc(1), true),
+        jle_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_leu(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.leu),
         fnhead_local(2),
-        jleu_ret(lloc(0), lloc(1), true),
+        jleu_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_gt(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
     push_all!(
         ctx.rom_items,
         label(ctx.rt.gt),
         fnhead_local(2),
-        jgt_ret(lloc(0), lloc(1), true),
+        jgt_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_gtu(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.gtu),
         fnhead_local(2),
-        jgtu_ret(lloc(0), lloc(1), true),
+        jgtu_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_ge(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.ge),
         fnhead_local(2),
-        jge_ret(lloc(0), lloc(1), true),
+        jge_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
 
 fn gen_geu(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
     push_all!(
         ctx.rom_items,
         label(ctx.rt.geu),
         fnhead_local(2),
-        jgeu_ret(lloc(0), lloc(1), true),
+        jgeu_ret(lloc(x), lloc(y), true),
         ret(imm(0))
     )
 }
@@ -1595,7 +1684,7 @@ fn gen_memory_fill(ctx: &mut Context) {
         ctx.rom_items,
         label(ctx.rt.memory_fill),
         fnhead_local(4),
-        add(lloc(d), lloc(d), sloc(d_plus_n)),
+        add(lloc(d), lloc(n), sloc(d_plus_n)),
         jltu(
             lloc(d_plus_n),
             lloc(d),
@@ -1688,6 +1777,9 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_swapunistr(ctx);
     gen_divu(ctx);
     gen_remu(ctx);
+    gen_shl(ctx);
+    gen_shr(ctx);
+    gen_shru(ctx);
     gen_rotl(ctx);
     gen_rotr(ctx);
     gen_clz(ctx);

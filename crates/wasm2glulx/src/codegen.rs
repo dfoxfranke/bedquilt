@@ -1,3 +1,4 @@
+mod arith;
 mod classify;
 mod control;
 mod loadstore;
