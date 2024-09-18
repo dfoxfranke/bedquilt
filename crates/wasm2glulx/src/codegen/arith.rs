@@ -2,7 +2,7 @@ use super::classify::{ClassifiedInstr, Other};
 use super::loadstore::{gen_copies, Credits, Debts};
 use super::toplevel::Frame;
 use crate::common::*;
-use glulx_asm::{concise::*, LoadOperand};
+use glulx_asm::{concise::*, LoadOperand, StoreOperand};
 use walrus::{ir, ValType};
 
 pub fn gen_unop(
@@ -81,6 +81,123 @@ pub fn gen_unop(
             ctx.rom_items
                 .push(callfii(imml(ctx.rt.popcnt64), x_hi, x_lo, push()));
             gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::UnaryOp::I32WrapI64 => {
+            let x = credits.pop();
+            if matches!(x, LoadOperand::Pop) {
+                ctx.rom_items.push(copy(pop(), discard()));
+                debts.gen(ctx);
+            } else {
+                gen_copies(ctx, credits, debts)
+            }
+        }
+        ir::UnaryOp::I64ExtendSI32 => {
+            let x = credits.pop();
+            let out_hi = debts.pop();
+            let out_lo = debts.pop();
+
+            credits.gen(ctx);
+            if matches!(x, LoadOperand::Pop) {
+                ctx.rom_items.push(stkpeek(imm(0), push()));
+                ctx.rom_items.push(sshiftr(pop(), imm(63), out_hi));
+                if !matches!(out_lo, StoreOperand::Push) {
+                    ctx.rom_items.push(copy(pop(), out_lo));
+                }
+            } else {
+                if !matches!(out_hi, StoreOperand::Discard) {
+                    ctx.rom_items.push(sshiftr(x, imm(63), out_hi));
+                }
+                if !matches!(out_lo, StoreOperand::Discard) {
+                    ctx.rom_items.push(copy(x, out_lo));
+                }
+            }
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64ExtendUI32 => {
+            let x = credits.pop();
+            let out_hi = debts.pop();
+            let out_lo = debts.pop();
+
+            credits.gen(ctx);
+            if matches!(x, LoadOperand::Pop) {
+                if !matches!(out_lo, StoreOperand::Push) {
+                    ctx.rom_items.push(copy(pop(), out_lo));
+                }
+            } else if !matches!(out_lo, StoreOperand::Discard) {
+                ctx.rom_items.push(copy(x, out_lo));
+            }
+            ctx.rom_items.push(copy(imm(0), out_hi));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32Extend8S => {
+            let x = credits.pop();
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(sexb(x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32Extend16S => {
+            let x = credits.pop();
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(sexs(x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64Extend8S => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+            let out_hi = debts.pop();
+            let out_lo = debts.pop();
+
+            credits.gen(ctx);
+            if matches!(x_hi, LoadOperand::Pop) {
+                ctx.rom_items.push(copy(pop(), discard()));
+            }
+
+            ctx.rom_items.push(sexb(x_lo, push()));
+            ctx.rom_items.push(stkpeek(imm(0), out_lo));
+            ctx.rom_items.push(sshiftr(pop(), imm(63), out_hi));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64Extend16S => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+            let out_hi = debts.pop();
+            let out_lo = debts.pop();
+
+            credits.gen(ctx);
+            if matches!(x_hi, LoadOperand::Pop) {
+                ctx.rom_items.push(copy(pop(), discard()));
+            }
+
+            ctx.rom_items.push(sexs(x_lo, push()));
+            ctx.rom_items.push(stkpeek(imm(0), out_lo));
+            ctx.rom_items.push(sshiftr(pop(), imm(63), out_hi));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64Extend32S => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+            let out_hi = debts.pop();
+            let out_lo = debts.pop();
+
+            credits.gen(ctx);
+            if matches!(x_hi, LoadOperand::Pop) {
+                assert!(matches!(x_lo, LoadOperand::Pop));
+                ctx.rom_items.push(copy(pop(), discard()));
+                ctx.rom_items.push(stkpeek(imm(0), out_lo));
+                ctx.rom_items.push(sshiftr(pop(), imm(63), out_hi));
+            } else {
+                if !matches!(out_lo, StoreOperand::Discard) {
+                    ctx.rom_items.push(copy(x_lo, out_lo));
+                }
+                if !matches!(out_hi, StoreOperand::Discard) {
+                    ctx.rom_items.push(sshiftr(x_lo, imm(63), out_hi));
+                }
+            }
+            debts.gen(ctx);
         }
 
         _ => {

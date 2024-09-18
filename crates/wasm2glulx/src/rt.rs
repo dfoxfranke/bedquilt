@@ -1466,19 +1466,6 @@ fn gen_popcnt64(ctx: &mut Context) {
 }
 
 fn gen_trap(ctx: &mut Context) {
-    /*
-                   TrapCode::Unreachable => 0,
-               TrapCode::IntegerOverflow => 1,
-               TrapCode::IntegerDivideByZero => 2,
-               TrapCode::InvalidConversionToInteger => 3,
-               TrapCode::OutOfBoundsMemoryAccess => 4,
-               TrapCode::IndirectCallTypeMismatch => 5,
-               TrapCode::OutOfBoundsTableAccess => 6,
-               TrapCode::UndefinedElement => 7,
-               TrapCode::UninitializedElement => 8,
-               TrapCode::CallStackExhausted => 9,
-    */
-
     push_all!(
         ctx.rom_items,
         label(ctx.rt.trap_unreachable),
