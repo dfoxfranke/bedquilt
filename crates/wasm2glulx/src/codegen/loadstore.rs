@@ -144,6 +144,16 @@ impl Credits {
         self.loads.pop().unwrap_or(LoadOperand::Pop)
     }
 
+    pub fn pop_hi_lo(&mut self) -> (LoadOperand<Label>, LoadOperand<Label>) {
+        let hi = self.pop();
+        let lo = self.pop();
+        assert!(
+            matches!(hi, LoadOperand::Pop) == matches!(lo, LoadOperand::Pop),
+            "A hi/lo pair of credits should be both pop or neither pop"
+        );
+        (hi, lo)
+    }
+
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.loads.len()
@@ -309,16 +319,36 @@ impl Debts {
                 returns.m < returns.n,
                 "No further debts should be popped after satisfying return debts"
             );
-            if returns.m + 1 < returns.n {
-                let store = storel_off(returns.hi_return, (returns.m * 4).try_into().expect("hi_return offsets too large to fit in an i32 should have been rejected when building the layout"));
-                returns.m += 1;
-                store
+            let store = if returns.m + 1 < returns.n {
+                storel_off(returns.hi_return, (returns.m * 4).try_into().expect("hi_return offsets too large to fit in an i32 should have been rejected when building the layout"))
             } else {
                 StoreOperand::Push
-            }
+            };
+            returns.m += 1;
+            store
         } else {
             StoreOperand::Push
         }
+    }
+
+    pub fn pop_lo_hi(&mut self) -> (StoreOperand<Label>, StoreOperand<Label>) {
+        let hi = self.pop();
+        let lo = self.pop();
+
+        match (hi, lo, &self.returns) {
+            (StoreOperand::Push, StoreOperand::Push, _) => {}
+            (
+                StoreOperand::DerefLabel(LabelRef(l, _)),
+                StoreOperand::Push,
+                Some(Returns { m, n, hi_return }),
+            ) => {
+                assert!(l == *hi_return && *m == *n);
+            }
+            _ => {
+                assert!(!matches!(hi, StoreOperand::Push) && !matches!(lo, StoreOperand::Push))
+            }
+        }
+        (lo, hi)
     }
 
     fn pop_for_copy(&mut self) -> Option<StoreOperand<Label>> {
@@ -361,12 +391,12 @@ impl Debts {
             if returns.n == 0 {
                 ctx.rom_items.push(ret(imm(0)))
             } else {
-                while returns.m + 1 < returns.n {
+                while returns.m < returns.n - 1 {
                     ctx.rom_items.push(copy(pop(), storel_off(returns.hi_return, (returns.m * 4).try_into().expect("hi_return offsets too large to fit in an i32 should have been rejected when building the layout"))));
                     returns.m += 1;
                 }
                 ctx.rom_items.push(ret(pop()));
-                returns.m += 1;
+                returns.m = returns.n;
             }
         }
     }
@@ -431,18 +461,7 @@ pub fn gen_copies(ctx: &mut Context, mut credits: Credits, mut debts: Debts) {
             poisoned.insert(poison);
         }
 
-        match (load, store) {
-            (_, StoreOperand::Discard) if !matches!(load, LoadOperand::Pop) => {}
-            (
-                LoadOperand::DerefLabel(LabelRef(load_label, load_off)),
-                StoreOperand::DerefLabel(LabelRef(store_label, store_off)),
-            ) if load_label == store_label && load_off == store_off => {}
-            (LoadOperand::FrameAddr(load_addr), StoreOperand::FrameAddr(store_addr))
-                if load_addr == store_addr => {}
-            _ => {
-                good_pairs.push((load, store));
-            }
-        }
+        good_pairs.push((load, store));
     }
 
     credits.gen(ctx);
@@ -451,12 +470,26 @@ pub fn gen_copies(ctx: &mut Context, mut credits: Credits, mut debts: Debts) {
     }
 
     for (load, store) in good_pairs {
-        ctx.rom_items.push(copy(load, store));
+        copy_if_sensible(ctx, load, store);
     }
     if let Some(oops) = oops_store {
         ctx.rom_items.push(copy(pop(), oops));
     }
     debts.gen(ctx);
+}
+
+pub fn copy_if_sensible(ctx: &mut Context, load: LoadOperand<Label>, store: StoreOperand<Label>) {
+    match (load, store) {
+        (_, StoreOperand::Discard) if !matches!(load, LoadOperand::Pop) => {}
+        (LoadOperand::Pop, StoreOperand::Push) => {}
+        (
+            LoadOperand::DerefLabel(LabelRef(load_label, load_off)),
+            StoreOperand::DerefLabel(LabelRef(store_label, store_off)),
+        ) if load_label == store_label && load_off == store_off => {}
+        (LoadOperand::FrameAddr(load_addr), StoreOperand::FrameAddr(store_addr))
+            if load_addr == store_addr => {}
+        _ => ctx.rom_items.push(copy(load, store)),
+    }
 }
 
 pub fn gen_local_tee(
