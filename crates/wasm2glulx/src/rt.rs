@@ -917,10 +917,11 @@ fn gen_geu(ctx: &mut Context) {
 }
 
 fn gen_add64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
     let sum_lo = 4;
     let sum_hi = 5;
 
@@ -941,10 +942,11 @@ fn gen_add64(ctx: &mut Context) {
 }
 
 fn gen_sub64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
     let diff_lo = 4;
     let diff_hi = 5;
 
@@ -955,7 +957,7 @@ fn gen_sub64(ctx: &mut Context) {
         label(ctx.rt.sub64),
         fnhead_local(6),
         sub(lloc(x_lo), lloc(y_lo), sloc(diff_lo)),
-        sub(lloc(x_hi), lloc(y_hi), sloc(diff_lo)),
+        sub(lloc(x_hi), lloc(y_hi), sloc(diff_hi)),
         jleu(lloc(diff_lo), lloc(x_lo), noborrow),
         sub(lloc(diff_hi), imm(1), sloc(diff_hi)),
         label(noborrow),
@@ -965,10 +967,10 @@ fn gen_sub64(ctx: &mut Context) {
 }
 
 fn gen_mul64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     let x_lohi = 4;
     let x_lolo = 5;
@@ -1018,10 +1020,10 @@ fn gen_mul64(ctx: &mut Context) {
 }
 
 fn gen_and64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1034,10 +1036,10 @@ fn gen_and64(ctx: &mut Context) {
 }
 
 fn gen_or64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1050,10 +1052,10 @@ fn gen_or64(ctx: &mut Context) {
 }
 
 fn gen_xor64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1066,16 +1068,18 @@ fn gen_xor64(ctx: &mut Context) {
 }
 
 fn gen_shl64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let r = 2;
+    let x_lo = 3;
+    let x_hi = 2;
+    let r = 1;
+    //r_hi = 0
 
     let shift32 = ctx.gen.gen("shl64_shift32");
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.shl64),
-        fnhead_local(3),
+        fnhead_local(4),
+        bitand(lloc(r), imm(0x3f), sloc(r)),
         jgeu(lloc(r), imm(32), shift32),
         shiftl(lloc(x_hi), lloc(r), sloc(x_hi)),
         sub(imm(32), lloc(r), push()),
@@ -1091,16 +1095,18 @@ fn gen_shl64(ctx: &mut Context) {
 }
 
 fn gen_shr64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let r = 2;
+    let x_lo = 3;
+    let x_hi = 2;
+    let r = 1;
+    //r_hi = 0
 
     let shift32 = ctx.gen.gen("shr64_shift32");
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.shr64),
-        fnhead_local(3),
+        fnhead_local(4),
+        bitand(lloc(r), imm(0x3f), sloc(r)),
         jgeu(lloc(r), imm(32), shift32),
         sshiftr(lloc(x_hi), lloc(r), storel(ctx.layout.hi_return().addr)),
         ushiftr(lloc(x_lo), lloc(r), sloc(x_lo)),
@@ -1118,16 +1124,18 @@ fn gen_shr64(ctx: &mut Context) {
 }
 
 fn gen_shru64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let r = 2;
+    let x_lo = 3;
+    let x_hi = 2;
+    let r = 1;
+    //r_hi = 0
 
     let shift32 = ctx.gen.gen("shru64_shift32");
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.shru64),
-        fnhead_local(3),
+        fnhead_local(4),
+        bitand(lloc(r), imm(0x3f), sloc(r)),
         jgeu(lloc(r), imm(32), shift32),
         ushiftr(lloc(x_hi), lloc(r), storel(ctx.layout.hi_return().addr)),
         ushiftr(lloc(x_lo), lloc(r), sloc(x_lo)),
@@ -1144,27 +1152,30 @@ fn gen_shru64(ctx: &mut Context) {
 }
 
 fn gen_rotl64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let r = 2;
-    let x_hi_shifted = 3;
-    let x_lo_shifted = 4;
+    let x_lo = 3;
+    let x_hi = 2;
+    let r = 1;
+    //r_hi = 0
+
+    let x_hi_shifted = 4;
+    let x_lo_shifted = 5;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.rotl64),
-        fnhead_local(5),
+        fnhead_local(6),
         bitand(lloc(r), imm(0x3f), sloc(r)),
-        callfiii(
-            imml(ctx.rt.shl64),
-            lloc(x_hi),
-            lloc(x_lo),
-            lloc(r),
-            sloc(x_lo_shifted)
-        ),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(lloc(r), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.shl64), imm(4), sloc(x_lo_shifted)),
         copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi_shifted)),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
         sub(imm(64), lloc(r), push()),
-        callfiii(imml(ctx.rt.shru64), lloc(x_hi), lloc(x_lo), pop(), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.shru64), imm(4), push()),
         bitor(
             lloc(x_hi_shifted),
             derefl(ctx.layout.hi_return().addr),
@@ -1176,27 +1187,30 @@ fn gen_rotl64(ctx: &mut Context) {
 }
 
 fn gen_rotr64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let r = 2;
-    let x_hi_shifted = 3;
-    let x_lo_shifted = 4;
+    let x_lo = 3;
+    let x_hi = 2;
+    let r = 1;
+    //r_hi = 0
+
+    let x_hi_shifted = 4;
+    let x_lo_shifted = 5;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.rotr64),
-        fnhead_local(5),
+        fnhead_local(6),
         bitand(lloc(r), imm(0x3f), sloc(r)),
-        callfiii(
-            imml(ctx.rt.shru64),
-            lloc(x_hi),
-            lloc(x_lo),
-            lloc(r),
-            sloc(x_lo_shifted)
-        ),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(lloc(r), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.shru64), imm(4), sloc(x_lo_shifted)),
         copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi_shifted)),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
         sub(imm(64), lloc(r), push()),
-        callfiii(imml(ctx.rt.shl64), lloc(x_hi), lloc(x_lo), pop(), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.shl64), imm(4), push()),
         bitor(
             lloc(x_hi_shifted),
             derefl(ctx.layout.hi_return().addr),
@@ -1208,8 +1222,8 @@ fn gen_rotr64(ctx: &mut Context) {
 }
 
 fn gen_eqz64(ctx: &mut Context) {
-    let x_hi = 0;
     let x_lo = 1;
+    let x_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1222,10 +1236,10 @@ fn gen_eqz64(ctx: &mut Context) {
 }
 
 fn gen_eq64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1238,10 +1252,10 @@ fn gen_eq64(ctx: &mut Context) {
 }
 
 fn gen_ne64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1254,10 +1268,10 @@ fn gen_ne64(ctx: &mut Context) {
 }
 
 fn gen_lt64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1271,10 +1285,10 @@ fn gen_lt64(ctx: &mut Context) {
 }
 
 fn gen_ltu64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1288,10 +1302,10 @@ fn gen_ltu64(ctx: &mut Context) {
 }
 
 fn gen_gt64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1305,10 +1319,10 @@ fn gen_gt64(ctx: &mut Context) {
 }
 
 fn gen_gtu64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1322,10 +1336,10 @@ fn gen_gtu64(ctx: &mut Context) {
 }
 
 fn gen_le64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1339,10 +1353,10 @@ fn gen_le64(ctx: &mut Context) {
 }
 
 fn gen_leu64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1356,10 +1370,10 @@ fn gen_leu64(ctx: &mut Context) {
 }
 
 fn gen_ge64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1373,10 +1387,10 @@ fn gen_ge64(ctx: &mut Context) {
 }
 
 fn gen_geu64(ctx: &mut Context) {
-    let x_hi = 0;
-    let x_lo = 1;
-    let y_hi = 2;
-    let y_lo = 3;
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
 
     push_all!(
         ctx.rom_items,
@@ -1390,8 +1404,9 @@ fn gen_geu64(ctx: &mut Context) {
 }
 
 fn gen_clz64(ctx: &mut Context) {
-    let hi = 0;
-    let lo = 1;
+    let x_lo = 1;
+    let x_hi = 0;
+
     let hi_clz = 2;
 
     let hi32 = ctx.gen.gen("clz64_hi32");
@@ -1401,20 +1416,21 @@ fn gen_clz64(ctx: &mut Context) {
         label(ctx.rt.clz64),
         fnhead_local(3),
         copy(imm(0), storel(ctx.layout.hi_return().addr)),
-        callfi(imml(ctx.rt.clz), lloc(hi), sloc(hi_clz)),
+        callfi(imml(ctx.rt.clz), lloc(x_hi), sloc(hi_clz)),
         jeq(lloc(hi_clz), imm(32), hi32),
         ret(lloc(hi_clz)),
         label(hi32),
-        callfi(imml(ctx.rt.clz), lloc(lo), push()),
+        callfi(imml(ctx.rt.clz), lloc(x_lo), push()),
         add(imm(32), pop(), push()),
         ret(pop()),
     )
 }
 
 fn gen_ctz64(ctx: &mut Context) {
-    let hi = 0;
-    let lo = 1;
-    let lo_clz = 2;
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let lo_ctz = 2;
 
     let lo32 = ctx.gen.gen("ctz64_lo32");
 
@@ -1423,27 +1439,27 @@ fn gen_ctz64(ctx: &mut Context) {
         label(ctx.rt.ctz64),
         fnhead_local(3),
         copy(imm(0), storel(ctx.layout.hi_return().addr)),
-        callfi(imml(ctx.rt.ctz), lloc(lo), sloc(lo_clz)),
-        jeq(lloc(lo_clz), imm(32), lo32),
-        ret(lloc(lo_clz)),
+        callfi(imml(ctx.rt.ctz), lloc(x_lo), sloc(lo_ctz)),
+        jeq(lloc(lo_ctz), imm(32), lo32),
+        ret(lloc(lo_ctz)),
         label(lo32),
-        callfi(imml(ctx.rt.ctz), lloc(hi), push()),
+        callfi(imml(ctx.rt.ctz), lloc(x_hi), push()),
         add(imm(32), pop(), push()),
         ret(pop()),
     )
 }
 
 fn gen_popcnt64(ctx: &mut Context) {
-    let hi = 0;
-    let lo = 1;
+    let x_lo = 1;
+    let x_hi = 0;
 
     push_all!(
         ctx.rom_items,
         label(ctx.rt.popcnt64),
         fnhead_local(2),
         copy(imm(0), storel(ctx.layout.hi_return().addr)),
-        callfi(imml(ctx.rt.popcnt), lloc(hi), push()),
-        callfi(imml(ctx.rt.popcnt), lloc(lo), push()),
+        callfi(imml(ctx.rt.popcnt), lloc(x_hi), push()),
+        callfi(imml(ctx.rt.popcnt), lloc(x_lo), push()),
         add(pop(), pop(), push()),
         ret(pop()),
     )

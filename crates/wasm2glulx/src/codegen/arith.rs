@@ -1,9 +1,9 @@
 use super::classify::{ClassifiedInstr, Other};
-use super::loadstore::{Credits, Debts};
+use super::loadstore::{gen_copies, Credits, Debts};
 use super::toplevel::Frame;
 use crate::common::*;
 use glulx_asm::{concise::*, LoadOperand};
-use walrus::ir;
+use walrus::{ir, ValType};
 
 pub fn gen_unop(
     ctx: &mut Context,
@@ -45,6 +45,44 @@ pub fn gen_unop(
             ctx.rom_items.push(callfi(imml(ctx.rt.popcnt), x, out));
             debts.gen(ctx);
         }
+        ir::UnaryOp::I64Eqz => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.eqz64), x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64Clz => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.clz64), x_hi, x_lo, push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::UnaryOp::I64Ctz => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.ctz64), x_hi, x_lo, push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::UnaryOp::I64Popcnt => {
+            let x_hi = credits.pop();
+            let x_lo = credits.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.popcnt64), x_hi, x_lo, push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+
         _ => {
             credits.gen(ctx);
             let mnemonic = Other::Unop(unop.clone()).mnemonic();
@@ -55,10 +93,6 @@ pub fn gen_unop(
                 });
             debts.gen(ctx);
         } /*
-          ir::UnaryOp::I64Eqz => todo!(),
-          ir::UnaryOp::I64Clz => todo!(),
-          ir::UnaryOp::I64Ctz => todo!(),
-          ir::UnaryOp::I64Popcnt => todo!(),
           ir::UnaryOp::F32Abs => todo!(),
           ir::UnaryOp::F32Neg => todo!(),
           ir::UnaryOp::F32Ceil => todo!(),
@@ -430,6 +464,134 @@ pub fn gen_binop(
             ctx.rom_items.push(callfii(imml(ctx.rt.rotr), y, x, out));
             debts.gen(ctx);
         }
+        ir::BinaryOp::I64Eq => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.eq64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64Ne => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.ne64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64LtS => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.lt64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64LtU => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.ltu64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64GtS => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.gt64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64GtU => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.gtu64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64LeS => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.le64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64LeU => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.leu64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64GeS => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.ge64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64GeU => {
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.geu64), imm(4), out));
+            debts.gen(ctx);
+        }
+        ir::BinaryOp::I64Add => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.add64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Sub => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.sub64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Mul => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.mul64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64And => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.and64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Or => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.or64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Xor => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.xor64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Shl => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.shl64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64ShrS => {
+            credits.gen(ctx);
+            ctx.rom_items.push(call(imml(ctx.rt.shr64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64ShrU => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.shru64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Rotl => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.rotl64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64Rotr => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.rotr64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
         _ => {
             credits.gen(ctx);
             let mnemonic = Other::Binop(binop.clone()).mnemonic();
@@ -440,16 +602,6 @@ pub fn gen_binop(
                 });
             debts.gen(ctx);
         } /*
-          ir::BinaryOp::I64Eq => todo!(),
-          ir::BinaryOp::I64Ne => todo!(),
-          ir::BinaryOp::I64LtS => todo!(),
-          ir::BinaryOp::I64LtU => todo!(),
-          ir::BinaryOp::I64GtS => todo!(),
-          ir::BinaryOp::I64GtU => todo!(),
-          ir::BinaryOp::I64LeS => todo!(),
-          ir::BinaryOp::I64LeU => todo!(),
-          ir::BinaryOp::I64GeS => todo!(),
-          ir::BinaryOp::I64GeU => todo!(),
           ir::BinaryOp::F32Eq => todo!(),
           ir::BinaryOp::F32Ne => todo!(),
           ir::BinaryOp::F32Lt => todo!(),
@@ -462,21 +614,10 @@ pub fn gen_binop(
           ir::BinaryOp::F64Gt => todo!(),
           ir::BinaryOp::F64Le => todo!(),
           ir::BinaryOp::F64Ge => todo!(),
-          ir::BinaryOp::I64Add => todo!(),
-          ir::BinaryOp::I64Sub => todo!(),
-          ir::BinaryOp::I64Mul => todo!(),
           ir::BinaryOp::I64DivS => todo!(),
           ir::BinaryOp::I64DivU => todo!(),
           ir::BinaryOp::I64RemS => todo!(),
           ir::BinaryOp::I64RemU => todo!(),
-          ir::BinaryOp::I64And => todo!(),
-          ir::BinaryOp::I64Or => todo!(),
-          ir::BinaryOp::I64Xor => todo!(),
-          ir::BinaryOp::I64Shl => todo!(),
-          ir::BinaryOp::I64ShrS => todo!(),
-          ir::BinaryOp::I64ShrU => todo!(),
-          ir::BinaryOp::I64Rotl => todo!(),
-          ir::BinaryOp::I64Rotr => todo!(),
           ir::BinaryOp::F32Add => todo!(),
           ir::BinaryOp::F32Sub => todo!(),
           ir::BinaryOp::F32Mul => todo!(),
