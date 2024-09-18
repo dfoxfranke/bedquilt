@@ -36,6 +36,7 @@ pub enum InstrClass {
     Ret(Ret),
     Block(Block),
     Loop(Loop),
+    Terminal(Terminal),
     Other(Other),
 }
 
@@ -72,6 +73,15 @@ pub enum Loop {
     Loop(ir::Loop),
 }
 
+#[derive(Debug, Clone)]
+pub enum Terminal {
+    Br(ir::Br),
+    BrTable(ir::BrTable),
+    Unreachable(ir::Unreachable),
+    ReturnCall(ir::ReturnCall),
+    ReturnCallIndirect(ir::ReturnCallIndirect),
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Other {
@@ -81,10 +91,7 @@ pub enum Other {
     Binop(ir::Binop),
     Unop(ir::Unop),
     Select(Test, ir::Select),
-    Unreachable(ir::Unreachable),
-    Br(ir::Br),
     BrIf(Test, ir::BrIf),
-    BrTable(ir::BrTable),
     MemorySize(ir::MemorySize),
     MemoryGrow(ir::MemoryGrow),
     MemoryInit(ir::MemoryInit),
@@ -110,8 +117,6 @@ pub enum Other {
     TableInit(ir::TableInit),
     ElemDrop(ir::ElemDrop),
     TableCopy(ir::TableCopy),
-    ReturnCall(ir::ReturnCall),
-    ReturnCallIndirect(ir::ReturnCallIndirect),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -157,6 +162,10 @@ pub enum InstrSubseq {
         looop: Loop,
         stores: Vec<Store>,
         ret: Option<Ret>,
+    },
+    Terminal {
+        loads: Vec<Load>,
+        terminal: Terminal,
     },
     Other {
         loads: Vec<Load>,
@@ -210,6 +219,7 @@ impl ClassifiedInstr for InstrClass {
             InstrClass::Block(block) => block.stack_type(module, localfn, cur_stack),
             InstrClass::Loop(l) => l.stack_type(module, localfn, cur_stack),
             InstrClass::Other(other) => other.stack_type(module, localfn, cur_stack),
+            InstrClass::Terminal(terminal) => terminal.stack_type(module, localfn, cur_stack),
         }
     }
 
@@ -221,6 +231,7 @@ impl ClassifiedInstr for InstrClass {
             InstrClass::Block(block) => block.mnemonic(),
             InstrClass::Loop(looop) => looop.mnemonic(),
             InstrClass::Other(other) => other.mnemonic(),
+            InstrClass::Terminal(terminal) => terminal.mnemonic(),
         }
     }
 }
@@ -782,13 +793,10 @@ impl ClassifiedInstr for Other {
                 let results = vt_singleton(cur_stack[cur_stack.len() - test_params.len() - 1]);
                 (params, results)
             }
-            Other::Unreachable(_) => (&[], &[]),
-            Other::Br(_) => (&[], &[]),
             Other::BrIf(test, _) => {
                 let (params, _) = test.stack_type(module, localfn, cur_stack);
                 (params, &[])
             }
-            Other::BrTable(_) => (vt_singleton(ValType::I32), &[]),
             Other::MemorySize(_) => (&[], &[ValType::I32]),
             Other::MemoryGrow(_) => (vt_singleton(ValType::I32), vt_singleton(ValType::I32)),
             Other::MemoryInit(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
@@ -917,23 +925,6 @@ impl ClassifiedInstr for Other {
             Other::TableInit(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
             Other::ElemDrop(_) => (&[], &[]),
             Other::TableCopy(_) => (&[ValType::I32, ValType::I32, ValType::I32], &[]),
-            Other::ReturnCall(return_call) => {
-                let ty = module.types.get(module.funcs.get(return_call.func).ty());
-                (ty.params(), ty.results())
-            }
-            Other::ReturnCallIndirect(return_call_indirect) => {
-                let ty = module.types.get(return_call_indirect.ty);
-                assert!(cur_stack.len() > ty.params().len());
-                assert_eq!(
-                    &cur_stack[cur_stack.len() - ty.params().len() - 1..cur_stack.len() - 1],
-                    ty.params()
-                );
-                assert_eq!(cur_stack.last(), Some(&ValType::I32));
-                (
-                    &cur_stack[cur_stack.len() - ty.params().len() - 1..],
-                    ty.results(),
-                )
-            }
         }
     }
 
@@ -1293,10 +1284,7 @@ impl ClassifiedInstr for Other {
                 ir::UnaryOp::I32x4WidenHighI16x8U => "i32x4.widen_high_i16x8_u",
             },
             Other::Select(_, _) => "select",
-            Other::Unreachable(_) => "unreachable",
-            Other::Br(_) => "br",
             Other::BrIf(_, _) => "br_if",
-            Other::BrTable(_) => "br_table",
             Other::MemorySize(_) => "memory.size",
             Other::MemoryGrow(_) => "memory.grow",
             Other::MemoryInit(_) => "memory.init",
@@ -1483,8 +1471,48 @@ impl ClassifiedInstr for Other {
             Other::TableInit(_) => "table.init",
             Other::ElemDrop(_) => "elem.drop",
             Other::TableCopy(_) => "table.copy",
-            Other::ReturnCall(_) => "return_call",
-            Other::ReturnCallIndirect(_) => "return_call_indirect",
+        }
+    }
+}
+
+impl ClassifiedInstr for Terminal {
+    fn stack_type<'m, 's>(
+        &self,
+        module: &'m Module,
+        _localfn: &LocalFunction,
+        cur_stack: &'s [ValType],
+    ) -> (&'s [ValType], &'m [ValType])
+    where
+        'm: 's,
+    {
+        match self {
+            Terminal::ReturnCall(return_call) => {
+                let ty = module.types.get(module.funcs.get(return_call.func).ty());
+                (ty.params(), &[])
+            }
+            Terminal::ReturnCallIndirect(return_call_indirect) => {
+                let ty = module.types.get(return_call_indirect.ty);
+                assert!(cur_stack.len() > ty.params().len());
+                assert_eq!(
+                    &cur_stack[cur_stack.len() - ty.params().len() - 1..cur_stack.len() - 1],
+                    ty.params()
+                );
+                assert_eq!(cur_stack.last(), Some(&ValType::I32));
+                (&cur_stack[cur_stack.len() - ty.params().len() - 1..], &[])
+            }
+            Terminal::Br(_) => (&[], &[]),
+            Terminal::BrTable(_) => (&[ValType::I32], &[]),
+            Terminal::Unreachable(_) => (&[], &[]),
+        }
+    }
+
+    fn mnemonic(&self) -> &'static str {
+        match self {
+            Terminal::Br(_) => "br",
+            Terminal::BrTable(_) => "br_table",
+            Terminal::Unreachable(_) => "unreachable",
+            Terminal::ReturnCall(_) => "return_call",
+            Terminal::ReturnCallIndirect(_) => "return_call_indirect",
         }
     }
 }
@@ -1696,9 +1724,11 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
                 )));
             }
             ir::Instr::Unreachable(unreachable) => {
-                out.push(InstrClass::Other(Other::Unreachable(unreachable.clone())));
+                out.push(InstrClass::Terminal(Terminal::Unreachable(
+                    unreachable.clone(),
+                )));
             }
-            ir::Instr::Br(br) => out.push(InstrClass::Other(Other::Br(br.clone()))),
+            ir::Instr::Br(br) => out.push(InstrClass::Terminal(Terminal::Br(br.clone()))),
             ir::Instr::BrIf(brif) => {
                 out.push(InstrClass::Other(Other::BrIf(Test::I32Nez, brif.clone())));
             }
@@ -1707,7 +1737,7 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
                 ifelse.clone(),
             ))),
             ir::Instr::BrTable(brtable) => {
-                out.push(InstrClass::Other(Other::BrTable(brtable.clone())));
+                out.push(InstrClass::Terminal(Terminal::BrTable(brtable.clone())));
             }
             ir::Instr::Drop(drop) => out.push(InstrClass::Store(Store::Drop(drop.clone()))),
             ir::Instr::Return(ret) => out.push(InstrClass::Ret(Ret::Return(ret.clone()))),
@@ -1816,10 +1846,12 @@ pub fn classify(seq: &ir::InstrSeq) -> Vec<InstrClass> {
                 out.push(InstrClass::Other(Other::TableCopy(table_copy.clone())));
             }
             ir::Instr::ReturnCall(return_call) => {
-                out.push(InstrClass::Other(Other::ReturnCall(return_call.clone())));
+                out.push(InstrClass::Terminal(Terminal::ReturnCall(
+                    return_call.clone(),
+                )));
             }
             ir::Instr::ReturnCallIndirect(return_call_indirect) => {
-                out.push(InstrClass::Other(Other::ReturnCallIndirect(
+                out.push(InstrClass::Terminal(Terminal::ReturnCallIndirect(
                     return_call_indirect.clone(),
                 )));
             }
@@ -1841,6 +1873,7 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
     let mut loads = Vec::new();
     let mut block = None;
     let mut looop = None;
+    let mut terminal = None;
     let mut other = None;
     let mut stores = Vec::new();
     let mut ret = None;
@@ -1848,6 +1881,12 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
 
     macro_rules! subseq_done {
         () => {
+            if let Some(terminal) = terminal.take() {
+                subseqs.push(InstrSubseq::Terminal {
+                    terminal,
+                    loads: std::mem::take(&mut loads),
+                })
+            }
             if let Some(block) = block.take() {
                 subseqs.push(InstrSubseq::Block {
                     block,
@@ -1906,6 +1945,12 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
                     other = Some(this_other);
                     state = State::SeenNucleus;
                 }
+                InstrClass::Terminal(this_terminal) => {
+                    terminal = Some(this_terminal);
+                    subseq_done!();
+                    state = State::Start;
+                    break;
+                }
             },
             State::SeenLoad => match class {
                 InstrClass::Load(load) => {
@@ -1935,6 +1980,12 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
                 InstrClass::Other(this_other) => {
                     other = Some(this_other);
                     state = State::SeenNucleus;
+                }
+                InstrClass::Terminal(this_terminal) => {
+                    terminal = Some(this_terminal);
+                    subseq_done!();
+                    state = State::Start;
+                    break;
                 }
             },
             State::SeenNucleus => match class {
@@ -1967,6 +2018,13 @@ pub fn subsequences(seq: &ir::InstrSeq) -> Vec<InstrSubseq> {
                     subseq_done!();
                     other = Some(this_other);
                     state = State::SeenNucleus;
+                }
+                InstrClass::Terminal(this_terminal) => {
+                    subseq_done!();
+                    terminal = Some(this_terminal);
+                    subseq_done!();
+                    state = State::Start;
+                    break;
                 }
             },
         }

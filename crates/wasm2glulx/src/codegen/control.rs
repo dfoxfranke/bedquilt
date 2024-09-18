@@ -326,7 +326,6 @@ pub fn gen_br(
     br: &ir::Br,
     height: usize,
     mut credits: Credits,
-    mut debts: Debts,
 ) {
     let ir::Br { block: id } = br;
     let target = frame
@@ -335,7 +334,6 @@ pub fn gen_br(
         .expect("Branch target should be present on stack");
     credits.gen(ctx);
     gen_br_inner(ctx, frame, target, height);
-    debts.gen(ctx);
 }
 
 pub fn gen_br_if(
@@ -374,7 +372,6 @@ pub fn gen_br_table(
     br_table: &ir::BrTable,
     height: usize,
     mut credits: Credits,
-    mut debts: Debts,
 ) {
     let default_target = frame
         .jump_targets
@@ -440,8 +437,6 @@ pub fn gen_br_table(
         }
         gen_br_inner(ctx, frame, default_target, height - 1);
     }
-
-    debts.gen(ctx)
 }
 
 pub fn gen_select(
@@ -476,9 +471,7 @@ pub fn gen_unreachable(
     _frame: &mut Frame,
     _unreachable: &ir::Unreachable,
     mut credits: Credits,
-    mut debts: Debts,
 ) {
     credits.gen(ctx);
     ctx.rom_items.push(jump(ctx.rt.trap_unreachable));
-    debts.gen(ctx);
 }

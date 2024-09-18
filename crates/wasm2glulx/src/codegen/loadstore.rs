@@ -370,6 +370,11 @@ impl Debts {
             }
         }
     }
+
+    pub fn declare_bankruptcy(&mut self) {
+        self.stores.clear();
+        self.returns = None;
+    }
 }
 
 impl Drop for Debts {

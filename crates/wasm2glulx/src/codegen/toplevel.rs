@@ -7,7 +7,7 @@ use crate::common::{Context, Label, WordCount};
 use crate::{CompilationError, OverflowLocation};
 
 use super::classify::{
-    subsequences, Block, ClassifiedInstr, InstrSubseq, Load, Loop, Other, Store,
+    subsequences, Block, ClassifiedInstr, InstrSubseq, Load, Loop, Other, Store, Terminal,
 };
 use super::loadstore::{gen_copies, Credits, Debts};
 
@@ -299,6 +299,17 @@ fn gen_instrseq(
                     ret.update_stack(ctx.module, frame.function, stack);
                 }
             }
+            InstrSubseq::Terminal { loads, terminal } => {
+                let credits = make_credits(ctx, frame, &mut initial_credits, &loads, i == 0);
+                for load in &loads {
+                    load.update_stack(ctx.module, frame.function, stack);
+                }
+                let pre_height: usize = stack.word_count();
+                terminal.update_stack(ctx.module, frame.function, stack);
+                gen_terminal(ctx, frame, terminal, pre_height, credits);
+                final_debts.declare_bankruptcy();
+                return;
+            }
         }
     }
 }
@@ -424,14 +435,8 @@ fn gen_other(
         Other::Binop(binop) => {
             super::arith::gen_binop(ctx, frame, binop, credits, debts);
         }
-        Other::Br(br) => {
-            super::control::gen_br(ctx, frame, br, pre_height, credits, debts);
-        }
         Other::BrIf(test, br_if) => {
             super::control::gen_br_if(ctx, frame, *test, br_if, pre_height, credits, debts);
-        }
-        Other::BrTable(br_table) => {
-            super::control::gen_br_table(ctx, frame, br_table, pre_height, credits, debts);
         }
         Other::Call(call) => {
             super::control::gen_call(ctx, frame, call, credits, debts);
@@ -490,9 +495,6 @@ fn gen_other(
         Other::Unop(unop) => {
             super::arith::gen_unop(ctx, frame, unop, credits, debts);
         }
-        Other::Unreachable(unreachable) => {
-            super::control::gen_unreachable(ctx, frame, unreachable, credits, debts);
-        }
         _ => {
             credits.gen(ctx);
             ctx.errors.push(CompilationError::UnsupportedInstruction {
@@ -500,6 +502,33 @@ fn gen_other(
                 instr: other.mnemonic(),
             });
             debts.gen(ctx);
+        }
+    }
+}
+
+fn gen_terminal(
+    ctx: &mut Context,
+    frame: &mut Frame,
+    terminal: Terminal,
+    pre_height: usize,
+    mut credits: Credits,
+) {
+    match &terminal {
+        Terminal::Br(br) => {
+            super::control::gen_br(ctx, frame, br, pre_height, credits);
+        }
+        Terminal::BrTable(br_table) => {
+            super::control::gen_br_table(ctx, frame, br_table, pre_height, credits);
+        }
+        Terminal::Unreachable(unreachable) => {
+            super::control::gen_unreachable(ctx, frame, unreachable, credits);
+        }
+        _ => {
+            credits.gen(ctx);
+            ctx.errors.push(CompilationError::UnsupportedInstruction {
+                function: frame.function_name.map(|s| s.to_owned()),
+                instr: terminal.mnemonic(),
+            });
         }
     }
 }
