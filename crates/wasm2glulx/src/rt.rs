@@ -6,6 +6,11 @@ pub struct RuntimeLabels {
     pub swap: Label,
     pub swaps: Label,
     pub checkaddr: Label,
+    pub checkglkaddr: Label,
+    pub checkstr: Label,
+    pub checkunistr: Label,
+    pub checkglkstr: Label,
+    pub checkglkunistr: Label,
     pub memload64: Label,
     pub memload32: Label,
     pub memload16: Label,
@@ -87,6 +92,11 @@ impl RuntimeLabels {
             swap: gen.gen("rt_swap"),
             swaps: gen.gen("rt_swaps"),
             checkaddr: gen.gen("rt_checkaddr"),
+            checkglkaddr: gen.gen("rt_checkglkaddr"),
+            checkstr: gen.gen("rt_checkstr"),
+            checkunistr: gen.gen("rt_checkunistr"),
+            checkglkstr: gen.gen("rt_checkglkstr"),
+            checkglkunistr: gen.gen("rt_checkglkunistr"),
             memload64: gen.gen("rt_memload64"),
             memload32: gen.gen("rt_memload32"),
             memload16: gen.gen("rt_memload16"),
@@ -229,6 +239,183 @@ fn gen_checkaddr(ctx: &mut Context) {
             ctx.rt.trap_out_of_bounds_memory_access
         ),
         ret(lloc(addr_plus_offset))
+    );
+}
+
+fn gen_checkglkaddr(ctx: &mut Context) {
+    let addr = 0;
+    let size = 1;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkglkaddr),
+        fnhead_local(2),
+        jgtu(
+            lloc(size),
+            uimm(ctx.layout.glk_area().size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(uimm(ctx.layout.glk_area().size), lloc(size), push()),
+        jgtu(pop(), lloc(addr), ctx.rt.trap_out_of_bounds_memory_access),
+        ret(imm(0)),
+    );
+}
+
+fn gen_checkstr(ctx: &mut Context) {
+    let addr = 0;
+
+    let limit = 1;
+    let len = 2;
+
+    let loop_label = ctx.gen.gen("checkstr_loop");
+    let loop_done = ctx.gen.gen("checkstr_loop_done");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkstr),
+        fnhead_local(3),
+        jgeu(
+            lloc(addr),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(
+            derefl(ctx.layout.memory().cur_size),
+            lloc(addr),
+            sloc(limit)
+        ),
+        copy(imm(0), sloc(len)),
+        label(loop_label),
+        jgeu(
+            lloc(len),
+            lloc(limit),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        aloadb(imml(ctx.layout.memory().addr), lloc(len), push()),
+        jz(pop(), loop_done),
+        add(lloc(len), imm(1), sloc(len)),
+        jump(loop_label),
+        label(loop_done),
+        ret(lloc(len))
+    );
+}
+
+fn gen_checkunistr(ctx: &mut Context) {
+    let addr = 0;
+
+    let limit = 1;
+    let len = 2;
+
+    let loop_label = ctx.gen.gen("checkunistr_loop");
+    let loop_done = ctx.gen.gen("checkunistr_loop_done");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkunistr),
+        fnhead_local(3),
+        jgeu(
+            lloc(addr),
+            derefl(ctx.layout.memory().cur_size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(
+            derefl(ctx.layout.memory().cur_size),
+            lloc(addr),
+            sloc(limit)
+        ),
+        ushiftr(lloc(limit), imm(2), sloc(limit)),
+        copy(imm(0), sloc(len)),
+        label(loop_label),
+        jgeu(
+            lloc(len),
+            lloc(limit),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        aload(
+            lloc(len),
+            imml_off_shift(ctx.layout.memory().addr, 0, 2),
+            push()
+        ),
+        jz(pop(), loop_done),
+        add(lloc(len), imm(1), sloc(len)),
+        jump(loop_label),
+        label(loop_done),
+        ret(lloc(len))
+    );
+}
+
+fn gen_checkglkstr(ctx: &mut Context) {
+    let addr = 0;
+
+    let limit = 1;
+    let len = 2;
+
+    let loop_label = ctx.gen.gen("checkglkstr_loop");
+    let loop_done = ctx.gen.gen("checkglkstr_loop_done");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkglkstr),
+        fnhead_local(3),
+        jgeu(
+            lloc(addr),
+            uimm(ctx.layout.glk_area().size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(uimm(ctx.layout.glk_area().size), lloc(addr), sloc(limit)),
+        copy(imm(0), sloc(len)),
+        label(loop_label),
+        jgeu(
+            lloc(len),
+            lloc(limit),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        aloadb(imml(ctx.layout.glk_area().addr), lloc(len), push()),
+        jz(pop(), loop_done),
+        add(lloc(len), imm(1), sloc(len)),
+        jump(loop_label),
+        label(loop_done),
+        ret(lloc(len))
+    );
+}
+
+fn gen_checkglkunistr(ctx: &mut Context) {
+    let addr = 0;
+
+    let limit = 1;
+    let len = 2;
+
+    let loop_label = ctx.gen.gen("checkglkunistr_loop");
+    let loop_done = ctx.gen.gen("checkglkunistr_loop_done");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.checkglkunistr),
+        fnhead_local(3),
+        jgeu(
+            lloc(addr),
+            uimm(ctx.layout.glk_area().size),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        sub(uimm(ctx.layout.glk_area().size), lloc(addr), sloc(limit)),
+        ushiftr(lloc(limit), imm(2), sloc(limit)),
+        copy(imm(0), sloc(len)),
+        label(loop_label),
+        jgeu(
+            lloc(len),
+            lloc(limit),
+            ctx.rt.trap_out_of_bounds_memory_access
+        ),
+        aload(
+            lloc(len),
+            imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
+            push()
+        ),
+        jz(pop(), loop_done),
+        add(lloc(len), imm(1), sloc(len)),
+        jump(loop_label),
+        label(loop_done),
+        ret(lloc(len))
     );
 }
 
@@ -1768,6 +1955,11 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_swap(ctx);
     gen_swaps(ctx);
     gen_checkaddr(ctx);
+    gen_checkglkaddr(ctx);
+    gen_checkstr(ctx);
+    gen_checkunistr(ctx);
+    gen_checkglkstr(ctx);
+    gen_checkglkunistr(ctx);
     gen_memload64(ctx);
     gen_memload32(ctx);
     gen_memload16(ctx);

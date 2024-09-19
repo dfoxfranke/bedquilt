@@ -389,7 +389,7 @@ impl Debts {
         }
         if let Some(returns) = &mut self.returns {
             if returns.n == 0 {
-                ctx.rom_items.push(ret(imm(0)))
+                ctx.rom_items.push(ret(imm(0)));
             } else {
                 while returns.m < returns.n - 1 {
                     ctx.rom_items.push(copy(pop(), storel_off(returns.hi_return, (returns.m * 4).try_into().expect("hi_return offsets too large to fit in an i32 should have been rejected when building the layout"))));
