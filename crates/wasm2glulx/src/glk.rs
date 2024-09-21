@@ -946,6 +946,9 @@ impl GlkFunction {
                     ctx.rom_items.push(copy(lloc(argnum), push()));
                 }
                 GlkParam::ByteArrayPtr(sizearg) => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    let endif_label = ctx.gen.gen("glk_endif_null");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items.push(callfiii(
                         imml(ctx.rt.checkaddr),
                         lloc(argnum),
@@ -955,14 +958,28 @@ impl GlkFunction {
                     ));
                     ctx.rom_items
                         .push(add(lloc(argnum), imml(mem.addr), push()));
+                    ctx.rom_items.push(jump(endif_label));
+                    ctx.rom_items.push(label(null_label));
+                    ctx.rom_items.push(copy(imm(0), push()));
+                    ctx.rom_items.push(label(endif_label));
                 }
                 GlkParam::Lat1Ptr => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    let endif_label = ctx.gen.gen("glk_endif_null");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items
                         .push(callfi(imml(ctx.rt.checkstr), lloc(argnum), discard()));
                     ctx.rom_items
                         .push(add(lloc(argnum), imml(mem.addr), push()));
+                    ctx.rom_items.push(jump(endif_label));
+                    ctx.rom_items.push(label(null_label));
+                    ctx.rom_items.push(copy(imm(0), push()));
+                    ctx.rom_items.push(label(endif_label));
                 }
                 GlkParam::ScalarPtr(n) => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    let endif_label = ctx.gen.gen("glk_endif_null");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items.push(callfiii(
                         imml(ctx.rt.checkaddr),
                         lloc(argnum),
@@ -978,8 +995,15 @@ impl GlkFunction {
                     ));
                     ctx.rom_items
                         .push(add(lloc(argnum), imml(mem.addr), push()));
+                    ctx.rom_items.push(jump(endif_label));
+                    ctx.rom_items.push(label(null_label));
+                    ctx.rom_items.push(copy(imm(0), push()));
+                    ctx.rom_items.push(label(endif_label));
                 }
                 GlkParam::WordArrayPtr(sizearg) => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    let endif_label = ctx.gen.gen("glk_endif_null");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items.push(jgt(
                         lloc(sizearg),
                         uimm(0x3fffffff),
@@ -1001,14 +1025,25 @@ impl GlkFunction {
                     ));
                     ctx.rom_items
                         .push(add(lloc(argnum), imml(mem.addr), push()));
+                    ctx.rom_items.push(jump(endif_label));
+                    ctx.rom_items.push(label(null_label));
+                    ctx.rom_items.push(copy(imm(0), push()));
+                    ctx.rom_items.push(label(endif_label));
                 }
                 GlkParam::UnicodePtr => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    let endif_label = ctx.gen.gen("glk_endif_null");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items
                         .push(callfi(imml(ctx.rt.checkunistr), lloc(argnum), discard()));
                     ctx.rom_items
                         .push(callfi(imml(ctx.rt.swapunistr), lloc(argnum), discard()));
                     ctx.rom_items
                         .push(add(lloc(argnum), imml(mem.addr), push()));
+                    ctx.rom_items.push(jump(endif_label));
+                    ctx.rom_items.push(label(null_label));
+                    ctx.rom_items.push(copy(imm(0), push()));
+                    ctx.rom_items.push(label(endif_label));
                 }
                 GlkParam::OwnedByteArrayPtr(sizearg) => {
                     ctx.rom_items.push(callfii(
@@ -1043,28 +1078,37 @@ impl GlkFunction {
             uimm(nargs),
             if self.has_return { push() } else { discard() },
         ));
-        for (num, param) in self.params.iter().copied().rev().enumerate() {
-            let num: u32 = num.try_into().unwrap();
+        for (argnum, param) in self.params.iter().copied().rev().enumerate() {
+            let argnum: u32 = argnum.try_into().unwrap();
             match param {
                 GlkParam::ScalarPtr(n) => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items.push(callfii(
                         imml(ctx.rt.swaparray),
-                        lloc(num),
+                        lloc(argnum),
                         uimm(n),
                         discard(),
                     ));
+                    ctx.rom_items.push(label(null_label));
                 }
                 GlkParam::WordArrayPtr(sizearg) => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items.push(callfii(
                         imml(ctx.rt.swaparray),
-                        lloc(num),
+                        lloc(argnum),
                         lloc(sizearg),
                         discard(),
                     ));
+                    ctx.rom_items.push(label(null_label));
                 }
                 GlkParam::UnicodePtr => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items
-                        .push(callfi(imml(ctx.rt.swapunistr), lloc(num), discard()));
+                        .push(callfi(imml(ctx.rt.swapunistr), lloc(argnum), discard()));
+                    ctx.rom_items.push(label(null_label));
                 }
                 _ => {}
             }
