@@ -23,8 +23,8 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
     }
 
     let (expected_params, expected_results): (&[ValType], &[ValType]) = match name.as_str() {
-        "glkarea_get_byte" | "glkarea_get_word" => (&[ValType::I32], &[ValType::I32]),
-        "glkarea_put_byte" | "glkarea_put_word" => (&[ValType::I32], &[]),
+        "random" | "glkarea_get_byte" | "glkarea_get_word" => (&[ValType::I32], &[ValType::I32]),
+        "setrandom" | "glkarea_put_byte" | "glkarea_put_word" => (&[ValType::I32], &[]),
         "glkarea_get_bytes" | "glkarea_put_bytes" | "glkarea_get_words" | "glkarea_put_words" => {
             (&[ValType::I32, ValType::I32, ValType::I32], &[])
         }
@@ -270,6 +270,30 @@ fn gen_glkarea_put_words(ctx: &mut Context, my_label: Label) {
     )
 }
 
+pub fn gen_random(ctx: &mut Context, my_label: Label) {
+    let arg = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        random(lloc(arg), push()),
+        ret(pop())
+    )
+}
+
+pub fn gen_setrandom(ctx: &mut Context, my_label: Label) {
+    let arg = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        setrandom(lloc(arg)),
+        ret(imm(0))
+    )
+}
+
 pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
     let import = ctx.module.imports.get(imported_func.import);
     let name = &import.name;
@@ -285,8 +309,10 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "glkarea_put_word" => gen_glkarea_put_word(ctx, my_label),
             "glkarea_put_bytes" => gen_glkarea_put_bytes(ctx, my_label),
             "glkarea_put_words" => gen_glkarea_put_words(ctx, my_label),
+            "random" => gen_random(ctx, my_label),
+            "setrandom" => gen_setrandom(ctx, my_label),
             _ => unreachable!(
-                "Unrecognized intrinsic function should have return false from type check"
+                "Unrecognized intrinsic function should have returned false from type check"
             ),
         }
     }
