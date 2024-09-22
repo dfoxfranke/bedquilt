@@ -197,6 +197,10 @@ pub fn gen_memory(ctx: &mut Context) {
 
     ctx.ram_items.push(label(mem.cur_size));
     ctx.ram_items.push(blob(bytes));
+    // Add four bytes of padding before the start of memory, so that the
+    // prefix-patches that we write when calling Glk string functions don't
+    // overwrite anything that isn't memory.
+    ctx.zero_items.push(zspace(4));
     ctx.zero_items.push(zalign(4));
     ctx.zero_items.push(zlabel(mem.addr));
     ctx.zero_items.push(zspace(mem.min_size));

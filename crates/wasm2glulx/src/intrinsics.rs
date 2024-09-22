@@ -92,9 +92,9 @@ fn gen_glkarea_get_byte(ctx: &mut Context, my_label: Label) {
 }
 
 fn gen_glkarea_put_byte(ctx: &mut Context, my_label: Label) {
-    let byte = 1;
-    let addr = 0;
-
+    let addr = 1;
+    let byte = 0;
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
@@ -106,45 +106,44 @@ fn gen_glkarea_put_byte(ctx: &mut Context, my_label: Label) {
 }
 
 fn gen_glkarea_get_word(ctx: &mut Context, my_label: Label) {
-    let addr = 0;
+    let glkaddr = 0;
 
     push_all!(
         ctx.rom_items,
         label(my_label),
         fnhead_local(1),
-        callfii(imml(ctx.rt.checkglkaddr), lloc(addr), imm(4), discard()),
+        callfii(imml(ctx.rt.checkglkaddr), lloc(glkaddr), imm(4), discard()),
         aload(
-            lloc(addr),
+            lloc(glkaddr),
             imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
             push()
         ),
-        tailcall(imml(ctx.rt.swap), imm(2)),
+        ret(pop()),
     );
 }
 
 fn gen_glkarea_put_word(ctx: &mut Context, my_label: Label) {
-    let word = 1;
-    let addr = 0;
-
+    let glkaddr = 1;
+    let word = 0;
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
         fnhead_local(2),
-        callfii(imml(ctx.rt.checkglkaddr), lloc(addr), imm(4), discard()),
-        callfi(imml(ctx.rt.swap), lloc(word), push()),
+        callfii(imml(ctx.rt.checkglkaddr), lloc(glkaddr), imm(4), discard()),
         astore(
-            lloc(addr),
+            lloc(glkaddr),
             imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
-            pop()
+            lloc(word)
         ),
     );
 }
 
 fn gen_glkarea_get_bytes(ctx: &mut Context, my_label: Label) {
-    let n = 0;
-    let glkaddr = 1;
     let addr = 2;
-
+    let glkaddr = 1;
+    let n = 0;
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
@@ -165,10 +164,10 @@ fn gen_glkarea_get_bytes(ctx: &mut Context, my_label: Label) {
 }
 
 fn gen_glkarea_put_bytes(ctx: &mut Context, my_label: Label) {
-    let n = 2;
+    let glkaddr = 2;
     let addr = 1;
-    let glkaddr = 0;
-
+    let n = 0;
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
@@ -189,17 +188,16 @@ fn gen_glkarea_put_bytes(ctx: &mut Context, my_label: Label) {
 }
 
 fn gen_glkarea_get_words(ctx: &mut Context, my_label: Label) {
-    let n = 2;
+    let addr = 2;
     let glkaddr = 1;
-    let addr = 0;
-
+    let n = 0;
+    
     let size = 3;
-    let absaddr = 4;
-
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
-        fnhead_local(5),
+        fnhead_local(4),
         jgtu(
             lloc(n),
             uimm(0x3fffffff),
@@ -219,26 +217,25 @@ fn gen_glkarea_get_words(ctx: &mut Context, my_label: Label) {
             lloc(size),
             discard()
         ),
-        add(lloc(addr), imml(ctx.layout.memory().addr), sloc(absaddr)),
+        add(lloc(addr), imml(ctx.layout.memory().addr), push()),
         add(lloc(glkaddr), imml(ctx.layout.glk_area().addr), push()),
-        mcopy(lloc(size), pop(), lloc(absaddr)),
+        mcopy(lloc(size), pop(), pop()),
         callfii(imml(ctx.rt.swaparray), lloc(addr), lloc(n), discard()),
         ret(imm(0))
     )
 }
 
 fn gen_glkarea_put_words(ctx: &mut Context, my_label: Label) {
-    let n = 2;
+    let glkaddr = 2;
     let addr = 1;
-    let glkaddr = 0;
-
+    let n = 0;
+    
     let size = 3;
-    let absglkaddr = 4;
-
+    
     push_all!(
         ctx.rom_items,
         label(my_label),
-        fnhead_local(5),
+        fnhead_local(4),
         jgtu(
             lloc(n),
             uimm(0x3fffffff),
@@ -261,10 +258,10 @@ fn gen_glkarea_put_words(ctx: &mut Context, my_label: Label) {
         add(
             lloc(glkaddr),
             imml(ctx.layout.glk_area().addr),
-            sloc(absglkaddr)
+            push()
         ),
         add(lloc(addr), imml(ctx.layout.memory().addr), push()),
-        mcopy(lloc(size), pop(), lloc(absglkaddr)),
+        mcopy(lloc(size), pop(), pop()),
         callfii(imml(ctx.rt.swapglkarray), lloc(glkaddr), lloc(n), discard()),
         ret(imm(0))
     )
