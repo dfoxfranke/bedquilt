@@ -129,12 +129,14 @@ pub fn gen_entrypoint(ctx: &mut Context) {
             push_all!(
                 ctx.rom_items,
                 call(imml(start_addr), imm(0), discard()),
-                tailcall(imml(glulx_main_addr), imm(0)),
+                callf(imml(glulx_main_addr), discard()),
+                ret(imm(0)),
             );
         }
         (Some(start), _) => {
             let start_addr = ctx.layout.func(start).addr;
-            ctx.rom_items.push(tailcall(imml(start_addr), imm(0)));
+            ctx.rom_items.push(callf(imml(start_addr), discard()));
+            ctx.rom_items.push(ret(imm(0)));
         }
         (None, Some(glulx_main)) => {
             let glulx_main_ty = ctx.module.types.get(ctx.module.funcs.get(glulx_main).ty());
@@ -154,7 +156,8 @@ pub fn gen_entrypoint(ctx: &mut Context) {
                 });
             }
             let glulx_main_addr = ctx.layout.func(glulx_main).addr;
-            ctx.rom_items.push(tailcall(imml(glulx_main_addr), imm(0)));
+            ctx.rom_items.push(callf(imml(glulx_main_addr), discard()));
+            ctx.rom_items.push(ret(imm(0)));
         }
         (None, None) => {
             ctx.errors.push(CompilationError::NoEntrypoint);
