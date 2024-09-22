@@ -44,6 +44,10 @@ pub struct RuntimeLabels {
     pub add64: Label,
     pub sub64: Label,
     pub mul64: Label,
+    pub divu64: Label,
+    pub divs64: Label,
+    pub remu64: Label,
+    pub rems64: Label,
     pub and64: Label,
     pub or64: Label,
     pub xor64: Label,
@@ -129,6 +133,10 @@ impl RuntimeLabels {
             add64: gen.gen("rt_add64"),
             sub64: gen.gen("rt_sub64"),
             mul64: gen.gen("rt_mul64"),
+            divu64: gen.gen("rt_divu64"),
+            divs64: gen.gen("rt_divs64"),
+            remu64: gen.gen("rt_remu64"),
+            rems64: gen.gen("rt_rems64"),
             and64: gen.gen("rt_and64"),
             or64: gen.gen("rt_or64"),
             xor64: gen.gen("rt_xor64"),
@@ -1161,6 +1169,307 @@ fn gen_mul64(ctx: &mut Context) {
     )
 }
 
+fn gen_divu64(ctx: &mut Context) {
+    let n_lo = 3;
+    let n_hi = 2;
+    let d_lo = 1;
+    let d_hi = 0;
+
+    let sr = 4;
+    let q_hi = 5;
+    let q_lo = 6;
+    let r_hi = 7;
+    let r_lo = 8;
+    let carry = 9;
+    let sr_from_32 = 10;
+    let sr_minus_32 = 11;
+    let sr_from_64 = 12;
+
+    let kx_xx = ctx.gen.gen("rt_div64u_kx_xx");
+    let kx_xk = ctx.gen.gen("rt_div64u_kx_xk");
+    let kk_xz = ctx.gen.gen("rt_div64u_kx_xz");
+    //let kk_kz_notpow2 = ctx.gen.gen("rt_div64u_kk_kz_notpow2");
+    let kk_kz_srlt32 = ctx.gen.gen("rt_div64u_kk_kz_srlt32");
+    let kx_kk = ctx.gen.gen("rt_divu64_kx_kk");
+    let kx_zk_srne32 = ctx.gen.gen("rt_div64u_kx_zx_srne32");
+    let kx_zk_srgt32 = ctx.gen.gen("rt_div64u_kx_zx_srgt32");
+    let kx_kk_srle32 = ctx.gen.gen("rt_div64u_kx_kk_srle32");
+    let kx_kk_srlt32 = ctx.gen.gen("rt_div64u_kx_kk_srlt32");
+
+    let main_loop = ctx.gen.gen("rt_div64_mainloop");
+    let main_loop_done = ctx.gen.gen("rt_div64_mainloop_done");
+    let main_loop_nocarry = ctx.gen.gen("rt_div64_mainloop_nocarry");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.divu64),
+        fnhead_local(13),
+        jnz(lloc(n_hi), kx_xx),
+        // 0X/XX
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        jnz_ret(lloc(d_hi), false),
+        // 0X/0X
+        callfii(imml(ctx.rt.divu), lloc(d_lo), lloc(n_lo), push()),
+        ret(pop()),
+        label(kx_xx),
+        // KX/XX
+        jnz(lloc(d_lo), kx_xk),
+        // KX/X0
+        jnz(lloc(n_lo), kk_xz),
+        // K0/X0
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        callfii(imml(ctx.rt.divu), lloc(d_lo), lloc(n_lo), push()),
+        ret(pop()),
+        label(kk_xz),
+        // KK/X0
+        jz(lloc(d_hi), ctx.rt.trap_integer_divide_by_zero),
+        // KK/K0
+        callfi(imml(ctx.rt.clz), lloc(n_hi), push()),
+        callfi(imml(ctx.rt.clz), lloc(d_hi), push()),
+        sub(pop(), pop(), push()),
+        add(pop(), imm(1), sloc(sr)),
+        jltu(lloc(sr), imm(32), kk_kz_srlt32),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0)),
+        label(kk_kz_srlt32),
+        copy(imm(0), sloc(q_lo)),
+        sub(imm(32), lloc(sr), sloc(sr_from_32)),
+        shiftl(lloc(n_lo), lloc(sr_from_32), sloc(q_hi)),
+        ushiftr(lloc(n_hi), lloc(sr), sloc(r_hi)),
+        shiftl(lloc(n_hi), lloc(sr_from_32), push()),
+        ushiftr(lloc(n_lo), lloc(sr), push()),
+        bitor(pop(), pop(), sloc(r_lo)),
+        copy(imm(0), sloc(carry)),
+        jump(main_loop),
+        label(kx_xk),
+        // KX/XK
+        jnz(lloc(d_hi), kx_kk),
+        // KX/0K
+        copy(imm(0), sloc(carry)),
+        callfi(imml(ctx.rt.clz), lloc(n_hi), push()),
+        callfi(imml(ctx.rt.clz), lloc(d_lo), push()),
+        sub(pop(), pop(), push()),
+        add(pop(), imm(33), sloc(sr)),
+        jne(lloc(sr), imm(32), kx_zk_srne32),
+        copy(imm(0), sloc(q_lo)),
+        copy(lloc(n_lo), sloc(q_hi)),
+        copy(imm(0), sloc(r_hi)),
+        copy(lloc(n_hi), sloc(r_lo)),
+        jump(main_loop),
+        label(kx_zk_srne32),
+        jgtu(lloc(sr), imm(32), kx_zk_srgt32),
+        copy(imm(0), sloc(q_lo)),
+        sub(imm(32), lloc(sr), sloc(sr_from_32)),
+        shiftl(lloc(n_lo), lloc(sr_from_32), sloc(q_hi)),
+        ushiftr(lloc(n_hi), lloc(sr), sloc(r_hi)),
+        shiftl(lloc(n_hi), lloc(sr_from_32), push()),
+        ushiftr(lloc(n_lo), lloc(sr), push()),
+        bitor(pop(), pop(), sloc(r_lo)),
+        jump(main_loop),
+        label(kx_zk_srgt32),
+        sub(imm(64), lloc(sr), sloc(sr_from_64)),
+        sub(lloc(sr), imm(32), sloc(sr_minus_32)),
+        shiftl(lloc(n_lo), lloc(sr_from_64), sloc(q_lo)),
+        shiftl(lloc(n_hi), lloc(sr_from_64), push()),
+        ushiftr(lloc(n_lo), lloc(sr_minus_32), push()),
+        bitor(pop(), pop(), sloc(q_hi)),
+        copy(imm(0), sloc(r_hi)),
+        ushiftr(lloc(n_hi), lloc(sr_minus_32), sloc(r_lo)),
+        jump(main_loop),
+        label(kx_kk),
+        // KX/KK
+        callfi(imml(ctx.rt.clz), lloc(n_hi), push()),
+        callfi(imml(ctx.rt.clz), lloc(d_hi), push()),
+        sub(pop(), pop(), push()),
+        add(imm(1), pop(), sloc(sr)),
+        jleu(lloc(sr), imm(32), kx_kk_srle32),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0)),
+        label(kx_kk_srle32),
+        copy(imm(0), sloc(carry)),
+        copy(imm(0), sloc(q_lo)),
+        jltu(lloc(sr), imm(32), kx_kk_srlt32),
+        copy(lloc(n_lo), sloc(q_hi)),
+        copy(imm(0), sloc(r_hi)),
+        copy(lloc(n_hi), sloc(r_lo)),
+        jump(main_loop),
+        label(kx_kk_srlt32),
+        sub(imm(32), lloc(sr), sloc(sr_from_32)),
+        shiftl(lloc(n_lo), lloc(sr_from_32), sloc(q_hi)),
+        ushiftr(lloc(n_hi), lloc(sr), sloc(r_hi)),
+        ushiftr(lloc(n_lo), lloc(sr), push()),
+        shiftl(lloc(n_hi), lloc(sr_from_32), push()),
+        bitor(pop(), pop(), sloc(r_lo)),
+        label(main_loop),
+        // MAIN LOOP
+        jz(lloc(sr), main_loop_done),
+        ushiftr(lloc(r_lo), imm(31), push()),
+        shiftl(lloc(r_hi), imm(1), push()),
+        bitor(pop(), pop(), sloc(r_hi)),
+        ushiftr(lloc(q_hi), imm(31), push()),
+        shiftl(lloc(r_lo), imm(1), push()),
+        bitor(pop(), pop(), sloc(r_lo)),
+        ushiftr(lloc(q_lo), imm(31), push()),
+        shiftl(lloc(q_hi), imm(1), push()),
+        bitor(pop(), pop(), sloc(q_hi)),
+        shiftl(lloc(q_lo), imm(1), push()),
+        bitor(pop(), lloc(carry), sloc(q_lo)),
+        copy(imm(0), sloc(carry)),
+        copy(lloc(r_lo), push()),
+        copy(lloc(r_hi), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.ltu64), imm(4), push()),
+        jnz(pop(), main_loop_nocarry),
+        copy(lloc(r_lo), push()),
+        copy(lloc(r_hi), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.sub64), imm(4), sloc(r_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(r_hi)),
+        copy(imm(1), sloc(carry)),
+        label(main_loop_nocarry),
+        sub(lloc(sr), imm(1), sloc(sr)),
+        jump(main_loop),
+        label(main_loop_done),
+        shiftl(lloc(q_hi), imm(1), push()),
+        ushiftr(lloc(q_lo), imm(31), push()),
+        bitor(pop(), pop(), storel(ctx.layout.hi_return().addr)),
+        shiftl(lloc(q_lo), imm(1), push()),
+        bitor(pop(), lloc(carry), push()),
+        ret(pop())
+    );
+}
+
+fn gen_divs64(ctx: &mut Context) {
+    let n_lo = 3;
+    let n_hi = 2;
+    let d_lo = 1;
+    let d_hi = 0;
+
+    let sign = 4;
+    let out_lo = 5;
+
+    let main_case = ctx.gen.gen("rt_divs64_main_case");
+    let n_pos = ctx.gen.gen("rt_divs64_n_pos");
+    let d_pos = ctx.gen.gen("rt_divs64_d_pos");
+    let out_pos = ctx.gen.gen("rt_divs64_out_pos");
+    let out_nocarry = ctx.gen.gen("rt_divs64_out_nocarry");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.divs64),
+        fnhead_local(6),
+        jnz(lloc(n_lo), main_case),
+        jne(lloc(n_hi), uimm(0x80000000), main_case),
+        jne(lloc(d_lo), imm(-1), main_case),
+        jeq(lloc(d_hi), imm(-1), ctx.rt.trap_integer_overflow),
+        label(main_case),
+        copy(imm(0), sloc(sign)),
+        jge(lloc(n_hi), imm(0), n_pos),
+        copy(imm(1), sloc(sign)),
+        bitxor(lloc(n_hi), imm(-1), sloc(n_hi)),
+        bitxor(lloc(n_lo), imm(-1), sloc(n_lo)),
+        add(lloc(n_lo), imm(1), sloc(n_lo)),
+        jnz(lloc(n_lo), n_pos),
+        add(lloc(n_hi), imm(1), sloc(n_hi)),
+        label(n_pos),
+        jge(lloc(d_hi), imm(0), d_pos),
+        bitxor(lloc(sign), imm(1), sloc(sign)),
+        bitxor(lloc(d_hi), imm(-1), sloc(d_hi)),
+        bitxor(lloc(d_lo), imm(-1), sloc(d_lo)),
+        add(lloc(d_lo), imm(1), sloc(d_lo)),
+        jnz(lloc(d_lo), d_pos),
+        add(lloc(d_hi), imm(1), sloc(d_hi)),
+        label(d_pos),
+        copy(lloc(n_lo), push()),
+        copy(lloc(n_hi), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        jz(lloc(sign), out_pos),
+        call(imml(ctx.rt.divu64), imm(4), sloc(out_lo)),
+        bitxor(
+            derefl(ctx.layout.hi_return().addr),
+            imm(-1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        bitxor(lloc(out_lo), imm(-1), sloc(out_lo)),
+        add(lloc(out_lo), imm(1), sloc(out_lo)),
+        jnz(lloc(out_lo), out_nocarry),
+        add(
+            derefl(ctx.layout.hi_return().addr),
+            imm(1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        label(out_nocarry),
+        ret(lloc(out_lo)),
+        label(out_pos),
+        call(imml(ctx.rt.divu64), imm(4), push()),
+        ret(pop())
+    );
+}
+
+fn gen_remu64(ctx: &mut Context) {
+    let n_lo = 3;
+    let n_hi = 2;
+    let d_lo = 1;
+    let d_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.remu64),
+        fnhead_local(4),
+        copy(lloc(n_lo), push()),
+        copy(lloc(n_hi), push()),
+        copy(lloc(n_lo), push()),
+        copy(lloc(n_hi), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.divu64), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.mul64), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        call(imml(ctx.rt.sub64), imm(4), push()),
+        ret(pop())
+    );
+}
+
+fn gen_rems64(ctx: &mut Context) {
+    let n_lo = 3;
+    let n_hi = 2;
+    let d_lo = 1;
+    let d_hi = 0;
+
+    let main_case = ctx.gen.gen("rems64_main_case");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.rems64),
+        fnhead_local(4),
+        jne(lloc(d_lo), imm(-1), main_case),
+        jne(lloc(d_hi), imm(-1), main_case),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0)),
+        label(main_case),
+        copy(lloc(n_lo), push()),
+        copy(lloc(n_hi), push()),
+        copy(lloc(n_lo), push()),
+        copy(lloc(n_hi), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.divs64), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        copy(lloc(d_lo), push()),
+        copy(lloc(d_hi), push()),
+        call(imml(ctx.rt.mul64), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        call(imml(ctx.rt.sub64), imm(4), push()),
+        ret(pop())
+    );
+}
+
 fn gen_and64(ctx: &mut Context) {
     let x_lo = 3;
     let x_hi = 2;
@@ -1948,6 +2257,10 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_add64(ctx);
     gen_sub64(ctx);
     gen_mul64(ctx);
+    gen_divu64(ctx);
+    gen_divs64(ctx);
+    gen_remu64(ctx);
+    gen_rems64(ctx);
     gen_and64(ctx);
     gen_or64(ctx);
     gen_xor64(ctx);

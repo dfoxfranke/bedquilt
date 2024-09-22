@@ -614,6 +614,30 @@ pub fn gen_binop(
             ctx.rom_items.push(call(imml(ctx.rt.mul64), imm(4), push()));
             gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
         }
+        ir::BinaryOp::I64DivU => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.divu64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64DivS => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.divs64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64RemU => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.remu64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::BinaryOp::I64RemS => {
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(call(imml(ctx.rt.rems64), imm(4), push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
         ir::BinaryOp::I64And => {
             credits.gen(ctx);
             ctx.rom_items.push(call(imml(ctx.rt.and64), imm(4), push()));
