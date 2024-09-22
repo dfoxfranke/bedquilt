@@ -1,0 +1,4 @@
+*.o
+advent430.*
+dungeon.c
+dungeon.h
