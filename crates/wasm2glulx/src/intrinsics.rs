@@ -141,9 +141,9 @@ fn gen_glkarea_put_word(ctx: &mut Context, my_label: Label) {
 }
 
 fn gen_glkarea_get_bytes(ctx: &mut Context, my_label: Label) {
-    let n = 2;
+    let n = 0;
     let glkaddr = 1;
-    let addr = 0;
+    let addr = 2;
 
     push_all!(
         ctx.rom_items,
@@ -222,7 +222,7 @@ fn gen_glkarea_get_words(ctx: &mut Context, my_label: Label) {
         add(lloc(addr), imml(ctx.layout.memory().addr), sloc(absaddr)),
         add(lloc(glkaddr), imml(ctx.layout.glk_area().addr), push()),
         mcopy(lloc(size), pop(), lloc(absaddr)),
-        callfii(imml(ctx.rt.swaparray), lloc(absaddr), lloc(n), discard()),
+        callfii(imml(ctx.rt.swaparray), lloc(addr), lloc(n), discard()),
         ret(imm(0))
     )
 }
@@ -265,7 +265,7 @@ fn gen_glkarea_put_words(ctx: &mut Context, my_label: Label) {
         ),
         add(lloc(addr), imml(ctx.layout.memory().addr), push()),
         mcopy(lloc(size), pop(), lloc(absglkaddr)),
-        callfii(imml(ctx.rt.swaparray), lloc(absglkaddr), lloc(n), discard()),
+        callfii(imml(ctx.rt.swapglkarray), lloc(glkaddr), lloc(n), discard()),
         ret(imm(0))
     )
 }

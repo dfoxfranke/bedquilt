@@ -9,8 +9,6 @@ pub struct RuntimeLabels {
     pub checkglkaddr: Label,
     pub checkstr: Label,
     pub checkunistr: Label,
-    pub checkglkstr: Label,
-    pub checkglkunistr: Label,
     pub memload64: Label,
     pub memload32: Label,
     pub memload16: Label,
@@ -20,6 +18,7 @@ pub struct RuntimeLabels {
     pub memstore16: Label,
     pub memstore8: Label,
     pub swaparray: Label,
+    pub swapglkarray: Label,
     pub swapunistr: Label,
     pub divu: Label,
     pub remu: Label,
@@ -95,8 +94,6 @@ impl RuntimeLabels {
             checkglkaddr: gen.gen("rt_checkglkaddr"),
             checkstr: gen.gen("rt_checkstr"),
             checkunistr: gen.gen("rt_checkunistr"),
-            checkglkstr: gen.gen("rt_checkglkstr"),
-            checkglkunistr: gen.gen("rt_checkglkunistr"),
             memload64: gen.gen("rt_memload64"),
             memload32: gen.gen("rt_memload32"),
             memload16: gen.gen("rt_memload16"),
@@ -106,6 +103,7 @@ impl RuntimeLabels {
             memstore16: gen.gen("rt_memstore16"),
             memstore8: gen.gen("rt_memstore8"),
             swaparray: gen.gen("rt_swaparray"),
+            swapglkarray: gen.gen("rt_swapglkarray"),
             swapunistr: gen.gen("rt_swapunistr"),
             divu: gen.gen("rt_divu"),
             remu: gen.gen("rt_remu"),
@@ -256,7 +254,7 @@ fn gen_checkglkaddr(ctx: &mut Context) {
             ctx.rt.trap_out_of_bounds_memory_access
         ),
         sub(uimm(ctx.layout.glk_area().size), lloc(size), push()),
-        jgtu(pop(), lloc(addr), ctx.rt.trap_out_of_bounds_memory_access),
+        jgtu(lloc(addr), pop(), ctx.rt.trap_out_of_bounds_memory_access),
         ret(imm(0)),
     );
 }
@@ -334,81 +332,6 @@ fn gen_checkunistr(ctx: &mut Context) {
         aload(
             lloc(len),
             imml_off_shift(ctx.layout.memory().addr, 0, 2),
-            push()
-        ),
-        jz(pop(), loop_done),
-        add(lloc(len), imm(1), sloc(len)),
-        jump(loop_label),
-        label(loop_done),
-        ret(lloc(len))
-    );
-}
-
-fn gen_checkglkstr(ctx: &mut Context) {
-    let addr = 0;
-
-    let limit = 1;
-    let len = 2;
-
-    let loop_label = ctx.gen.gen("checkglkstr_loop");
-    let loop_done = ctx.gen.gen("checkglkstr_loop_done");
-
-    push_all!(
-        ctx.rom_items,
-        label(ctx.rt.checkglkstr),
-        fnhead_local(3),
-        jgeu(
-            lloc(addr),
-            uimm(ctx.layout.glk_area().size),
-            ctx.rt.trap_out_of_bounds_memory_access
-        ),
-        sub(uimm(ctx.layout.glk_area().size), lloc(addr), sloc(limit)),
-        copy(imm(0), sloc(len)),
-        label(loop_label),
-        jgeu(
-            lloc(len),
-            lloc(limit),
-            ctx.rt.trap_out_of_bounds_memory_access
-        ),
-        aloadb(imml(ctx.layout.glk_area().addr), lloc(len), push()),
-        jz(pop(), loop_done),
-        add(lloc(len), imm(1), sloc(len)),
-        jump(loop_label),
-        label(loop_done),
-        ret(lloc(len))
-    );
-}
-
-fn gen_checkglkunistr(ctx: &mut Context) {
-    let addr = 0;
-
-    let limit = 1;
-    let len = 2;
-
-    let loop_label = ctx.gen.gen("checkglkunistr_loop");
-    let loop_done = ctx.gen.gen("checkglkunistr_loop_done");
-
-    push_all!(
-        ctx.rom_items,
-        label(ctx.rt.checkglkunistr),
-        fnhead_local(3),
-        jgeu(
-            lloc(addr),
-            uimm(ctx.layout.glk_area().size),
-            ctx.rt.trap_out_of_bounds_memory_access
-        ),
-        sub(uimm(ctx.layout.glk_area().size), lloc(addr), sloc(limit)),
-        ushiftr(lloc(limit), imm(2), sloc(limit)),
-        copy(imm(0), sloc(len)),
-        label(loop_label),
-        jgeu(
-            lloc(len),
-            lloc(limit),
-            ctx.rt.trap_out_of_bounds_memory_access
-        ),
-        aload(
-            lloc(len),
-            imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
             push()
         ),
         jz(pop(), loop_done),
@@ -654,6 +577,39 @@ fn gen_swaparray(ctx: &mut Context) {
         ret(imm(0)),
     );
 }
+
+fn gen_swapglkarray(ctx: &mut Context) {
+    let arraybase = 0;
+    let arraylen = 1;
+
+    let loop_head = ctx.gen.gen("swapglkarray_loop_head");
+    let loop_end = ctx.gen.gen("swapglkarray_loop_end");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.swapglkarray),
+        fnhead_local(3),
+        label(loop_head),
+        jz(lloc(arraylen), loop_end),
+        aload(
+            lloc(arraybase),
+            imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
+            push()
+        ),
+        callfi(imml(ctx.rt.swap), pop(), push()),
+        astore(
+            lloc(arraybase),
+            imml_off_shift(ctx.layout.glk_area().addr, 0, 2),
+            pop()
+        ),
+        add(lloc(arraybase), imm(4), sloc(arraybase)),
+        sub(lloc(arraylen), imm(1), sloc(arraylen)),
+        jump(loop_head),
+        label(loop_end),
+        ret(imm(0)),
+    );
+}
+
 
 fn gen_swapunistr(ctx: &mut Context) {
     let arraybase = 0;
@@ -1958,8 +1914,6 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_checkglkaddr(ctx);
     gen_checkstr(ctx);
     gen_checkunistr(ctx);
-    gen_checkglkstr(ctx);
-    gen_checkglkunistr(ctx);
     gen_memload64(ctx);
     gen_memload32(ctx);
     gen_memload16(ctx);
@@ -1969,6 +1923,7 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_memstore16(ctx);
     gen_memstore8(ctx);
     gen_swaparray(ctx);
+    gen_swapglkarray(ctx);
     gen_swapunistr(ctx);
     gen_divu(ctx);
     gen_remu(ctx);

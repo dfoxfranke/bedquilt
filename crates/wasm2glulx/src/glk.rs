@@ -937,8 +937,10 @@ impl GlkFunction {
         let mem = ctx.layout.memory();
         let glk_area = ctx.layout.glk_area();
 
+        let saved_word = nargs;
+
         ctx.rom_items.push(label(my_label));
-        ctx.rom_items.push(fnhead_local(nargs));
+        ctx.rom_items.push(fnhead_local(nargs+1));
         for (num, param) in self.params.iter().copied().rev().enumerate() {
             let argnum: u32 = num.try_into().unwrap();
             match param {
@@ -969,8 +971,10 @@ impl GlkFunction {
                     ctx.rom_items.push(jz(lloc(argnum), null_label));
                     ctx.rom_items
                         .push(callfi(imml(ctx.rt.checkstr), lloc(argnum), discard()));
+                    ctx.rom_items.push(aloadb(lloc(argnum), imml_off(mem.addr, -1), sloc(saved_word)));
+                    ctx.rom_items.push(astoreb(lloc(argnum), imml_off(mem.addr, -1), imm(0xe0)));
                     ctx.rom_items
-                        .push(add(lloc(argnum), imml(mem.addr), push()));
+                        .push(add(lloc(argnum), imml_off(mem.addr, -1), push()));
                     ctx.rom_items.push(jump(endif_label));
                     ctx.rom_items.push(label(null_label));
                     ctx.rom_items.push(copy(imm(0), push()));
@@ -1101,6 +1105,12 @@ impl GlkFunction {
                         lloc(sizearg),
                         discard(),
                     ));
+                    ctx.rom_items.push(label(null_label));
+                }
+                GlkParam::Lat1Ptr => {
+                    let null_label = ctx.gen.gen("glk_null_ptr");
+                    ctx.rom_items.push(jz(lloc(argnum), null_label));
+                    ctx.rom_items.push(astoreb(lloc(argnum), imml_off(mem.addr, -1), lloc(saved_word)));
                     ctx.rom_items.push(label(null_label));
                 }
                 GlkParam::UnicodePtr => {
