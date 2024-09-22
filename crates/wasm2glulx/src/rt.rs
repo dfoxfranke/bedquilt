@@ -610,7 +610,6 @@ fn gen_swapglkarray(ctx: &mut Context) {
     );
 }
 
-
 fn gen_swapunistr(ctx: &mut Context) {
     let arraybase = 0;
     let curword = 1;

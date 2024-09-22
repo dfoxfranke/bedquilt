@@ -407,14 +407,10 @@ pub fn gen_binop(
             debts.gen(ctx);
         }
         ir::BinaryOp::I32Sub => {
-            let y = credits.pop();
-            let x = credits.pop();
+            let (x, y) = credits.pop_swapped_pair(ctx);
             let out = debts.pop();
 
             credits.gen(ctx);
-            if matches!(y, LoadOperand::Pop) {
-                ctx.rom_items.push(stkswap());
-            }
             ctx.rom_items.push(sub(x, y, out));
             debts.gen(ctx);
         }
@@ -428,14 +424,10 @@ pub fn gen_binop(
             debts.gen(ctx);
         }
         ir::BinaryOp::I32DivS => {
-            let y = credits.pop();
-            let x = credits.pop();
+            let (x, y) = credits.pop_swapped_pair(ctx);
             let out = debts.pop();
 
             credits.gen(ctx);
-            if matches!(y, LoadOperand::Pop) {
-                ctx.rom_items.push(stkswap());
-            }
             ctx.rom_items.push(div(x, y, out));
             debts.gen(ctx);
         }
@@ -449,14 +441,10 @@ pub fn gen_binop(
             debts.gen(ctx);
         }
         ir::BinaryOp::I32RemS => {
-            let y = credits.pop();
-            let x = credits.pop();
+            let (x, y) = credits.pop_swapped_pair(ctx);
             let out = debts.pop();
 
             credits.gen(ctx);
-            if matches!(y, LoadOperand::Pop) {
-                ctx.rom_items.push(stkswap());
-            }
             ctx.rom_items.push(modulo(x, y, out));
             debts.gen(ctx);
         }

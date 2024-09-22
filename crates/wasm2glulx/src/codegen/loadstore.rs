@@ -154,6 +154,21 @@ impl Credits {
         (hi, lo)
     }
 
+    pub fn pop_swapped_pair(
+        &mut self,
+        ctx: &mut Context,
+    ) -> (LoadOperand<Label>, LoadOperand<Label>) {
+        let y = self.pop();
+        let x = self.pop();
+
+        if matches!(x, LoadOperand::Pop) && matches!(y, LoadOperand::Pop) {
+            self.gen(ctx);
+            ctx.rom_items.push(stkswap());
+        }
+
+        (x, y)
+    }
+
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.loads.len()
