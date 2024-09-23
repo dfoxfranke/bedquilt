@@ -90,6 +90,8 @@ pub struct RuntimeLabels {
     pub f32_convert_i32_u: Label,
     pub f32_convert_i64_s: Label,
     pub f32_convert_i64_u: Label,
+    pub f64_trunc: Label,
+    pub f64_nearest: Label,
     pub table_init_or_copy: Label,
     pub table_grow: Label,
     pub table_fill: Label,
@@ -197,6 +199,8 @@ impl RuntimeLabels {
             f32_convert_i32_u: gen.gen("rt_i32_convert_i32_u"),
             f32_convert_i64_s: gen.gen("rt_i32_convert_i64_s"),
             f32_convert_i64_u: gen.gen("rt_i32_convert_i64_u"),
+            f64_trunc: gen.gen("rt_f64_trunc"),
+            f64_nearest: gen.gen("rt_f64_nearest"),
             table_init_or_copy: gen.gen("rt_table_init"),
             table_grow: gen.gen("rt_table_grow"),
             table_fill: gen.gen("rt_table_fill"),
@@ -1956,7 +1960,7 @@ fn gen_i64_popcnt(ctx: &mut Context) {
 
 fn gen_f32_trunc(ctx: &mut Context) {
     let x = 0;
-    let neg = ctx.gen.gen("i32_trunc_neg");
+    let neg = ctx.gen.gen("f32_trunc_neg");
 
     push_all!(
         ctx.rom_items,
@@ -2551,6 +2555,139 @@ fn gen_f32_convert_i64_s(ctx: &mut Context) {
     );
 }
 
+fn gen_f64_trunc(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let neg = ctx.gen.gen("f64_trunc_neg");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_trunc),
+        fnhead_local(2),
+        // Intentionally an integer comparison
+        jlt(lloc(x_hi), imm(0), neg),
+        dfloor(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop()),
+        label(neg),
+        dceil(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+fn gen_f64_nearest(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let x_ceil_hi = 2;
+    let x_ceil_lo = 3;
+
+    let x_floor_hi = 4;
+    let x_floor_lo = 5;
+
+    let ident = ctx.gen.gen("f64_nearest_ident");
+    let nan = ctx.gen.gen("f64_nearest_nan");
+    let neg = ctx.gen.gen("f64_nearest_neg");
+    let lehalf = ctx.gen.gen("f64_nearest_lehalf");
+    let geneghalf = ctx.gen.gen("f64_nearest_geneghalf");
+    let choose_floor = ctx.gen.gen("f64_nearest_choose_floor");
+    let choose_ceil = ctx.gen.gen("f64_nearest_choose_ceil");
+    let main_case = ctx.gen.gen("f64_nearest_maincase");
+
+    let (half_hi, half_lo) = f64_to_imm(0.5);
+    let (neghalf_hi, neghalf_lo) = f64_to_imm(-0.5);
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+    let (negzero_hi, negzero_lo) = f64_to_imm(-0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_nearest),
+        fnhead_local(6),
+        jdisnan(lloc(x_hi), lloc(x_lo), nan),
+        jdisinf(lloc(x_hi), lloc(x_lo), ident),
+        jdeq(
+            lloc(x_hi),
+            lloc(x_lo),
+            zero_hi,
+            zero_lo,
+            zero_hi,
+            zero_lo,
+            ident
+        ),
+        jdlt(lloc(x_hi), lloc(x_lo), zero_hi, zero_lo, neg),
+        jdle(lloc(x_hi), lloc(x_lo), half_hi, half_lo, lehalf),
+        jump(main_case),
+        label(neg),
+        jdge(lloc(x_hi), lloc(x_lo), neghalf_hi, neghalf_lo, geneghalf),
+        label(main_case),
+        dceil(lloc(x_hi), lloc(x_lo), sloc(x_ceil_lo), sloc(x_ceil_hi)),
+        dfloor(lloc(x_hi), lloc(x_lo), sloc(x_floor_lo), sloc(x_floor_hi)),
+        dsub(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(x_floor_hi),
+            lloc(x_floor_lo),
+            push(),
+            push()
+        ),
+        jdlt(pop(), pop(), half_hi, half_lo, choose_floor),
+        dsub(
+            lloc(x_ceil_hi),
+            lloc(x_ceil_lo),
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            push()
+        ),
+        jdlt(pop(), pop(), half_hi, half_lo, choose_ceil),
+        callfii(
+            imml(ctx.rt.i64_ctz),
+            lloc(x_ceil_hi),
+            lloc(x_ceil_lo),
+            push()
+        ),
+        callfii(
+            imml(ctx.rt.i64_ctz),
+            lloc(x_floor_hi),
+            lloc(x_floor_lo),
+            push()
+        ),
+        jgtu(pop(), pop(), choose_floor),
+        label(choose_ceil),
+        copy(lloc(x_ceil_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_ceil_lo)),
+        label(nan),
+        bitor(
+            lloc(x_hi),
+            uimm(0x00080000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(x_lo)),
+        label(ident),
+        copy(lloc(x_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_lo)),
+        label(lehalf),
+        copy(zero_hi, storel(ctx.layout.hi_return().addr)),
+        ret(zero_lo),
+        label(geneghalf),
+        copy(negzero_hi, storel(ctx.layout.hi_return().addr)),
+        ret(negzero_lo),
+        label(choose_floor),
+        copy(lloc(x_floor_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_floor_lo)),
+    )
+}
+
 fn gen_trap(ctx: &mut Context) {
     push_all!(
         ctx.rom_items,
@@ -2936,6 +3073,8 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_f32_convert_i32_u(ctx);
     gen_f32_convert_i64_u(ctx);
     gen_f32_convert_i64_s(ctx);
+    gen_f64_trunc(ctx);
+    gen_f64_nearest(ctx);
     gen_trap(ctx);
     gen_table_init_or_copy(ctx);
     gen_table_grow(ctx);

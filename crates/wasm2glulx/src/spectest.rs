@@ -254,8 +254,8 @@ impl PartialEq<u32> for F32 {
 impl PartialEq<u64> for F64 {
     fn eq(&self, other: &u64) -> bool {
         match self {
-            F64::CanonicalNan => other.bitand(0x7fffffffffffffff) == 0x7ff0000000000000,
-            F64::ArithmeticNan => other.bitand(0x7ff0000000000000) == 0x7ff0000000000000,
+            F64::CanonicalNan => other.bitand(0x7fffffffffffffff) == 0x7ff8000000000000,
+            F64::ArithmeticNan => other.bitand(0x7ff8000000000000) == 0x7ff8000000000000,
             F64::Value(bits) => *other == *bits,
         }
     }
