@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::common::*;
 use glulx_asm::concise::*;
 
@@ -72,6 +74,15 @@ pub struct RuntimeLabels {
     pub i64_popcnt: Label,
     pub f32_trunc: Label,
     pub f32_nearest: Label,
+    pub f32_eq: Label,
+    pub f32_ne: Label,
+    pub f32_lt: Label,
+    pub f32_gt: Label,
+    pub f32_le: Label,
+    pub f32_ge: Label,
+    pub f32_min: Label,
+    pub f32_max: Label,
+    pub f32_copysign: Label,
     pub table_init_or_copy: Label,
     pub table_grow: Label,
     pub table_fill: Label,
@@ -163,6 +174,15 @@ impl RuntimeLabels {
             i64_popcnt: gen.gen("rt_i64_popcnt"),
             f32_trunc: gen.gen("rt_f32_trunc"),
             f32_nearest: gen.gen("rt_f32_nearest"),
+            f32_eq: gen.gen("rt_f32_eq"),
+            f32_ne: gen.gen("rt_f32_ne"),
+            f32_lt: gen.gen("rt_f32_lt"),
+            f32_gt: gen.gen("rt_f32_gt"),
+            f32_le: gen.gen("rt_f32_le"),
+            f32_ge: gen.gen("rt_f32_ge"),
+            f32_min: gen.gen("rt_f32_min"),
+            f32_max: gen.gen("rt_f32_max"),
+            f32_copysign: gen.gen("rt_f32_copysign"),
             table_init_or_copy: gen.gen("rt_table_init"),
             table_grow: gen.gen("rt_table_grow"),
             table_fill: gen.gen("rt_table_fill"),
@@ -1989,6 +2009,186 @@ fn gen_f32_nearest(ctx: &mut Context) {
     )
 }
 
+fn gen_f32_eq(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_eq),
+        fnhead_local(2),
+        jfeq_ret(lloc(x), lloc(y), f32_to_imm(0.), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_ne(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_ne),
+        fnhead_local(2),
+        jfne_ret(lloc(x), lloc(y), f32_to_imm(0.), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_lt(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_lt),
+        fnhead_local(2),
+        jflt_ret(lloc(x), lloc(y), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_gt(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_gt),
+        fnhead_local(2),
+        jfgt_ret(lloc(x), lloc(y), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_le(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_le),
+        fnhead_local(2),
+        jfle_ret(lloc(x), lloc(y), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_ge(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_ge),
+        fnhead_local(2),
+        jfge_ret(lloc(x), lloc(y), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f32_min(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    let x_nan = ctx.gen.gen("f32_x_nan");
+    let y_nan = ctx.gen.gen("f32_y_nan");
+    let choose_x = ctx.gen.gen("f32_choose_x");
+    let choose_y = ctx.gen.gen("f32_choose_y");
+    let x_neg_zero = ctx.gen.gen("f32_x_neg_zero");
+    let y_neg_zero = ctx.gen.gen("f32_y_neg_zero");
+    let main_case = ctx.gen.gen("f32_main_case");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_min),
+        fnhead_local(2),
+        jisnan(lloc(x), x_nan),
+        jisnan(lloc(y), y_nan),
+        jeq(lloc(x), f32_to_imm(f32::NEG_INFINITY), choose_x),
+        jeq(lloc(y), f32_to_imm(f32::NEG_INFINITY), choose_y),
+        jeq(lloc(x), f32_to_imm(f32::INFINITY), choose_y),
+        jeq(lloc(y), f32_to_imm(f32::INFINITY), choose_x),
+        jeq(lloc(x), f32_to_imm(-0.), x_neg_zero),
+        jeq(lloc(y), f32_to_imm(-0.), y_neg_zero),
+        label(main_case),
+        jflt(lloc(x), lloc(y), choose_x),
+        label(choose_y),
+        ret(lloc(y)),
+        label(x_nan),
+        bitor(lloc(x), imm(0x00400000), sloc(x)),
+        label(choose_x),
+        ret(lloc(x)),
+        label(y_nan),
+        bitor(lloc(y), imm(0x00400000), sloc(y)),
+        ret(lloc(y)),
+        label(x_neg_zero),
+        jeq(lloc(y), f32_to_imm(0.), choose_x),
+        jump(main_case),
+        label(y_neg_zero),
+        jeq(lloc(x), f32_to_imm(0.), choose_y),
+        jump(main_case)
+    )
+}
+
+fn gen_f32_max(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    let x_nan = ctx.gen.gen("f32_x_nan");
+    let y_nan = ctx.gen.gen("f32_y_nan");
+    let choose_x = ctx.gen.gen("f32_choose_x");
+    let choose_y = ctx.gen.gen("f32_choose_y");
+    let x_neg_zero = ctx.gen.gen("f32_x_neg_zero");
+    let y_neg_zero = ctx.gen.gen("f32_y_neg_zero");
+    let main_case = ctx.gen.gen("f32_main_case");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_max),
+        fnhead_local(2),
+        jisnan(lloc(x), x_nan),
+        jisnan(lloc(y), y_nan),
+        jeq(lloc(x), f32_to_imm(f32::INFINITY), choose_x),
+        jeq(lloc(y), f32_to_imm(f32::INFINITY), choose_y),
+        jeq(lloc(x), f32_to_imm(f32::NEG_INFINITY), choose_y),
+        jeq(lloc(y), f32_to_imm(f32::NEG_INFINITY), choose_x),
+        jeq(lloc(x), f32_to_imm(-0.), x_neg_zero),
+        jeq(lloc(y), f32_to_imm(-0.), y_neg_zero),
+        label(main_case),
+        jfgt(lloc(x), lloc(y), choose_x),
+        label(choose_y),
+        ret(lloc(y)),
+        label(x_nan),
+        bitor(lloc(x), imm(0x00400000), sloc(x)),
+        label(choose_x),
+        ret(lloc(x)),
+        label(y_nan),
+        bitor(lloc(y), imm(0x00400000), sloc(y)),
+        ret(lloc(y)),
+        label(x_neg_zero),
+        jeq(lloc(y), f32_to_imm(0.), choose_y),
+        jump(main_case),
+        label(y_neg_zero),
+        jeq(lloc(x), f32_to_imm(0.), choose_x),
+        jump(main_case)
+    )
+}
+
+fn gen_f32_copysign(ctx: &mut Context) {
+    let x = 1;
+    let y = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f32_copysign),
+        fnhead_local(2),
+        bitand(lloc(y), uimm(0x80000000), push()),
+        bitand(lloc(x), uimm(0x7fffffff), push()),
+        bitor(pop(), pop(), push()),
+        ret(pop())
+    )
+}
 
 fn gen_trap(ctx: &mut Context) {
     push_all!(
@@ -2359,6 +2559,15 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_i64_popcnt(ctx);
     gen_f32_trunc(ctx);
     gen_f32_nearest(ctx);
+    gen_f32_eq(ctx);
+    gen_f32_ne(ctx);
+    gen_f32_lt(ctx);
+    gen_f32_gt(ctx);
+    gen_f32_le(ctx);
+    gen_f32_ge(ctx);
+    gen_f32_min(ctx);
+    gen_f32_max(ctx);
+    gen_f32_copysign(ctx);
     gen_trap(ctx);
     gen_table_init_or_copy(ctx);
     gen_table_grow(ctx);
