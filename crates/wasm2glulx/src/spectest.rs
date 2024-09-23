@@ -244,8 +244,8 @@ impl InterpretedResult {
 impl PartialEq<u32> for F32 {
     fn eq(&self, other: &u32) -> bool {
         match self {
-            F32::CanonicalNan => other.bitand(0x7fffffff) == 0x7f800000,
-            F32::ArithmeticNan => other.bitand(0x7f800000) == 0x7f800000,
+            F32::CanonicalNan => other.bitand(0x7fffffff) == 0x7fc00000,
+            F32::ArithmeticNan => other.bitand(0x7fc00000) == 0x7fc00000,
             F32::Value(bits) => *other == *bits,
         }
     }

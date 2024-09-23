@@ -1061,7 +1061,7 @@ impl GlkFunction {
                         uimm(0xe2000000),
                     ));
                     ctx.rom_items
-                        .push(add(lloc(argnum), imml_off_shift(mem.addr, -4, 2), push()));
+                        .push(add(lloc(argnum), imml_off(mem.addr, -4), push()));
                     ctx.rom_items.push(jump(endif_label));
                     ctx.rom_items.push(label(null_label));
                     ctx.rom_items.push(copy(imm(0), push()));
