@@ -217,7 +217,74 @@ pub fn gen_unop(
             ctx.rom_items.push(callfi(imml(ctx.rt.f32_nearest), x, out));
             debts.gen(ctx);
         }
+        ir::UnaryOp::I32TruncSF32 => {
+            let x = credits.pop();
+            let out = debts.pop();
 
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i32_trunc_s_f32), x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncUF32 => {
+            let x = credits.pop();
+            let out = debts.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i32_trunc_u_f32), x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncSF32 => {
+            let x = credits.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i64_trunc_s_f32), x, push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::UnaryOp::I64TruncUF32 => {
+            let x = credits.pop();
+
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i64_trunc_u_f32), x, push()));
+            gen_copies(ctx, Credits::from_returns(ctx, &[ValType::I64]), debts);
+        }
+        ir::UnaryOp::F32ConvertSI32 => {
+            let x = credits.pop();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items.push(numtof(x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F32ConvertUI32 => {
+            let x = credits.pop();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.f32_convert_i32_u), x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F32ConvertUI64 => {
+            let (hi, lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.f32_convert_i64_u), hi, lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F32ConvertSI64 => {
+            let (hi, lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.f32_convert_i64_s), hi, lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32ReinterpretF32 | ir::UnaryOp::F32ReinterpretI32 => {
+            gen_copies(ctx, credits, debts);
+        }
         _ => {
             credits.gen(ctx);
             let mnemonic = Other::Unop(unop.clone()).mnemonic();
@@ -235,27 +302,17 @@ pub fn gen_unop(
           ir::UnaryOp::F64Trunc => todo!(),
           ir::UnaryOp::F64Nearest => todo!(),
           ir::UnaryOp::F64Sqrt => todo!(),
-          ir::UnaryOp::I32TruncSF32 => todo!(),
-          ir::UnaryOp::I32TruncUF32 => todo!(),
           ir::UnaryOp::I32TruncSF64 => todo!(),
           ir::UnaryOp::I32TruncUF64 => todo!(),
-          ir::UnaryOp::I64TruncSF32 => todo!(),
-          ir::UnaryOp::I64TruncUF32 => todo!(),
           ir::UnaryOp::I64TruncSF64 => todo!(),
           ir::UnaryOp::I64TruncUF64 => todo!(),
-          ir::UnaryOp::F32ConvertSI32 => todo!(),
-          ir::UnaryOp::F32ConvertUI32 => todo!(),
-          ir::UnaryOp::F32ConvertSI64 => todo!(),
-          ir::UnaryOp::F32ConvertUI64 => todo!(),
           ir::UnaryOp::F32DemoteF64 => todo!(),
           ir::UnaryOp::F64ConvertSI32 => todo!(),
           ir::UnaryOp::F64ConvertUI32 => todo!(),
           ir::UnaryOp::F64ConvertSI64 => todo!(),
           ir::UnaryOp::F64ConvertUI64 => todo!(),
           ir::UnaryOp::F64PromoteF32 => todo!(),
-          ir::UnaryOp::I32ReinterpretF32 => todo!(),
           ir::UnaryOp::I64ReinterpretF64 => todo!(),
-          ir::UnaryOp::F32ReinterpretI32 => todo!(),
           ir::UnaryOp::F64ReinterpretI64 => todo!(),
           ir::UnaryOp::I8x16Splat => todo!(),
           ir::UnaryOp::I8x16ExtractLaneS { idx } => todo!(),
