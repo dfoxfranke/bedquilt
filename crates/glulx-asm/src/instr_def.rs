@@ -616,7 +616,12 @@ pub enum Instr<L> {
     /// If L2 is 1, this gives you the fractional and integer parts of L1. If L1
     /// is zero, both results are zero. If L2 is infinite, S1 is L1 and S2 is
     /// zero. If L1 is infinite or L2 is zero, both results are NaN.
-    Fmod(LoadOperand<L>, LoadOperand<L>, StoreOperand<L>),
+    Fmod(
+        LoadOperand<L>,
+        LoadOperand<L>,
+        StoreOperand<L>,
+        StoreOperand<L>,
+    ),
 
     /// Round L1 up (towards +Inf) to the nearest integral value. (The result is
     /// still in float format, however.) These opcodes are idempotent.

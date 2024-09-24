@@ -741,8 +741,13 @@ pub fn fdiv<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> I
 }
 
 /// Constructs an item for the `fmod` instruction.
-pub fn fmod<L>(l1: LoadOperand<L>, l2: LoadOperand<L>, s1: StoreOperand<L>) -> Item<L> {
-    Item::Instr(Instr::Fmod(l1, l2, s1))
+pub fn fmod<L>(
+    l1: LoadOperand<L>,
+    l2: LoadOperand<L>,
+    s1: StoreOperand<L>,
+    s2: StoreOperand<L>,
+) -> Item<L> {
+    Item::Instr(Instr::Fmod(l1, l2, s1, s2))
 }
 
 /// Constructs an item for the `ceil` instruction.
@@ -1481,7 +1486,7 @@ INSTRS = [
     ["fsub", "l1", "l2", "s1"],
     ["fmul", "l1", "l2", "s1"],
     ["fdiv", "l1", "l2", "s1"],
-    ["fmod", "l1", "l2", "s1"],
+    ["fmod", "l1", "l2", "s1", "s2"],
     ["ceil", "l1", "s1"],
     ["floor", "l1", "s1"],
     ["sqrt", "l1", "s1"],
