@@ -169,7 +169,33 @@ impl Credits {
         (x, y)
     }
 
-    #[allow(dead_code)]
+    pub fn pop_swapped_quad(
+        &mut self,
+        ctx: &mut Context,
+    ) -> (
+        LoadOperand<Label>,
+        LoadOperand<Label>,
+        LoadOperand<Label>,
+        LoadOperand<Label>,
+    ) {
+        if self.len() < 2 {
+            self.gen(ctx);
+            ctx.rom_items.push(stkroll(imm(4), imm(2)));
+            (
+                LoadOperand::Pop,
+                LoadOperand::Pop,
+                LoadOperand::Pop,
+                LoadOperand::Pop,
+            )
+        } else {
+            let y_hi = self.pop();
+            let y_lo = self.pop();
+            let x_hi = self.pop();
+            let x_lo = self.pop();
+            (x_hi, x_lo, y_hi, y_lo)
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.loads.len()
     }

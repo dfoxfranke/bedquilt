@@ -1,4 +1,4 @@
-use core::f32;
+use core::{f32, f64};
 
 use crate::common::*;
 use glulx_asm::concise::*;
@@ -92,6 +92,15 @@ pub struct RuntimeLabels {
     pub f32_convert_i64_u: Label,
     pub f64_trunc: Label,
     pub f64_nearest: Label,
+    pub f64_eq: Label,
+    pub f64_ne: Label,
+    pub f64_lt: Label,
+    pub f64_gt: Label,
+    pub f64_le: Label,
+    pub f64_ge: Label,
+    pub f64_min: Label,
+    pub f64_max: Label,
+    pub f64_copysign: Label,
     pub table_init_or_copy: Label,
     pub table_grow: Label,
     pub table_fill: Label,
@@ -201,6 +210,15 @@ impl RuntimeLabels {
             f32_convert_i64_u: gen.gen("rt_i32_convert_i64_u"),
             f64_trunc: gen.gen("rt_f64_trunc"),
             f64_nearest: gen.gen("rt_f64_nearest"),
+            f64_eq: gen.gen("rt_f64_eq"),
+            f64_ne: gen.gen("rt_f64_ne"),
+            f64_lt: gen.gen("rt_f64_lt"),
+            f64_gt: gen.gen("rt_f64_gt"),
+            f64_le: gen.gen("rt_f64_le"),
+            f64_ge: gen.gen("rt_f64_ge"),
+            f64_min: gen.gen("rt_f64_min"),
+            f64_max: gen.gen("rt_f64_max"),
+            f64_copysign: gen.gen("rt_f64_max"),
             table_init_or_copy: gen.gen("rt_table_init"),
             table_grow: gen.gen("rt_table_grow"),
             table_fill: gen.gen("rt_table_fill"),
@@ -2113,7 +2131,7 @@ fn gen_f32_min(ctx: &mut Context) {
     let y_nan = ctx.gen.gen("f32_y_nan");
     let choose_x = ctx.gen.gen("f32_choose_x");
     let choose_y = ctx.gen.gen("f32_choose_y");
-    let x_neg_zero = ctx.gen.gen("f32_x_neg_zero");
+    let x_neg_zero = ctx.gen.gen("f32_y_neg_zero");
     let y_neg_zero = ctx.gen.gen("f32_y_neg_zero");
     let main_case = ctx.gen.gen("f32_main_case");
 
@@ -2145,7 +2163,7 @@ fn gen_f32_min(ctx: &mut Context) {
         jump(main_case),
         label(y_neg_zero),
         jeq(lloc(x), f32_to_imm(0.), choose_y),
-        jump(main_case)
+        jump(main_case),
     )
 }
 
@@ -2688,6 +2706,273 @@ fn gen_f64_nearest(ctx: &mut Context) {
     )
 }
 
+fn gen_f64_eq(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_eq),
+        fnhead_local(4),
+        jdeq_ret(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(y_hi),
+            lloc(y_lo),
+            zero_hi,
+            zero_lo,
+            true
+        ),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_ne(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_ne),
+        fnhead_local(4),
+        jdne_ret(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(y_hi),
+            lloc(y_lo),
+            zero_hi,
+            zero_lo,
+            true
+        ),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_lt(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_lt),
+        fnhead_local(4),
+        jdlt_ret(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_gt(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_gt),
+        fnhead_local(4),
+        jdgt_ret(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_le(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_le),
+        fnhead_local(4),
+        jdle_ret(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_ge(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_ge),
+        fnhead_local(4),
+        jdge_ret(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), true),
+        ret(imm(0)),
+    );
+}
+
+fn gen_f64_min(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    let x_nan = ctx.gen.gen("f64_min_x_nan");
+    let y_nan = ctx.gen.gen("f64_min_y_nan");
+    let choose_x = ctx.gen.gen("f64_min_choose_x");
+    let choose_y = ctx.gen.gen("f64_min_choose_y");
+    let x_neg_zero = ctx.gen.gen("f64_min_x_neg_zero");
+    let x_not_neg_zero = ctx.gen.gen("f64_min_x_not_neg_zero");
+    let y_neg_zero = ctx.gen.gen("f64_min_y_neg_zero");
+    let main_case = ctx.gen.gen("f64_min_main_case");
+
+    let (inf_hi, _) = f64_to_imm(f64::INFINITY);
+    let (neginf_hi, _) = f64_to_imm(f64::NEG_INFINITY);
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+    let (negzero_hi, negzero_lo) = f64_to_imm(-0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_min),
+        fnhead_local(4),
+        jdisnan(lloc(x_hi), lloc(x_lo), x_nan),
+        jdisnan(lloc(y_hi), lloc(y_lo), y_nan),
+        // We've ruled out NaNs already, so checking the high word is sufficient
+        // for infinities.
+        jeq(lloc(x_hi), neginf_hi, choose_x),
+        jeq(lloc(y_hi), neginf_hi, choose_y),
+        jeq(lloc(x_hi), inf_hi, choose_y),
+        jeq(lloc(y_hi), inf_hi, choose_x),
+        jne(lloc(x_hi), negzero_hi, x_not_neg_zero),
+        jeq(lloc(x_lo), negzero_lo, x_neg_zero),
+        label(x_not_neg_zero),
+        jne(lloc(y_hi), negzero_hi, main_case),
+        jeq(lloc(y_lo), negzero_lo, y_neg_zero),
+        label(main_case),
+        jdlt(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), choose_x),
+        label(choose_y),
+        copy(lloc(y_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(y_lo)),
+        label(x_nan),
+        bitor(
+            lloc(x_hi),
+            imm(0x00080000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(x_lo)),
+        label(choose_x),
+        copy(lloc(x_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_lo)),
+        label(y_nan),
+        bitor(
+            lloc(y_hi),
+            imm(0x00080000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(y_lo)),
+        label(x_neg_zero),
+        jne(lloc(y_hi), zero_hi, main_case),
+        jeq(lloc(y_lo), zero_lo, choose_x),
+        jump(main_case),
+        label(y_neg_zero),
+        jne(lloc(x_hi), zero_hi, main_case),
+        jeq(lloc(x_lo), zero_lo, choose_y),
+        jump(main_case),
+    )
+}
+
+fn gen_f64_max(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    let x_nan = ctx.gen.gen("f64_max_x_nan");
+    let y_nan = ctx.gen.gen("f64_max_y_nan");
+    let choose_x = ctx.gen.gen("f64_max_choose_x");
+    let choose_y = ctx.gen.gen("f64_max_choose_y");
+    let x_neg_zero = ctx.gen.gen("f64_max_x_neg_zero");
+    let x_not_neg_zero = ctx.gen.gen("f64_max_x_not_neg_zero");
+    let y_neg_zero = ctx.gen.gen("f64_max_y_neg_zero");
+    let main_case = ctx.gen.gen("f64_max_main_case");
+
+    let (inf_hi, _) = f64_to_imm(f64::INFINITY);
+    let (neginf_hi, _) = f64_to_imm(f64::NEG_INFINITY);
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+    let (negzero_hi, negzero_lo) = f64_to_imm(-0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_max),
+        fnhead_local(4),
+        jdisnan(lloc(x_hi), lloc(x_lo), x_nan),
+        jdisnan(lloc(y_hi), lloc(y_lo), y_nan),
+        // We've ruled out NaNs already, so checking the high word is sufficient
+        // for infinities.
+        jeq(lloc(x_hi), neginf_hi, choose_y),
+        jeq(lloc(y_hi), neginf_hi, choose_x),
+        jeq(lloc(x_hi), inf_hi, choose_x),
+        jeq(lloc(y_hi), inf_hi, choose_y),
+        jne(lloc(x_hi), negzero_hi, x_not_neg_zero),
+        jeq(lloc(x_lo), negzero_lo, x_neg_zero),
+        label(x_not_neg_zero),
+        jne(lloc(y_hi), negzero_hi, main_case),
+        jeq(lloc(y_lo), negzero_lo, y_neg_zero),
+        label(main_case),
+        jdgt(lloc(x_hi), lloc(x_lo), lloc(y_hi), lloc(y_lo), choose_x),
+        label(choose_y),
+        copy(lloc(y_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(y_lo)),
+        label(x_nan),
+        bitor(
+            lloc(x_hi),
+            imm(0x00080000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(x_lo)),
+        label(choose_x),
+        copy(lloc(x_hi), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_lo)),
+        label(y_nan),
+        bitor(
+            lloc(y_hi),
+            imm(0x00080000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(y_lo)),
+        label(x_neg_zero),
+        jne(lloc(y_hi), zero_hi, main_case),
+        jeq(lloc(y_lo), zero_lo, choose_y),
+        jump(main_case),
+        label(y_neg_zero),
+        jne(lloc(x_hi), zero_hi, main_case),
+        jeq(lloc(x_lo), zero_lo, choose_x),
+        jump(main_case),
+    )
+}
+
+fn gen_f64_copysign(ctx: &mut Context) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let _y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_copysign),
+        fnhead_local(4),
+        bitand(lloc(y_hi), uimm(0x80000000), push()),
+        bitand(lloc(x_hi), uimm(0x7fffffff), push()),
+        bitor(pop(), pop(), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_lo))
+    )
+}
+
 fn gen_trap(ctx: &mut Context) {
     push_all!(
         ctx.rom_items,
@@ -3075,6 +3360,15 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_f32_convert_i64_s(ctx);
     gen_f64_trunc(ctx);
     gen_f64_nearest(ctx);
+    gen_f64_eq(ctx);
+    gen_f64_ne(ctx);
+    gen_f64_lt(ctx);
+    gen_f64_gt(ctx);
+    gen_f64_le(ctx);
+    gen_f64_ge(ctx);
+    gen_f64_min(ctx);
+    gen_f64_max(ctx);
+    gen_f64_copysign(ctx);
     gen_trap(ctx);
     gen_table_init_or_copy(ctx);
     gen_table_grow(ctx);

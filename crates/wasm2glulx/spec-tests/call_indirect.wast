@@ -598,15 +598,19 @@
 (assert_return (invoke "as-br_table-last") (i32.const 2))
 
 (assert_return (invoke "as-store-first"))
+(invoke "as-store-first")
 (assert_return (invoke "as-store-last"))
+(invoke "as-store-last")
 
 (assert_return (invoke "as-memory.grow-value") (i32.const 1))
+(invoke "as-memory.grow-value")
 (assert_return (invoke "as-return-value") (i32.const 1))
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (f32.const 1))
 (assert_return (invoke "as-local.set-value") (f64.const 1))
 (assert_return (invoke "as-local.tee-value") (f64.const 1))
 (assert_return (invoke "as-global.set-value") (f64.const 1.0))
+(invoke "as-global.set-value")
 (assert_return (invoke "as-load-operand") (i32.const 1))
 
 (assert_return (invoke "as-unary-operand") (f32.const 0x0p+0))
