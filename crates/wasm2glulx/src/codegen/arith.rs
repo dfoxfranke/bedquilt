@@ -320,7 +320,88 @@ pub fn gen_unop(
                 .push(callfii(imml(ctx.rt.f64_nearest), x_hi, x_lo, push()));
             gen_copies(ctx, Credits::from_returns(ctx, &[ValType::F64]), debts);
         }
-
+        ir::UnaryOp::F32DemoteF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items.push(dtof(x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F64PromoteF32 => {
+            let x = credits.pop();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items.push(ftod(x, out_lo, out_hi));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncSF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i32_trunc_s_f64), x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncUF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i32_trunc_u_f64), x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncUF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i64_trunc_u_f64), x_hi, x_lo, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncSF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i64_trunc_s_f64), x_hi, x_lo, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F64ConvertSI32 => {
+            let x = credits.pop();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items.push(numtod(x, out_lo, out_hi));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F64ConvertUI32 => {
+            let x = credits.pop();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.f64_convert_i32_u), x, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F64ConvertUI64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.f64_convert_i64_u), x_hi, x_lo, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::F64ConvertSI64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.f64_convert_i64_s), x_hi, x_lo, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
         ir::UnaryOp::I32ReinterpretF32
         | ir::UnaryOp::F32ReinterpretI32
         | ir::UnaryOp::I64ReinterpretF64
@@ -337,16 +418,15 @@ pub fn gen_unop(
                 });
             debts.gen(ctx);
         } /*
-          ir::UnaryOp::I32TruncSF64 => todo!(),
-          ir::UnaryOp::I32TruncUF64 => todo!(),
-          ir::UnaryOp::I64TruncSF64 => todo!(),
-          ir::UnaryOp::I64TruncUF64 => todo!(),
-          ir::UnaryOp::F32DemoteF64 => todo!(),
-          ir::UnaryOp::F64ConvertSI32 => todo!(),
-          ir::UnaryOp::F64ConvertUI32 => todo!(),
-          ir::UnaryOp::F64ConvertSI64 => todo!(),
-          ir::UnaryOp::F64ConvertUI64 => todo!(),
-          ir::UnaryOp::F64PromoteF32 => todo!(),
+          ir::UnaryOp::I32TruncSSatF32 => todo!(),
+          ir::UnaryOp::I32TruncUSatF32 => todo!(),
+          ir::UnaryOp::I32TruncSSatF64 => todo!(),
+          ir::UnaryOp::I32TruncUSatF64 => todo!(),
+          ir::UnaryOp::I64TruncSSatF32 => todo!(),
+          ir::UnaryOp::I64TruncUSatF32 => todo!(),
+          ir::UnaryOp::I64TruncSSatF64 => todo!(),
+          ir::UnaryOp::I64TruncUSatF64 => todo!(),
+
           ir::UnaryOp::I8x16Splat => todo!(),
           ir::UnaryOp::I8x16ExtractLaneS { idx } => todo!(),
           ir::UnaryOp::I8x16ExtractLaneU { idx } => todo!(),
@@ -412,14 +492,6 @@ pub fn gen_unop(
           ir::UnaryOp::I32x4TruncSatF32x4U => todo!(),
           ir::UnaryOp::F32x4ConvertI32x4S => todo!(),
           ir::UnaryOp::F32x4ConvertI32x4U => todo!(),
-          ir::UnaryOp::I32TruncSSatF32 => todo!(),
-          ir::UnaryOp::I32TruncUSatF32 => todo!(),
-          ir::UnaryOp::I32TruncSSatF64 => todo!(),
-          ir::UnaryOp::I32TruncUSatF64 => todo!(),
-          ir::UnaryOp::I64TruncSSatF32 => todo!(),
-          ir::UnaryOp::I64TruncUSatF32 => todo!(),
-          ir::UnaryOp::I64TruncSSatF64 => todo!(),
-          ir::UnaryOp::I64TruncUSatF64 => todo!(),
           ir::UnaryOp::I16x8WidenLowI8x16S => todo!(),
           ir::UnaryOp::I16x8WidenLowI8x16U => todo!(),
           ir::UnaryOp::I16x8WidenHighI8x16S => todo!(),

@@ -101,6 +101,13 @@ pub struct RuntimeLabels {
     pub f64_min: Label,
     pub f64_max: Label,
     pub f64_copysign: Label,
+    pub i32_trunc_s_f64: Label,
+    pub i32_trunc_u_f64: Label,
+    pub i64_trunc_s_f64: Label,
+    pub i64_trunc_u_f64: Label,
+    pub f64_convert_i32_u: Label,
+    pub f64_convert_i64_s: Label,
+    pub f64_convert_i64_u: Label,
     pub table_init_or_copy: Label,
     pub table_grow: Label,
     pub table_fill: Label,
@@ -219,6 +226,13 @@ impl RuntimeLabels {
             f64_min: gen.gen("rt_f64_min"),
             f64_max: gen.gen("rt_f64_max"),
             f64_copysign: gen.gen("rt_f64_max"),
+            i32_trunc_s_f64: gen.gen("rt_i32_trunc_s_f64"),
+            i32_trunc_u_f64: gen.gen("rt_i32_trunc_u_f64"),
+            i64_trunc_s_f64: gen.gen("rt_i64_trunc_s_f64"),
+            i64_trunc_u_f64: gen.gen("rt_i64_trunc_u_f64"),
+            f64_convert_i32_u: gen.gen("rt_i64_convert_i32_u"),
+            f64_convert_i64_s: gen.gen("rt_i64_convert_i64_s"),
+            f64_convert_i64_u: gen.gen("rt_i64_convert_i64_u"),
             table_init_or_copy: gen.gen("rt_table_init"),
             table_grow: gen.gen("rt_table_grow"),
             table_fill: gen.gen("rt_table_fill"),
@@ -2280,6 +2294,7 @@ fn gen_i64_trunc_u_f32(ctx: &mut Context) {
     let sl = 1;
 
     let posshift = ctx.gen.gen("i64_trunc_u_f32_posshift");
+    let retzero = ctx.gen.gen("i64_trunc_u_f32_retzero");
 
     push_all!(
         ctx.rom_items,
@@ -2289,7 +2304,7 @@ fn gen_i64_trunc_u_f32(ctx: &mut Context) {
         jisinf(lloc(x), ctx.rt.trap_integer_overflow),
         jfge(lloc(x), uimm(0x5f800000), ctx.rt.trap_integer_overflow),
         jfle(lloc(x), f32_to_imm(-1.), ctx.rt.trap_integer_overflow),
-        jflt_ret(lloc(x), f32_to_imm(1.), false),
+        jflt(lloc(x), f32_to_imm(1.), retzero),
         floor(lloc(x), sloc(x)),
         bitand(lloc(x), uimm(0x7f800000), push()),
         ushiftr(pop(), imm(23), push()),
@@ -2307,7 +2322,10 @@ fn gen_i64_trunc_u_f32(ctx: &mut Context) {
         copy(imm(0), push()),
         copy(lloc(sl), push()),
         copy(imm(0), push()),
-        tailcall(imml(ctx.rt.i64_shl), imm(4))
+        tailcall(imml(ctx.rt.i64_shl), imm(4)),
+        label(retzero),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0)),
     )
 }
 
@@ -2316,11 +2334,11 @@ fn gen_i64_trunc_s_f32(ctx: &mut Context) {
     let sl = 1;
     let lo = 2;
 
-    let posval_posshift = ctx.gen.gen("i64_trunc_u_f32_posval_posshift");
-    let negval = ctx.gen.gen("i64_trunc_u_f32_negval");
-    let negval_posshift = ctx.gen.gen("i64_trunc_u_f32_negval_posshift");
-    let nocarry = ctx.gen.gen("i64_trunc_u_f32_nocarry");
-    let retzero = ctx.gen.gen("i64_trunc_u_f32_negval_posshift");
+    let posval_posshift = ctx.gen.gen("i64_trunc_s_f32_posval_posshift");
+    let negval = ctx.gen.gen("i64_trunc_s_f32_negval");
+    let negval_posshift = ctx.gen.gen("i64_trunc_s_f32_negval_posshift");
+    let nocarry = ctx.gen.gen("i64_trunc_s_f32_nocarry");
+    let retzero = ctx.gen.gen("i64_trunc_s_f32_retzero");
 
     push_all!(
         ctx.rom_items,
@@ -2973,6 +2991,446 @@ fn gen_f64_copysign(ctx: &mut Context) {
     )
 }
 
+fn gen_i32_trunc_s_f64(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let (maxbound_hi, maxbound_lo) = f64_to_imm(2147483648.);
+    let (minbound_hi, minbound_lo) = f64_to_imm(-2147483649.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.i32_trunc_s_f64),
+        fnhead_local(2),
+        jdisnan(
+            lloc(x_hi),
+            lloc(x_lo),
+            ctx.rt.trap_invalid_conversion_to_integer
+        ),
+        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
+        jdge(
+            lloc(x_hi),
+            lloc(x_lo),
+            maxbound_hi,
+            maxbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        jdle(
+            lloc(x_hi),
+            lloc(x_lo),
+            minbound_hi,
+            minbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        dtonumz(lloc(x_hi), lloc(x_lo), push()),
+        ret(pop()),
+    )
+}
+
+fn gen_i32_trunc_u_f64(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let sr = 2;
+
+    let (maxbound_hi, maxbound_lo) = f64_to_imm(4294967296.);
+    let (minbound_hi, minbound_lo) = f64_to_imm(-1.);
+    let (one_hi, one_lo) = f64_to_imm(1.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.i32_trunc_u_f64),
+        fnhead_local(3),
+        jdisnan(
+            lloc(x_hi),
+            lloc(x_lo),
+            ctx.rt.trap_invalid_conversion_to_integer
+        ),
+        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
+        jdge(
+            lloc(x_hi),
+            lloc(x_lo),
+            maxbound_hi,
+            maxbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        jdle(
+            lloc(x_hi),
+            lloc(x_lo),
+            minbound_hi,
+            minbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        jdlt_ret(lloc(x_hi), lloc(x_lo), one_hi, one_lo, false),
+        dfloor(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
+        bitand(lloc(x_hi), uimm(0x7ff00000), push()),
+        ushiftr(pop(), imm(52 - 32), push()),
+        sub(imm(1023 + 52), pop(), sloc(sr)),
+        copy(lloc(x_lo), push()),
+        bitand(lloc(x_hi), uimm(0x000fffff), push()),
+        bitor(pop(), uimm(0x00100000), push()),
+        copy(lloc(sr), push()),
+        copy(imm(0), push()),
+        tailcall(imml(ctx.rt.i64_shr_u), imm(4)),
+    )
+}
+
+fn gen_i64_trunc_u_f64(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let sl = 2;
+
+    let posshift = ctx.gen.gen("i64_trunc_u_f64_posshift");
+    let retzero = ctx.gen.gen("i64_trunc_u_f64_retzero");
+
+    let (maxbound_hi, maxbound_lo) = f64_to_imm(18446744073709551616.);
+    let (minbound_hi, minbound_lo) = f64_to_imm(-1.);
+    let (one_hi, one_lo) = f64_to_imm(1.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.i64_trunc_u_f64),
+        fnhead_local(3),
+        jdisnan(
+            lloc(x_hi),
+            lloc(x_lo),
+            ctx.rt.trap_invalid_conversion_to_integer
+        ),
+        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
+        jdge(
+            lloc(x_hi),
+            lloc(x_lo),
+            maxbound_hi,
+            maxbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        jdle(
+            lloc(x_hi),
+            lloc(x_lo),
+            minbound_hi,
+            minbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        jdlt(lloc(x_hi), lloc(x_lo), one_hi, one_lo, retzero),
+        dfloor(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
+        bitand(lloc(x_hi), uimm(0x7ff00000), push()),
+        ushiftr(pop(), imm(52 - 32), push()),
+        sub(pop(), imm(1023 + 52), sloc(sl)),
+        copy(lloc(x_lo), push()),
+        bitand(lloc(x_hi), uimm(0x000fffff), push()),
+        bitor(pop(), uimm(0x00100000), push()),
+        jgt(lloc(sl), imm(0), posshift),
+        sub(imm(0), lloc(sl), push()),
+        copy(imm(0), push()),
+        tailcall(imml(ctx.rt.i64_shr_u), imm(4)),
+        label(posshift),
+        copy(lloc(sl), push()),
+        copy(imm(0), push()),
+        tailcall(imml(ctx.rt.i64_shl), imm(4)),
+        label(retzero),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0))
+    )
+}
+
+fn gen_i64_trunc_s_f64(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let sl = 2;
+
+    let posval_posshift = ctx.gen.gen("i64_trunc_s_f64_posval_posshift");
+    let negval = ctx.gen.gen("i64_trunc_s_f64_negval");
+    let negval_posshift = ctx.gen.gen("i64_trunc_s_f64_negval_posshift");
+    let negshift_nocarry = ctx.gen.gen("i64_trunc_s_f64_negshift_nocarry");
+    let posshift_nocarry = ctx.gen.gen("i64_trunc_s_f64_posshift_nocarry");
+    let retzero = ctx.gen.gen("i64_trunc_s_f64_retzero");
+
+    let (maxbound_hi, maxbound_lo) = f64_to_imm(9223372036854775808.);
+    let (minbound_hi, minbound_lo) = f64_to_imm(-9223372036854775808.);
+    let (zero_hi, zero_lo) = f64_to_imm(0.);
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.i64_trunc_s_f64),
+        fnhead_local(3),
+        jdisnan(
+            lloc(x_hi),
+            lloc(x_lo),
+            ctx.rt.trap_invalid_conversion_to_integer
+        ),
+        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
+        bitand(lloc(x_hi), uimm(0x7ff00000), push()),
+        ushiftr(pop(), imm(52 - 32), push()),
+        sub(pop(), imm(1023 + 52), sloc(sl)),
+        jdlt(lloc(x_hi), lloc(x_lo), zero_hi, zero_lo, negval),
+        dfloor(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
+        jdeq(
+            lloc(x_hi),
+            lloc(x_lo),
+            zero_hi,
+            zero_lo,
+            zero_hi,
+            zero_lo,
+            retzero
+        ),
+        jdge(
+            lloc(x_hi),
+            lloc(x_lo),
+            maxbound_hi,
+            maxbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        copy(lloc(x_lo), push()),
+        bitand(lloc(x_hi), uimm(0x000fffff), push()),
+        bitor(pop(), uimm(0x00100000), push()),
+        jgt(lloc(sl), imm(0), posval_posshift),
+        sub(imm(0), lloc(sl), push()),
+        copy(imm(0), push()),
+        tailcall(imml(ctx.rt.i64_shr_u), imm(4)),
+        label(posval_posshift),
+        copy(lloc(sl), push()),
+        copy(imm(0), push()),
+        tailcall(imml(ctx.rt.i64_shl), imm(4)),
+        label(negval),
+        dceil(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
+        jdeq(
+            lloc(x_hi),
+            lloc(x_lo),
+            zero_hi,
+            zero_lo,
+            zero_hi,
+            zero_lo,
+            retzero
+        ),
+        jdlt(
+            lloc(x_hi),
+            lloc(x_lo),
+            minbound_hi,
+            minbound_lo,
+            ctx.rt.trap_integer_overflow
+        ),
+        copy(lloc(x_lo), push()),
+        bitand(lloc(x_hi), uimm(0x000fffff), push()),
+        bitor(pop(), uimm(0x00100000), push()),
+        jgt(lloc(sl), imm(0), negval_posshift),
+        sub(imm(0), lloc(sl), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shr_u), imm(4), sloc(x_lo)),
+        bitxor(
+            derefl(ctx.layout.hi_return().addr),
+            imm(-1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        bitxor(lloc(x_lo), imm(-1), sloc(x_lo)),
+        add(lloc(x_lo), imm(1), sloc(x_lo)),
+        jnz(lloc(x_lo), negshift_nocarry),
+        add(
+            derefl(ctx.layout.hi_return().addr),
+            imm(1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        label(negshift_nocarry),
+        ret(lloc(x_lo)),
+        label(negval_posshift),
+        copy(lloc(sl), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shl), imm(4), sloc(x_lo)),
+        bitxor(
+            derefl(ctx.layout.hi_return().addr),
+            imm(-1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        bitxor(lloc(x_lo), imm(-1), sloc(x_lo)),
+        add(lloc(x_lo), imm(1), sloc(x_lo)),
+        jnz(lloc(x_lo), posshift_nocarry),
+        add(
+            derefl(ctx.layout.hi_return().addr),
+            imm(1),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        label(posshift_nocarry),
+        ret(lloc(x_lo)),
+        label(retzero),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0))
+    )
+}
+
+fn gen_f64_convert_i32_u(ctx: &mut Context) {
+    let x = 0;
+    let lz = 1;
+
+    let retzero = ctx.gen.gen("f64_convert_i32_u_retzero");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_convert_i32_u),
+        fnhead_local(2),
+        jz(lloc(x), retzero),
+        callfi(imml(ctx.rt.i32_clz), lloc(x), sloc(lz)),
+        add(lloc(lz), imm(1), push()),
+        ushiftr(imm(-1), pop(), push()),
+        bitand(pop(), lloc(x), push()),
+        copy(imm(0), push()),
+        add(lloc(lz), imm(52 - 31), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shl), imm(4), sloc(x)),
+        sub(imm(1023 + 31), lloc(lz), push()),
+        shiftl(pop(), imm(52 - 32), push()),
+        bitor(
+            pop(),
+            derefl(ctx.layout.hi_return().addr),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(lloc(x)),
+        label(retzero),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0))
+    );
+}
+
+fn gen_f64_convert_i64_u(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let sd = 2;
+    let e = 3;
+
+    let mant_digits = 53;
+
+    let sd_small = ctx.gen.gen("f64_convert_i64_u_sd_small");
+    let sd_mant_plus_1 = ctx.gen.gen("f64_convert_i64_u_sd_mant_plus_1");
+    let rounding_prepared = ctx.gen.gen("f64_convert_i64_u_rounding_prepared");
+    let rounding_done = ctx.gen.gen("f64_convert_i64_u_rounding_done");
+    let retzero = ctx.gen.gen("f64_convert_i64_u_retzero");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_convert_i64_u),
+        fnhead_local(4),
+        callfii(imml(ctx.rt.i64_eqz), lloc(x_hi), lloc(x_lo), push()),
+        jnz(pop(), retzero),
+        callfii(imml(ctx.rt.i64_clz), lloc(x_hi), lloc(x_lo), push()),
+        sub(imm(64), pop(), sloc(sd)),
+        sub(lloc(sd), imm(1), sloc(e)),
+        jleu(lloc(sd), imm(mant_digits), sd_small),
+        jeq(lloc(sd), imm(mant_digits + 1), sd_mant_plus_1),
+        jeq(lloc(sd), imm(mant_digits + 2), rounding_prepared),
+        copy(imm(-1), push()),
+        copy(imm(-1), push()),
+        sub(imm(64 + mant_digits + 2), lloc(sd), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shr_u), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        call(imml(ctx.rt.i64_and), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        copy(imm(0), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_ne), imm(4), push()),
+        copy(imm(0), push()),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        sub(lloc(sd), imm(mant_digits + 2), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shr_u), imm(4), push()),
+        copy(derefl(ctx.layout.hi_return().addr), push()),
+        call(imml(ctx.rt.i64_or), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        jump(rounding_prepared),
+        label(sd_mant_plus_1),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(imm(1), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shl), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        label(rounding_prepared),
+        bitand(lloc(x_lo), imm(4), push()),
+        callfii(imml(ctx.rt.i32_ne), pop(), imm(0), push()),
+        bitor(lloc(x_lo), pop(), sloc(x_lo)),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(imm(1), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_add), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(imm(2), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shr_u), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        bitand(lloc(x_hi), uimm(1 << (mant_digits - 32)), push()),
+        jz(pop(), rounding_done),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        copy(imm(1), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shr_u), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        add(lloc(e), imm(1), sloc(e)),
+        jump(rounding_done),
+        label(sd_small),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        sub(imm(mant_digits), lloc(sd), push()),
+        copy(imm(0), push()),
+        call(imml(ctx.rt.i64_shl), imm(4), sloc(x_lo)),
+        copy(derefl(ctx.layout.hi_return().addr), sloc(x_hi)),
+        label(rounding_done),
+        bitand(lloc(x_hi), uimm(0x000fffff), push()),
+        add(lloc(e), imm(1023), push()),
+        shiftl(pop(), imm(mant_digits - 32 - 1), push()),
+        bitor(pop(), pop(), storel(ctx.layout.hi_return().addr)),
+        ret(lloc(x_lo)),
+        label(retzero),
+        copy(imm(0), storel(ctx.layout.hi_return().addr)),
+        ret(imm(0))
+    )
+}
+
+fn gen_f64_convert_i64_s(ctx: &mut Context) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    let neg = ctx.gen.gen("f64_convert_i64_s_neg");
+    let nocarry = ctx.gen.gen("f64_convert_i64_s_nocarry");
+
+    push_all!(
+        ctx.rom_items,
+        label(ctx.rt.f64_convert_i64_s),
+        fnhead_local(2),
+        ushiftr(lloc(x_hi), imm(31), push()),
+        jnz(pop(), neg),
+        copy(lloc(x_lo), push()),
+        copy(lloc(x_hi), push()),
+        tailcall(imml(ctx.rt.f64_convert_i64_u), imm(2)),
+        label(neg),
+        bitxor(lloc(x_hi), imm(-1), sloc(x_hi)),
+        bitxor(lloc(x_lo), imm(-1), sloc(x_lo)),
+        add(lloc(x_lo), imm(1), sloc(x_lo)),
+        jnz(lloc(x_lo), nocarry),
+        add(lloc(x_hi), imm(1), sloc(x_hi)),
+        label(nocarry),
+        callfii(
+            imml(ctx.rt.f64_convert_i64_u),
+            lloc(x_hi),
+            lloc(x_lo),
+            push()
+        ),
+        bitor(
+            derefl(ctx.layout.hi_return().addr),
+            uimm(0x80000000),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
 fn gen_trap(ctx: &mut Context) {
     push_all!(
         ctx.rom_items,
@@ -3369,6 +3827,13 @@ pub fn gen_rt(ctx: &mut Context) {
     gen_f64_min(ctx);
     gen_f64_max(ctx);
     gen_f64_copysign(ctx);
+    gen_i32_trunc_s_f64(ctx);
+    gen_i32_trunc_u_f64(ctx);
+    gen_i64_trunc_u_f64(ctx);
+    gen_i64_trunc_s_f64(ctx);
+    gen_f64_convert_i32_u(ctx);
+    gen_f64_convert_i64_u(ctx);
+    gen_f64_convert_i64_s(ctx);
     gen_trap(ctx);
     gen_table_init_or_copy(ctx);
     gen_table_grow(ctx);
