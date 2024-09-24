@@ -28,6 +28,14 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
         "glkarea_get_bytes" | "glkarea_put_bytes" | "glkarea_get_words" | "glkarea_put_words" => {
             (&[ValType::I32, ValType::I32, ValType::I32], &[])
         }
+        "expf" | "logf" | "sinf" | "cosf" | "tanf" | "asinf" | "acosf" | "atanf" => {
+            (&[ValType::F32], &[ValType::F32])
+        }
+        "fmodf" | "powf" | "atan2f" => (&[ValType::F32, ValType::F32], &[ValType::F32]),
+        "exp" | "log" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" => {
+            (&[ValType::F64], &[ValType::F64])
+        }
+        "fmod" | "pow" | "atan2" => (&[ValType::F64, ValType::F64], &[ValType::F64]),
         _ => {
             ctx.errors.push(crate::CompilationError::UnrecognizedImport(
                 ctx.module.imports.get(imported_func.import).clone(),
@@ -287,6 +295,340 @@ pub fn gen_setrandom(ctx: &mut Context, my_label: Label) {
     )
 }
 
+pub fn gen_fmodf(ctx: &mut Context, my_label: Label) {
+    let x = 1;
+    let y = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        fmod(lloc(x), lloc(y), push(), discard()),
+        ret(pop())
+    );
+}
+
+pub fn gen_expf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        exp(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_logf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        log(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_powf(ctx: &mut Context, my_label: Label) {
+    let x = 1;
+    let y = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        pow(lloc(x), lloc(y), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_sinf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        sin(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_cosf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        cos(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_tanf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        tan(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_asinf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        asin(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_acosf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        acos(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_atanf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        atan(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_atan2f(ctx: &mut Context, my_label: Label) {
+    let x = 1;
+    let y = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        pow(lloc(x), lloc(y), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_fmod(ctx: &mut Context, my_label: Label) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(4),
+        dmodr(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(y_hi),
+            lloc(y_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    )
+}
+
+pub fn gen_exp(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dexp(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_log(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dlog(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_pow(ctx: &mut Context, my_label: Label) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(4),
+        dpow(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(y_hi),
+            lloc(y_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    )
+}
+
+pub fn gen_sin(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dsin(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_cos(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dcos(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_tan(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dtan(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_asin(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dasin(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_acos(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dacos(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_atan(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        datan(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_atan2(ctx: &mut Context, my_label: Label) {
+    let x_lo = 3;
+    let x_hi = 2;
+    let y_lo = 1;
+    let y_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(4),
+        datan2(
+            lloc(x_hi),
+            lloc(x_lo),
+            lloc(y_hi),
+            lloc(y_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    )
+}
+
 pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
     let import = ctx.module.imports.get(imported_func.import);
     let name = &import.name;
@@ -304,6 +646,28 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "glkarea_put_words" => gen_glkarea_put_words(ctx, my_label),
             "random" => gen_random(ctx, my_label),
             "setrandom" => gen_setrandom(ctx, my_label),
+            "fmodf" => gen_fmodf(ctx, my_label),
+            "expf" => gen_expf(ctx, my_label),
+            "logf" => gen_logf(ctx, my_label),
+            "powf" => gen_powf(ctx, my_label),
+            "sinf" => gen_sinf(ctx, my_label),
+            "cosf" => gen_cosf(ctx, my_label),
+            "tanf" => gen_tanf(ctx, my_label),
+            "asinf" => gen_asinf(ctx, my_label),
+            "acosf" => gen_acosf(ctx, my_label),
+            "atanf" => gen_atanf(ctx, my_label),
+            "atan2f" => gen_atan2f(ctx, my_label),
+            "fmod" => gen_fmod(ctx, my_label),
+            "exp" => gen_exp(ctx, my_label),
+            "log" => gen_log(ctx, my_label),
+            "pow" => gen_pow(ctx, my_label),
+            "sin" => gen_sin(ctx, my_label),
+            "cos" => gen_cos(ctx, my_label),
+            "tan" => gen_tan(ctx, my_label),
+            "asin" => gen_asin(ctx, my_label),
+            "acos" => gen_acos(ctx, my_label),
+            "atan" => gen_atan(ctx, my_label),
+            "atan2" => gen_atan2(ctx, my_label),
             _ => unreachable!(
                 "Unrecognized intrinsic function should have returned false from type check"
             ),
