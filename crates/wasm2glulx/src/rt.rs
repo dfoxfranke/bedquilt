@@ -87,6 +87,10 @@ pub struct RuntimeLabels {
     pub i32_trunc_u_f32: Label,
     pub i64_trunc_s_f32: Label,
     pub i64_trunc_u_f32: Label,
+    pub i32_trunc_sat_s_f32: Label,
+    pub i32_trunc_sat_u_f32: Label,
+    pub i64_trunc_sat_s_f32: Label,
+    pub i64_trunc_sat_u_f32: Label,
     pub f32_convert_i32_u: Label,
     pub f32_convert_i64_s: Label,
     pub f32_convert_i64_u: Label,
@@ -105,6 +109,10 @@ pub struct RuntimeLabels {
     pub i32_trunc_u_f64: Label,
     pub i64_trunc_s_f64: Label,
     pub i64_trunc_u_f64: Label,
+    pub i32_trunc_sat_s_f64: Label,
+    pub i32_trunc_sat_u_f64: Label,
+    pub i64_trunc_sat_s_f64: Label,
+    pub i64_trunc_sat_u_f64: Label,
     pub f64_convert_i32_u: Label,
     pub f64_convert_i64_s: Label,
     pub f64_convert_i64_u: Label,
@@ -212,6 +220,10 @@ impl RuntimeLabels {
             i32_trunc_u_f32: gen.gen("rt_i32_trunc_u_f32"),
             i64_trunc_s_f32: gen.gen("rt_i64_trunc_s_f32"),
             i64_trunc_u_f32: gen.gen("rt_i64_trunc_u_f32"),
+            i32_trunc_sat_s_f32: gen.gen("rt_i32_trunc_sat_s_f32"),
+            i32_trunc_sat_u_f32: gen.gen("rt_i32_trunc_sat_u_f32"),
+            i64_trunc_sat_s_f32: gen.gen("rt_i64_trunc_sat_s_f32"),
+            i64_trunc_sat_u_f32: gen.gen("rt_i64_trunc_sat_u_f32"),
             f32_convert_i32_u: gen.gen("rt_i32_convert_i32_u"),
             f32_convert_i64_s: gen.gen("rt_i32_convert_i64_s"),
             f32_convert_i64_u: gen.gen("rt_i32_convert_i64_u"),
@@ -230,6 +242,10 @@ impl RuntimeLabels {
             i32_trunc_u_f64: gen.gen("rt_i32_trunc_u_f64"),
             i64_trunc_s_f64: gen.gen("rt_i64_trunc_s_f64"),
             i64_trunc_u_f64: gen.gen("rt_i64_trunc_u_f64"),
+            i32_trunc_sat_s_f64: gen.gen("rt_i32_trunc_sat_s_f64"),
+            i32_trunc_sat_u_f64: gen.gen("rt_i32_trunc_sat_u_f64"),
+            i64_trunc_sat_s_f64: gen.gen("rt_i64_trunc_sat_s_f64"),
+            i64_trunc_sat_u_f64: gen.gen("rt_i64_trunc_sat_u_f64"),
             f64_convert_i32_u: gen.gen("rt_i64_convert_i32_u"),
             f64_convert_i64_s: gen.gen("rt_i64_convert_i64_s"),
             f64_convert_i64_u: gen.gen("rt_i64_convert_i64_u"),
@@ -2243,14 +2259,20 @@ fn gen_f32_copysign(ctx: &mut Context) {
 fn gen_i32_trunc_s_f32(ctx: &mut Context) {
     let x = 0;
 
+    let common = ctx.gen.gen("i32_trunc_s_f32_common");
+
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i32_trunc_sat_s_f32),
+        fnhead_local(1),
+        jisnan_ret(lloc(x), false),
+        jump(common),
         label(ctx.rt.i32_trunc_s_f32),
         fnhead_local(1),
         jisnan(lloc(x), ctx.rt.trap_invalid_conversion_to_integer),
-        jisinf(lloc(x), ctx.rt.trap_integer_overflow),
         jfge(lloc(x), uimm(0x4f000000), ctx.rt.trap_integer_overflow),
         jflt(lloc(x), uimm(0xcf000000), ctx.rt.trap_integer_overflow),
+        label(common),
         ftonumz(lloc(x), push()),
         ret(pop())
     )
@@ -2261,15 +2283,25 @@ fn gen_i32_trunc_u_f32(ctx: &mut Context) {
     let sl = 1;
 
     let posshift = ctx.gen.gen("i32_trunc_u_f32_posshift");
+    let common = ctx.gen.gen("i32_trunc_u_f32_common");
+    let retmax = ctx.gen.gen("i32_trunc_u_f32_retmax");
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i32_trunc_sat_u_f32),
+        fnhead_local(2),
+        jisnan_ret(lloc(x), false),
+        jfge(lloc(x), uimm(0x4f800000), retmax),
+        jfle_ret(lloc(x), f32_to_imm(-1.), false),
+        jump(common),
+        label(retmax),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i32_trunc_u_f32),
         fnhead_local(2),
         jisnan(lloc(x), ctx.rt.trap_invalid_conversion_to_integer),
-        jisinf(lloc(x), ctx.rt.trap_integer_overflow),
         jfge(lloc(x), uimm(0x4f800000), ctx.rt.trap_integer_overflow),
         jfle(lloc(x), f32_to_imm(-1.), ctx.rt.trap_integer_overflow),
+        label(common),
         jflt_ret(lloc(x), f32_to_imm(1.), false),
         floor(lloc(x), sloc(x)),
         bitand(lloc(x), uimm(0x7f800000), push()),
@@ -2295,15 +2327,26 @@ fn gen_i64_trunc_u_f32(ctx: &mut Context) {
 
     let posshift = ctx.gen.gen("i64_trunc_u_f32_posshift");
     let retzero = ctx.gen.gen("i64_trunc_u_f32_retzero");
+    let retmax = ctx.gen.gen("i32_trunc_u_f32_retmax");
+    let common = ctx.gen.gen("i32_trunc_u_f32_common");
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i64_trunc_sat_u_f32),
+        fnhead_local(2),
+        jisnan(lloc(x), retzero),
+        jfge(lloc(x), uimm(0x5f800000), retmax),
+        jfle(lloc(x), f32_to_imm(-1.), retzero),
+        jump(common),
+        label(retmax),
+        copy(uimm(0xffffffff), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i64_trunc_u_f32),
         fnhead_local(2),
         jisnan(lloc(x), ctx.rt.trap_invalid_conversion_to_integer),
-        jisinf(lloc(x), ctx.rt.trap_integer_overflow),
         jfge(lloc(x), uimm(0x5f800000), ctx.rt.trap_integer_overflow),
         jfle(lloc(x), f32_to_imm(-1.), ctx.rt.trap_integer_overflow),
+        label(common),
         jflt(lloc(x), f32_to_imm(1.), retzero),
         floor(lloc(x), sloc(x)),
         bitand(lloc(x), uimm(0x7f800000), push()),
@@ -2339,13 +2382,29 @@ fn gen_i64_trunc_s_f32(ctx: &mut Context) {
     let negval_posshift = ctx.gen.gen("i64_trunc_s_f32_negval_posshift");
     let nocarry = ctx.gen.gen("i64_trunc_s_f32_nocarry");
     let retzero = ctx.gen.gen("i64_trunc_s_f32_retzero");
+    let retmax = ctx.gen.gen("i64_trunc_s_f32_retmax");
+    let retmin = ctx.gen.gen("i64_trunc_s_f32_retmin");
+    let common = ctx.gen.gen("i64_trunc_s_f32_common");
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i64_trunc_sat_s_f32),
+        fnhead_local(3),
+        jisnan(lloc(x), retzero),
+        jflt(lloc(x), f32_to_imm(-9223372036854775808.), retmin),
+        jfge(lloc(x), f32_to_imm(9223372036854775808.), retmax),
+        jump(common),
+        label(retmin),
+        copy(imm(-0x80000000), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0)),
+        label(retmax),
+        copy(imm(0x7fffffff), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i64_trunc_s_f32),
         fnhead_local(3),
         jisnan(lloc(x), ctx.rt.trap_invalid_conversion_to_integer),
         jisinf(lloc(x), ctx.rt.trap_integer_overflow),
+        label(common),
         bitand(lloc(x), uimm(0x7f800000), push()),
         ushiftr(pop(), imm(23), push()),
         sub(pop(), imm(127 + 23), sloc(sl)),
@@ -2997,9 +3056,22 @@ fn gen_i32_trunc_s_f64(ctx: &mut Context) {
 
     let (maxbound_hi, maxbound_lo) = f64_to_imm(2147483648.);
     let (minbound_hi, minbound_lo) = f64_to_imm(-2147483649.);
+    let retmin = ctx.gen.gen("i32_trunc_s_f64_retmin");
+    let retmax = ctx.gen.gen("i32_trunc_s_f64_retmax");
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i32_trunc_sat_s_f64),
+        fnhead_local(2),
+        jdisnan_ret(lloc(x_hi), lloc(x_lo), false,),
+        jdge(lloc(x_hi), lloc(x_lo), maxbound_hi, maxbound_lo, retmax),
+        jdle(lloc(x_hi), lloc(x_lo), minbound_hi, minbound_lo, retmin),
+        dtonumz(lloc(x_hi), lloc(x_lo), push()),
+        ret(pop()),
+        label(retmin),
+        ret(imm(-0x80000000)),
+        label(retmax),
+        ret(imm(0x7fffffff)),
         label(ctx.rt.i32_trunc_s_f64),
         fnhead_local(2),
         jdisnan(
@@ -3007,7 +3079,6 @@ fn gen_i32_trunc_s_f64(ctx: &mut Context) {
             lloc(x_lo),
             ctx.rt.trap_invalid_conversion_to_integer
         ),
-        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
         jdge(
             lloc(x_hi),
             lloc(x_lo),
@@ -3037,8 +3108,19 @@ fn gen_i32_trunc_u_f64(ctx: &mut Context) {
     let (minbound_hi, minbound_lo) = f64_to_imm(-1.);
     let (one_hi, one_lo) = f64_to_imm(1.);
 
+    let retmax = ctx.gen.gen("i32_trunc_u_f64_retmax");
+    let common = ctx.gen.gen("i32_trunc_u_f64_common");
+
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i32_trunc_sat_u_f64),
+        fnhead_local(3),
+        jdisnan_ret(lloc(x_hi), lloc(x_lo), false),
+        jdge(lloc(x_hi), lloc(x_lo), maxbound_hi, maxbound_lo, retmax),
+        jdle_ret(lloc(x_hi), lloc(x_lo), minbound_hi, minbound_lo, false),
+        jump(common),
+        label(retmax),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i32_trunc_u_f64),
         fnhead_local(3),
         jdisnan(
@@ -3046,7 +3128,6 @@ fn gen_i32_trunc_u_f64(ctx: &mut Context) {
             lloc(x_lo),
             ctx.rt.trap_invalid_conversion_to_integer
         ),
-        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
         jdge(
             lloc(x_hi),
             lloc(x_lo),
@@ -3061,6 +3142,7 @@ fn gen_i32_trunc_u_f64(ctx: &mut Context) {
             minbound_lo,
             ctx.rt.trap_integer_overflow
         ),
+        label(common),
         jdlt_ret(lloc(x_hi), lloc(x_lo), one_hi, one_lo, false),
         dfloor(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
         bitand(lloc(x_hi), uimm(0x7ff00000), push()),
@@ -3081,8 +3163,10 @@ fn gen_i64_trunc_u_f64(ctx: &mut Context) {
 
     let sl = 2;
 
-    let posshift = ctx.gen.gen("i64_trunc_u_f64_posshift");
+    let retmax = ctx.gen.gen("i64_trunc_u_f64_retmax");
     let retzero = ctx.gen.gen("i64_trunc_u_f64_retzero");
+    let posshift = ctx.gen.gen("i64_trunc_u_f64_posshift");
+    let common = ctx.gen.gen("i64_trunc_u_f64_common");
 
     let (maxbound_hi, maxbound_lo) = f64_to_imm(18446744073709551616.);
     let (minbound_hi, minbound_lo) = f64_to_imm(-1.);
@@ -3090,6 +3174,15 @@ fn gen_i64_trunc_u_f64(ctx: &mut Context) {
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i64_trunc_sat_u_f64),
+        fnhead_local(3),
+        jdisnan(lloc(x_hi), lloc(x_lo), retzero,),
+        jdge(lloc(x_hi), lloc(x_lo), maxbound_hi, maxbound_lo, retmax,),
+        jdle(lloc(x_hi), lloc(x_lo), minbound_hi, minbound_lo, retzero,),
+        jump(common),
+        label(retmax),
+        copy(uimm(0xffffffff), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i64_trunc_u_f64),
         fnhead_local(3),
         jdisnan(
@@ -3097,7 +3190,6 @@ fn gen_i64_trunc_u_f64(ctx: &mut Context) {
             lloc(x_lo),
             ctx.rt.trap_invalid_conversion_to_integer
         ),
-        jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
         jdge(
             lloc(x_hi),
             lloc(x_lo),
@@ -3112,6 +3204,7 @@ fn gen_i64_trunc_u_f64(ctx: &mut Context) {
             minbound_lo,
             ctx.rt.trap_integer_overflow
         ),
+        label(common),
         jdlt(lloc(x_hi), lloc(x_lo), one_hi, one_lo, retzero),
         dfloor(lloc(x_hi), lloc(x_lo), sloc(x_lo), sloc(x_hi)),
         bitand(lloc(x_hi), uimm(0x7ff00000), push()),
@@ -3146,6 +3239,9 @@ fn gen_i64_trunc_s_f64(ctx: &mut Context) {
     let negshift_nocarry = ctx.gen.gen("i64_trunc_s_f64_negshift_nocarry");
     let posshift_nocarry = ctx.gen.gen("i64_trunc_s_f64_posshift_nocarry");
     let retzero = ctx.gen.gen("i64_trunc_s_f64_retzero");
+    let retmin = ctx.gen.gen("i64_trunc_s_f64_retmin");
+    let retmax = ctx.gen.gen("i64_trunc_s_f64_retmax");
+    let common = ctx.gen.gen("i64_trunc_s_f64_common");
 
     let (maxbound_hi, maxbound_lo) = f64_to_imm(9223372036854775808.);
     let (minbound_hi, minbound_lo) = f64_to_imm(-9223372036854775808.);
@@ -3153,6 +3249,18 @@ fn gen_i64_trunc_s_f64(ctx: &mut Context) {
 
     push_all!(
         ctx.rom_items,
+        label(ctx.rt.i64_trunc_sat_s_f64),
+        fnhead_local(3),
+        jdisnan(lloc(x_hi), lloc(x_lo), retzero,),
+        jdge(lloc(x_hi), lloc(x_lo), maxbound_hi, maxbound_lo, retmax),
+        jdlt(lloc(x_hi), lloc(x_lo), minbound_hi, minbound_lo, retmin),
+        jump(common),
+        label(retmin),
+        copy(imm(-0x80000000), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0)),
+        label(retmax),
+        copy(imm(0x7fffffff), storel(ctx.layout.hi_return().addr)),
+        ret(uimm(0xffffffff)),
         label(ctx.rt.i64_trunc_s_f64),
         fnhead_local(3),
         jdisnan(
@@ -3161,6 +3269,7 @@ fn gen_i64_trunc_s_f64(ctx: &mut Context) {
             ctx.rt.trap_invalid_conversion_to_integer
         ),
         jdisinf(lloc(x_hi), lloc(x_lo), ctx.rt.trap_integer_overflow),
+        label(common),
         bitand(lloc(x_hi), uimm(0x7ff00000), push()),
         ushiftr(pop(), imm(52 - 32), push()),
         sub(pop(), imm(1023 + 52), sloc(sl)),

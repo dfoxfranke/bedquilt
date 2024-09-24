@@ -408,6 +408,82 @@ pub fn gen_unop(
         | ir::UnaryOp::F64ReinterpretI64 => {
             gen_copies(ctx, credits, debts);
         }
+        ir::UnaryOp::I32TruncSSatF32 => {
+            let x = credits.pop();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i32_trunc_sat_s_f32), x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncUSatF32 => {
+            let x = credits.pop();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i32_trunc_sat_u_f32), x, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncSSatF32 => {
+            let x = credits.pop();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i64_trunc_sat_s_f32), x, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncUSatF32 => {
+            let x = credits.pop();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfi(imml(ctx.rt.i64_trunc_sat_u_f32), x, out_lo));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncSSatF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i32_trunc_sat_s_f64), x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I32TruncUSatF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items
+                .push(callfii(imml(ctx.rt.i32_trunc_sat_u_f64), x_hi, x_lo, out));
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncSSatF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items.push(callfii(
+                imml(ctx.rt.i64_trunc_sat_s_f64),
+                x_hi,
+                x_lo,
+                out_lo,
+            ));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
+        ir::UnaryOp::I64TruncUSatF64 => {
+            let (x_hi, x_lo) = credits.pop_hi_lo();
+            let (out_lo, out_hi) = debts.pop_lo_hi();
+            credits.gen(ctx);
+            ctx.rom_items.push(callfii(
+                imml(ctx.rt.i64_trunc_sat_u_f64),
+                x_hi,
+                x_lo,
+                out_lo,
+            ));
+            copy_if_sensible(ctx, derefl(ctx.layout.hi_return().addr), out_hi);
+            debts.gen(ctx);
+        }
         _ => {
             credits.gen(ctx);
             let mnemonic = Other::Unop(unop.clone()).mnemonic();
@@ -418,15 +494,6 @@ pub fn gen_unop(
                 });
             debts.gen(ctx);
         } /*
-          ir::UnaryOp::I32TruncSSatF32 => todo!(),
-          ir::UnaryOp::I32TruncUSatF32 => todo!(),
-          ir::UnaryOp::I32TruncSSatF64 => todo!(),
-          ir::UnaryOp::I32TruncUSatF64 => todo!(),
-          ir::UnaryOp::I64TruncSSatF32 => todo!(),
-          ir::UnaryOp::I64TruncUSatF32 => todo!(),
-          ir::UnaryOp::I64TruncSSatF64 => todo!(),
-          ir::UnaryOp::I64TruncUSatF64 => todo!(),
-
           ir::UnaryOp::I8x16Splat => todo!(),
           ir::UnaryOp::I8x16ExtractLaneS { idx } => todo!(),
           ir::UnaryOp::I8x16ExtractLaneU { idx } => todo!(),
