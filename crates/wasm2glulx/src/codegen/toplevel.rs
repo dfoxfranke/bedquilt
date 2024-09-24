@@ -447,6 +447,9 @@ fn gen_other(
         Other::DataDrop(data_drop) => {
             super::memory::gen_data_drop(ctx, frame, data_drop, credits, debts);
         }
+        Other::ElemDrop(elem_drop) => {
+            super::table::gen_elem_drop(ctx, frame, elem_drop, credits, debts);
+        }
         Other::Load(load) => {
             super::memory::gen_load(ctx, frame, load, credits, debts);
         }

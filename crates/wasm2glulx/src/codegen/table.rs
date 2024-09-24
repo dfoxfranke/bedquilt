@@ -131,3 +131,16 @@ pub fn gen_table_fill(
         .push(call(imml(ctx.rt.table_fill), imm(5), discard()));
     debts.gen(ctx);
 }
+
+pub fn gen_elem_drop(
+    ctx: &mut Context,
+    _frame: &mut Frame,
+    elem_drop: &ir::ElemDrop,
+    mut credits: Credits,
+    mut debts: Debts,
+) {
+    let elem = ctx.layout.element(elem_drop.elem);
+    credits.gen(ctx);
+    ctx.rom_items.push(copy(imm(0), storel(elem.cur_count)));
+    debts.gen(ctx);
+}
