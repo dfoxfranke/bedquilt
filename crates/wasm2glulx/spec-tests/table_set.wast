@@ -32,8 +32,10 @@
 
 (assert_return (invoke "get-funcref" (i32.const 0)) (ref.null func))
 (assert_return (invoke "set-funcref-from" (i32.const 0) (i32.const 1)))
+(invoke "set-funcref-from" (i32.const 0) (i32.const 1))
 (assert_return (invoke "is_null-funcref" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "set-funcref" (i32.const 0) (ref.null func)))
+(invoke "set-funcref" (i32.const 0) (ref.null func))
 (assert_return (invoke "get-funcref" (i32.const 0)) (ref.null func))
 
 (assert_trap (invoke "set-externref" (i32.const 2) (ref.null extern)) "out of bounds table access")

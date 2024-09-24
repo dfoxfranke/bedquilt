@@ -4,8 +4,7 @@
   (elem (table $t3) (i32.const 1) func $dummy)
   (func $dummy)
 
-  (func (export "init") (param $r externref)
-    (table.set $t2 (i32.const 1) (local.get $r))
+  (func (export "init")
     (table.set $t3 (i32.const 2) (table.get $t3 (i32.const 1)))
   )
 
@@ -20,6 +19,8 @@
     (ref.is_null (call $f3 (local.get $i)))
   )
 )
+
+(invoke "init")
 
 (assert_return (invoke "get-funcref" (i32.const 0)) (ref.null func))
 (assert_return (invoke "is_null-funcref" (i32.const 1)) (i32.const 0))

@@ -471,6 +471,14 @@ fn gen_other(
         Other::MemorySize(memory_size) => {
             super::memory::gen_memory_size(ctx, frame, memory_size, credits, debts);
         }
+        Other::RefIsNull(_ref_is_null) => {
+            // This doesn't fit into any good category so just implement it directly.
+            let r = credits.pop();
+            let out = debts.pop();
+            credits.gen(ctx);
+            ctx.rom_items.push(callfi(imml(ctx.rt.i32_eqz), r, out));
+            debts.gen(ctx);
+        }
         Other::Select(test, select) => {
             super::control::gen_select(ctx, frame, *test, select, post_stack, credits, debts);
         }
