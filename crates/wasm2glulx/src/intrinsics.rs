@@ -23,8 +23,14 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
     }
 
     let (expected_params, expected_results): (&[ValType], &[ValType]) = match name.as_str() {
-        "random" | "glkarea_get_byte" | "glkarea_get_word" => (&[ValType::I32], &[ValType::I32]),
-        "setrandom" | "glkarea_put_byte" | "glkarea_put_word" => (&[ValType::I32], &[]),
+        "restart" | "discardundo" => (&[], &[]),
+        "random" | "glkarea_get_byte" | "glkarea_get_word" | "save" | "restore" => {
+            (&[ValType::I32], &[ValType::I32])
+        }
+        "setrandom" | "glkarea_put_byte" | "glkarea_put_word" | "saveundo" | "restoreundo"
+        | "hasundo" => (&[ValType::I32], &[]),
+        "protect" => (&[ValType::I32, ValType::I32], &[]),
+        "gesalt" => (&[ValType::I32, ValType::I32], &[ValType::I32]),
         "glkarea_get_bytes" | "glkarea_put_bytes" | "glkarea_get_words" | "glkarea_put_words" => {
             (&[ValType::I32, ValType::I32, ValType::I32], &[])
         }
@@ -629,6 +635,114 @@ pub fn gen_atan2(ctx: &mut Context, my_label: Label) {
     )
 }
 
+pub fn gen_restart(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        restart(),
+        ret(imm(0)),
+    );
+}
+
+pub fn gen_save(ctx: &mut Context, my_label: Label) {
+    let stream = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        save(lloc(stream), push()),
+        ret(pop()),
+    );
+}
+
+pub fn gen_restore(ctx: &mut Context, my_label: Label) {
+    let stream = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        save(lloc(stream), push()),
+        ret(pop()),
+    );
+}
+
+pub fn gen_saveundo(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        saveundo(push()),
+        ret(pop()),
+    );
+}
+
+pub fn gen_restoreundo(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        restoreundo(push()),
+        ret(pop()),
+    );
+}
+
+pub fn gen_hasundo(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        hasundo(push()),
+        ret(pop()),
+    );
+}
+
+pub fn gen_discardundo(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        discardundo(),
+        ret(imm(0)),
+    );
+}
+
+pub fn gen_protect(ctx: &mut Context, my_label: Label) {
+    let addr = 1;
+    let n = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        callfiii(
+            imml(ctx.rt.checkaddr),
+            lloc(addr),
+            imm(0),
+            lloc(n),
+            discard()
+        ),
+        add(imml(ctx.layout.memory().addr), lloc(addr), push()),
+        protect(pop(), lloc(n)),
+        ret(imm(0)),
+    );
+}
+
+pub fn gen_gestalt(ctx: &mut Context, my_label: Label) {
+    let number = 1;
+    let extra = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        gestalt(lloc(number), lloc(extra), push()),
+        ret(pop()),
+    );
+}
+
 pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
     let import = ctx.module.imports.get(imported_func.import);
     let name = &import.name;
@@ -668,6 +782,15 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "acos" => gen_acos(ctx, my_label),
             "atan" => gen_atan(ctx, my_label),
             "atan2" => gen_atan2(ctx, my_label),
+            "restart" => gen_restart(ctx, my_label),
+            "save" => gen_save(ctx, my_label),
+            "restore" => gen_restore(ctx, my_label),
+            "saveundo" => gen_saveundo(ctx, my_label),
+            "restoreundo" => gen_restoreundo(ctx, my_label),
+            "hasundo" => gen_hasundo(ctx, my_label),
+            "discardundo" => gen_discardundo(ctx, my_label),
+            "protect" => gen_protect(ctx, my_label),
+            "gestalt" => gen_gestalt(ctx, my_label),
             _ => unreachable!(
                 "Unrecognized intrinsic function should have returned false from type check"
             ),
