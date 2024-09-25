@@ -6,7 +6,7 @@ edition = "2021"
 proc-macro2 = "1"
 quote = "1"
 syn = "2"
-wasm2glulx = { path = "../wasm2glulx" }
+wasm2glulx = { path = "../wasm2glulx", features =["spectest"] }
 
 [lib]
 proc-macro = true
