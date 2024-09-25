@@ -1,5 +1,6 @@
 use std::{
     ffi::OsString,
+    io::IsTerminal,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -46,8 +47,11 @@ struct Args {
 
 fn main() -> ExitCode {
     let args = Args::parse();
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let stderr = std::io::stderr();
 
-    if args.input.is_none() && atty::is(atty::Stream::Stdin) {
+    if args.input.is_none() && stdin.is_terminal() {
         eprintln!("\u{1b}[1m\u{1b}[31mwasm2glulx: reading input file from stdin, but stdin is a tty. Add \"-\" to the command line if you want to force this.\u{1b}[39m\u{1b}[22m");
         return ExitCode::FAILURE;
     }
@@ -55,7 +59,7 @@ fn main() -> ExitCode {
     if !args.text
         && (args.input.is_none() || args.input.as_deref() == Some(Path::new("-")))
         && args.output.is_none()
-        && atty::is(atty::Stream::Stdout)
+        && stdout.is_terminal()
     {
         eprintln!("\u{1b}[1m\u{1b}[31mwasm2glulx: writing output to stdout, but stdout is a tty. Add \"-o -\" to the command line if you want to force this.\u{1b}[39m\u{1b}[22m");
         return ExitCode::FAILURE;
@@ -105,7 +109,7 @@ fn main() -> ExitCode {
     match compile(&options) {
         Ok(_) => ExitCode::SUCCESS,
         Err(errv) => {
-            if atty::is(atty::Stream::Stderr) {
+            if stderr.is_terminal() {
                 eprintln!(
                     "\u{1b}[1m\u{1b}[31mwasm2glulx: {} error{} encountered\u{1b}[39m\u{1b}[22m",
                     errv.len(),
