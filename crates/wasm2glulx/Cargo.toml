@@ -24,8 +24,8 @@ wasm2glulx = { path = ".", features = ["spectest"] }
 wasm2glulx-spectest-macro = { path = "../wasm2glulx-spectest-macro" }
 
 [build-dependencies]
-cc = "1"
+cc = { version = "1", optional = true }
 
 [features]
 default = []
-spectest = ["dep:hex", "dep:wast"]
+spectest = ["dep:hex", "dep:wast", "dep:cc"]
