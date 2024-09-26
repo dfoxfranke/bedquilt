@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
 // Copyright 2024 Daniel Fox Franke.
-
+#![allow(unused_imports)]
 use std::{ffi::OsString, path::PathBuf};
 
+#[allow(dead_code)]
 static BOGOGLULX_SOURCES: &[&str] = &[
     "exec.c",
     "files.c",
