@@ -16,6 +16,8 @@ Single-precision:
 
 ```wasm
 (import "glulx" "fmodf" (func (param $x f32) (param $y f32) (result f32)))
+(import "glulx" "floorf" (func (param $x f32) (result f32)))
+(import "glulx" "ceilf" (func (param $x f32) (result f32)))
 (import "glulx" "expf" (func (param $x f32) (result f32)))
 (import "glulx" "logf" (func (param $x f32) (result f32)))
 (import "glulx" "powf" (func (param $x f32) (param $y f32) (result f32)))
@@ -32,6 +34,8 @@ Double-precision:
 
 ```wasm
 (import "glulx" "fmod" (func (param $x f64) (param $y f64) (result f64)))
+(import "glulx" "floor" (func (param $x f64) (result f64)))
+(import "glulx" "ceil" (func (param $x f64) (result f64)))
 (import "glulx" "exp" (func (param $x f64) (result f64)))
 (import "glulx" "log" (func (param $x f64) (result f64)))
 (import "glulx" "pow" (func (param $x f64) (param $y f64) (result f64)))

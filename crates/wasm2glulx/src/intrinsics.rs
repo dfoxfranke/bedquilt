@@ -38,11 +38,10 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
         "glkarea_get_bytes" | "glkarea_put_bytes" | "glkarea_get_words" | "glkarea_put_words" => {
             (&[ValType::I32, ValType::I32, ValType::I32], &[])
         }
-        "expf" | "logf" | "sinf" | "cosf" | "tanf" | "asinf" | "acosf" | "atanf" => {
-            (&[ValType::F32], &[ValType::F32])
-        }
+        "ceilf" | "floorf" | "expf" | "logf" | "sinf" | "cosf" | "tanf" | "asinf" | "acosf"
+        | "atanf" => (&[ValType::F32], &[ValType::F32]),
         "fmodf" | "powf" | "atan2f" => (&[ValType::F32, ValType::F32], &[ValType::F32]),
-        "exp" | "log" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" => {
+        "ceil" | "floor" | "exp" | "log" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" => {
             (&[ValType::F64], &[ValType::F64])
         }
         "fmod" | "pow" | "atan2" => (&[ValType::F64, ValType::F64], &[ValType::F64]),
@@ -318,6 +317,28 @@ pub fn gen_fmodf(ctx: &mut Context, my_label: Label) {
     );
 }
 
+pub fn gen_ceilf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        ceil(lloc(x), push()),
+        ret(pop())
+    );
+}
+
+pub fn gen_floorf(ctx: &mut Context, my_label: Label) {
+    let x = 0;
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(1),
+        floor(lloc(x), push()),
+        ret(pop())
+    );
+}
+
 pub fn gen_expf(ctx: &mut Context, my_label: Label) {
     let x = 0;
     push_all!(
@@ -450,6 +471,42 @@ pub fn gen_fmod(ctx: &mut Context, my_label: Label) {
         ),
         ret(pop())
     )
+}
+
+pub fn gen_floor(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dfloor(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
+}
+
+pub fn gen_ceil(ctx: &mut Context, my_label: Label) {
+    let x_lo = 1;
+    let x_hi = 0;
+
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(2),
+        dceil(
+            lloc(x_hi),
+            lloc(x_lo),
+            push(),
+            storel(ctx.layout.hi_return().addr)
+        ),
+        ret(pop())
+    );
 }
 
 pub fn gen_exp(ctx: &mut Context, my_label: Label) {
@@ -767,6 +824,8 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "random" => gen_random(ctx, my_label),
             "setrandom" => gen_setrandom(ctx, my_label),
             "fmodf" => gen_fmodf(ctx, my_label),
+            "floorf" => gen_floorf(ctx, my_label),
+            "ceilf" => gen_ceilf(ctx, my_label),
             "expf" => gen_expf(ctx, my_label),
             "logf" => gen_logf(ctx, my_label),
             "powf" => gen_powf(ctx, my_label),
@@ -778,6 +837,8 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "atanf" => gen_atanf(ctx, my_label),
             "atan2f" => gen_atan2f(ctx, my_label),
             "fmod" => gen_fmod(ctx, my_label),
+            "floor" => gen_floor(ctx, my_label),
+            "ceil" => gen_ceil(ctx, my_label),
             "exp" => gen_exp(ctx, my_label),
             "log" => gen_log(ctx, my_label),
             "pow" => gen_pow(ctx, my_label),
