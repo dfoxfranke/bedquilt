@@ -1,15 +1,16 @@
 # Project Bedquilt
 
-This repository hosts a collection of tools developed with the aim of enabling
-the use of Rust as a development language for interactive fiction which can run
-seamlessly on existing interpreters that support
-[Glulx](https://www.eblong.com/zarf/glulx/). The approach will be to compile
-Rust into WebAssembly and then translate the WebAssembly into Glulx.
-
-Currently, there is a [Glulx assembler](crates/glulx-asm), which is currently
-alpha but approaching release-readiness. The [WASM-to-Glulx
-translator](crates/wasm2glulx) is under development; currently it can compile a
-"Hello, sailor!" program but not much else. Once wasm2glulx is complete enough
-to handle real programs, development will begin on safe and idiomatic Rust
-bindings to the [Glk](https://www.eblong.com/zarf/glk/index.html) API and other
-Glulx intrinsics, which wasm2glulx exposes as WASM imports.
+The Bedquilt project is an effort to build a set of tools for developing
+interactive fiction using general-purpose programming languages — particularly
+but not exclusively Rust — and producing portable game files that are playable
+on any interpreter that supports the
+[Glk/Glulx/Blorb](https://github.com/iftechfoundation/ifarchive-if-specs) tech
+stack. Eventually, Bedquilt will become a full-fledged text adventure engine
+competing with the likes of [Inform](https://ganelson.github.io/inform-website/)
+and [TADS](https://www.tads.org/). It isn't there yet, but a major foundational
+piece is complete: Wasm2Glulx, which translates
+[WebAssembly](https://webassembly.org/) into Glulx. Wasm2Glulx makes it possible
+develop for Glulx using [any high-level-language compiler that has a WebAssembly
+backend](https://webassembly.org/getting-started/developers-guide/). Wasm2Glulx
+has already been used to produce one complete game: a [new port](./advent430) of
+[Adventure](https://en.wikipedia.org/wiki/Colossal_Cave_Adventure).

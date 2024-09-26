@@ -15,3 +15,5 @@ backend](https://webassembly.org/getting-started/developers-guide/). Wasm2Glulx 
 already been used to produce one complete game: a [new
 port](https://github.com/dfoxfranke/bedquilt/tree/master/advent430) of
 [Adventure](https://en.wikipedia.org/wiki/Colossal_Cave_Adventure).
+
+Bedquilt is developed on GitHub at <https://github.com/dfoxfranke/bedquilt>.
