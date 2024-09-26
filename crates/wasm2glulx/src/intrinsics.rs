@@ -8,6 +8,7 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
     let name = &import.name;
     let ty = ctx.module.types.get(imported_func.ty);
 
+    #[cfg(feature = "spectest")]
     if name == "spectest_result" {
         if !ty.results().is_empty() {
             ctx.errors
@@ -63,6 +64,7 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
     }
 }
 
+#[cfg(feature = "spectest")]
 fn gen_spectest_result(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
     let ty = ctx.module.types.get(imported_func.ty);
     let mut param_word: u32 = ty.params().word_count();
@@ -749,6 +751,7 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
 
     if check_intrinsic_type(ctx, imported_func) {
         match name.as_str() {
+            #[cfg(feature = "spectest")]
             "spectest_result" => gen_spectest_result(ctx, imported_func, my_label),
             "glkarea_get_byte" => gen_glkarea_get_byte(ctx, my_label),
             "glkarea_get_word" => gen_glkarea_get_word(ctx, my_label),
