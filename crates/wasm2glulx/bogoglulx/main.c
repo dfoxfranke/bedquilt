@@ -69,7 +69,7 @@ void fatal_error_handler(char *str, int useval, glsi32 val)
 }
 
 void trap(int code) {
-  if (code >= TRAP_LEN) {
+  if (code >= TRAP_LEN || code < 0) {
     code = TRAP_LEN - 1;
   }
 
