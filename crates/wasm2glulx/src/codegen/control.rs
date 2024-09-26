@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 use super::{
     classify::Test,
     loadstore::{gen_copies, Credits, Debts},

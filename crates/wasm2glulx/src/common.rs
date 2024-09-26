@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 #![macro_use]
 use anyhow::anyhow;
 use glulx_asm::{Item, ZeroItem};
@@ -73,7 +76,6 @@ pub const DEFAULT_GLK_AREA_SIZE: u32 = 4096;
 pub const DEFAULT_STACK_SIZE: u32 = 1048576;
 /// The default value for `--table-growth-limit`.
 pub const DEFAULT_TABLE_GROWTH_LIMIT: u32 = 1024;
-
 
 /// Options that control compilation.
 #[derive(Debug, Clone)]

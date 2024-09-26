@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Buf;
 use hex::FromHex;

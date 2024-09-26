@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 //! Translate WebAssembly into Glulx.
-//! 
+//!
 //! This is a high-level library interface to what is normally used as a
 //! command-line tool. See <https://bedquilt.io/manual> for additional
 //! documentation.
@@ -26,13 +29,12 @@ pub mod spectest;
 
 use common::LabelGenerator;
 pub use common::{
-    CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE,
-    DEFAULT_TABLE_GROWTH_LIMIT,
+    CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE, DEFAULT_TABLE_GROWTH_LIMIT,
 };
 pub use error::*;
 
 /// Compile a Walrus module into a `BytesMut`.
-/// 
+///
 /// This ignores the input and output fields of `options`.
 pub fn compile_module_to_bytes(
     options: &CompilationOptions,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 use glulx_asm::concise::*;
 use std::collections::HashMap;
 use walrus::ir::{self, InstrSeq, InstrSeqId};

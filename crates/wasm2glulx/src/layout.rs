@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// Copyright 2024 Daniel Fox Franke.
+
 use crate::{common::*, CompilationError, CompilationOptions, OverflowLocation};
 use std::collections::HashMap;
 use walrus::{DataId, ElementId, ElementItems, FunctionId, GlobalId, Module, TableId, TypeId};
