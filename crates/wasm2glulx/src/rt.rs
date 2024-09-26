@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 // Some bits adapted from the LLVM/CompilerRT project.
 use core::{f32, f64};

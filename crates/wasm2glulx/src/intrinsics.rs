@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 
 use glulx_asm::concise::*;
 use walrus::{ImportedFunction, ValType};
 
-use crate::common::{Context, Label, WordCount};
+use crate::common::{Context, Label};
 
 fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> bool {
     let import = ctx.module.imports.get(imported_func.import);
@@ -68,6 +68,7 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
 
 #[cfg(feature = "spectest")]
 fn gen_spectest_result(ctx: &mut Context, imported_func: &ImportedFunction, my_label: Label) {
+    use crate::common::WordCount;
     let ty = ctx.module.types.get(imported_func.ty);
     let mut param_word: u32 = ty.params().word_count();
 

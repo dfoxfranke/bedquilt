@@ -1,6 +1,6 @@
 //! [`Item`] and related types.
 
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-Exception
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 
 use bytes::{BufMut, Bytes};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: CC-BY-NC-SA-4.0 AND Apache-2.0 WITH LLVM-Exception
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0 AND Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 // Glulx specification excerpts Copyright 2020-2022 by the Interactive Fiction
 // Technology Foundation.
@@ -23,7 +23,7 @@ use crate::operands::{LoadOperand, StoreOperand};
 /// distributing this crate in binary-only form generally will not bind you to
 /// it, since such products generally will not incorporate the documentation and
 /// so will not constitute works derived from it. Such activities are permitted
-/// subject only to the Apache-2.0 WITH LLVM-Exception license under which this
+/// subject only to the Apache-2.0 WITH LLVM-exception license under which this
 /// crate's source code is provided. The specification's license does not infect
 /// code which merely implements the specification, since, in the spec's own
 /// words, "The virtual machine described by this document is an idea, not an
