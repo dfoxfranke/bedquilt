@@ -47,7 +47,7 @@ and the resulting `hello_sailor.ulx` will run in any Glulx interpreter.
 
 A similar program in Rust:
 
-```rust
+```rust,noplayground
 #![no_std]
 #![no_main]
 
