@@ -298,13 +298,13 @@ pub fn wast_to_tests(input: &str) -> Result<Vec<WastTest>> {
     let mut out = Vec::new();
     for directive in wast.directives {
         match directive {
-            WastDirective::Module(wast::QuoteWat::Wat(wast::Wat::Module(mut wast_module))) => {
+            WastDirective::Wat(wast::QuoteWat::Wat(wast::Wat::Module(mut wast_module))) => {
                 encoded_module = wast_module
                     .encode()
                     .context("failed to encode parsed module")?;
                 invokes.clear();
             }
-            WastDirective::Module(_) => {
+            WastDirective::Wat(_) => {
                 bail!("Encountered unsupported module pattern");
             }
             WastDirective::Invoke(WastInvoke {
