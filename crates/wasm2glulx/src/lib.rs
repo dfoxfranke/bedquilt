@@ -1,3 +1,9 @@
+//! Translate WebAssembly into Glulx.
+//! 
+//! This is a high-level library interface to what is normally used as a
+//! command-line tool. See <https://bedquilt.io/manual> for additional
+//! documentation.
+#![warn(missing_docs)]
 use std::io::{Read, Write};
 
 use bytes::BytesMut;
@@ -14,15 +20,20 @@ mod intrinsics;
 mod layout;
 mod rt;
 
+#[doc(hidden)]
 #[cfg(feature = "spectest")]
 pub mod spectest;
 
+use common::LabelGenerator;
 pub use common::{
-    CompilationOptions, LabelGenerator, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE,
+    CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE,
     DEFAULT_TABLE_GROWTH_LIMIT,
 };
 pub use error::*;
 
+/// Compile a Walrus module into a `BytesMut`.
+/// 
+/// This ignores the input and output fields of `options`.
 pub fn compile_module_to_bytes(
     options: &CompilationOptions,
     module: &walrus::Module,
@@ -111,6 +122,7 @@ pub fn compile_module_to_bytes(
     }
 }
 
+/// Compile a WebAssembly module into a Glulx story file.
 pub fn compile(options: &CompilationOptions) -> Result<usize, Vec<CompilationError>> {
     let mut config = walrus::ModuleConfig::new();
     config.generate_synthetic_names_for_anonymous_items(true);

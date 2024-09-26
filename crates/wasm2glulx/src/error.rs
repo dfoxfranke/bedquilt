@@ -1,32 +1,53 @@
 use std::fmt::Display;
 use walrus::{Export, Import, ValType};
 
+/// Error indicating why a compilation was unsuccessful.
 #[derive(Debug)]
 pub enum CompilationError {
+    /// The WASM module failed validation
     ValidationError(anyhow::Error),
+    /// The module imports an unrecognized object
     UnrecognizedImport(Import),
+    /// The module declares an incorrect type for an imported function
     IncorrectlyTypedImport {
+        /// The erroneous import
         import: Import,
+        /// The import's expected parameters and results
         expected: (Vec<ValType>, Vec<ValType>),
+        /// The import's actual parameters and results
         actual: (Vec<ValType>, Vec<ValType>),
     },
+    /// The module declares an incorrect type for an exported function
     IncorrectlyTypedExport {
+        /// The erroneous export
         export: Export,
+        /// The export's expected parameters and results
         expected: (Vec<ValType>, Vec<ValType>),
+        /// The export's actual parameters and results
         actual: (Vec<ValType>, Vec<ValType>),
     },
+    /// The module lacks an entrypoint
     NoEntrypoint,
+    /// Something in the module overflows Glulx's 4GiB address space
     Overflow(OverflowLocation),
+    /// The module uses multiple memories
     UnsupportedMultipleMemories,
+    /// The module contains an unsupported instruction
     UnsupportedInstruction {
+        /// The name of the function containing the unsupported instruction
         function: Option<String>,
+        /// The instruction's mnemonic
         instr: &'static str,
     },
+    /// The was an I/O error reading the input
     InputError(std::io::Error),
+    /// There was an I/O error writing the output
     OutputError(std::io::Error),
+    /// Other, unclassified error
     OtherError(anyhow::Error),
 }
 
+/// The location of what caused an overflow error.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum OverflowLocation {
     /// A type declares too many parameters or return values

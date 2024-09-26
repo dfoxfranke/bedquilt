@@ -67,10 +67,15 @@ pub struct Context<'a> {
     pub errors: &'a mut Vec<CompilationError>,
 }
 
+/// The default value for `--glk-area-size`.
 pub const DEFAULT_GLK_AREA_SIZE: u32 = 4096;
+/// The default value for `--stack-size`.
 pub const DEFAULT_STACK_SIZE: u32 = 1048576;
+/// The default value for `--table-growth-limit`.
 pub const DEFAULT_TABLE_GROWTH_LIMIT: u32 = 1024;
 
+
+/// Options that control compilation.
 #[derive(Debug, Clone)]
 pub struct CompilationOptions {
     pub(crate) glk_area_size: u32,
@@ -88,6 +93,7 @@ impl Default for CompilationOptions {
 }
 
 impl CompilationOptions {
+    /// Instantiate `CompilationOptions` with its defaults.
     pub fn new() -> Self {
         CompilationOptions {
             glk_area_size: DEFAULT_GLK_AREA_SIZE,
@@ -99,26 +105,32 @@ impl CompilationOptions {
         }
     }
 
+    /// Set the Glk area size.
     pub fn set_glk_area_size(&mut self, size: u32) {
         self.glk_area_size = size;
     }
 
+    /// Set the stack size.
     pub fn set_stack_size(&mut self, size: u32) {
         self.stack_size = size;
     }
 
+    /// Set the table growth limit.
     pub fn set_table_growth_limit(&mut self, limit: u32) {
         self.table_growth_limit = limit;
     }
 
+    /// When true, generate human-readable output instead of a story file.
     pub fn set_text(&mut self, text: bool) {
         self.text = text;
     }
 
+    /// Set the input path.
     pub fn set_input(&mut self, input: Option<PathBuf>) {
         self.input = input;
     }
 
+    /// Ste the output path.
     pub fn set_output(&mut self, output: Option<PathBuf>) {
         self.output = output;
     }
