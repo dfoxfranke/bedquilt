@@ -18,7 +18,8 @@ static BOGOGLULX_SOURCES: &[&str] = &[
 ];
 
 fn main() {
-    if cfg!(feature = "spectest") {
+    #[cfg(feature = "spectest")]
+    {
         let platform_bogoglulx_sources: Vec<PathBuf> = BOGOGLULX_SOURCES
             .iter()
             .map(|file| {
