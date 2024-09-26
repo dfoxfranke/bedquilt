@@ -16,7 +16,7 @@ bytes = "1"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 glulx-asm = { version = "0.1", path = "../glulx-asm" }
 hex = { version = "0.4", optional = true }
-walrus = "0.21"
+walrus = "0.22"
 wast = { version = "217", optional = true }
 
 [dev-dependencies]
