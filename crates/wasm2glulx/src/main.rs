@@ -5,7 +5,7 @@ use std::{
     process::ExitCode,
 };
 
-use clap::{Parser, ValueHint};
+use clap::{CommandFactory, Parser, ValueHint};
 use wasm2glulx::{
     compile, CompilationOptions, DEFAULT_GLK_AREA_SIZE, DEFAULT_STACK_SIZE,
     DEFAULT_TABLE_GROWTH_LIMIT,
@@ -53,6 +53,9 @@ fn main() -> ExitCode {
 
     if args.input.is_none() && stdin.is_terminal() {
         eprintln!("\u{1b}[1m\u{1b}[31mwasm2glulx: reading input file from stdin, but stdin is a tty. Add \"-\" to the command line if you want to force this.\u{1b}[39m\u{1b}[22m");
+        if stdout.is_terminal() {
+            let _ = Args::command().print_help();
+        }
         return ExitCode::FAILURE;
     }
 
