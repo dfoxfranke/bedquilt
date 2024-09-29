@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) Eric S. Raymond <esr@thyrsus.com>, Daniel Fox Franke <dfoxfranke@gmail.com>
 # SPDX-License-Identifier: BSD-2-Clause
 
-WASM2GLULX=cargo run --bin wasm2glulx --
+WASM2GLULX=wasm2glulx
 WASMTOOLS=wasm-tools
 CC=clang
 OBJS=main.o init.o actions.o score.o misc.o saveresume.o bedquilt.o dungeon.o

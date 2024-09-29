@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "glulx-asm",
+    "wasm2glulx",
+    "wasm2glulx-spectest-macro",
+]
+resolver = "2"

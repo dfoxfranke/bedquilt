@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.procMacro.ignored": {
+        "wasm2glulx-spectest-macro": [
+            "spectest"
+        ]
+    },
+}
