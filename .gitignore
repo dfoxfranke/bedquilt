@@ -1,1 +1,3 @@
 tool-crates/target
+game-crates/target
+game-crates/Cargo.lock

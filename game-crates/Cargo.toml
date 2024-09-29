@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "bedquilt-sys"
+]
+resolver = "2"
