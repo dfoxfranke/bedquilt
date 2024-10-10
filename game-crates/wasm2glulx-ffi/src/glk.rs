@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 use bitflags::bitflags;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use core::ffi::c_char;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
