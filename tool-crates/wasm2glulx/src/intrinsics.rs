@@ -28,6 +28,7 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
 
     let (expected_params, expected_results): (&[ValType], &[ValType]) = match name.as_str() {
         "restart" | "discardundo" => (&[], &[]),
+        "glkarea_size" => (&[], &[ValType::I32]),
         "random" | "glkarea_get_byte" | "glkarea_get_word" | "save" | "restore" => {
             (&[ValType::I32], &[ValType::I32])
         }
@@ -279,6 +280,15 @@ fn gen_glkarea_put_words(ctx: &mut Context, my_label: Label) {
         mcopy(lloc(size), pop(), pop()),
         callfii(imml(ctx.rt.swapglkarray), lloc(glkaddr), lloc(n), discard()),
         ret(imm(0))
+    )
+}
+
+fn gen_glkarea_size(ctx: &mut Context, my_label: Label) {
+    push_all!(
+        ctx.rom_items,
+        label(my_label),
+        fnhead_local(0),
+        ret(uimm(ctx.layout.glk_area().size)),
     )
 }
 
@@ -822,6 +832,7 @@ pub fn gen_intrinsic(ctx: &mut Context, imported_func: &ImportedFunction, my_lab
             "glkarea_put_word" => gen_glkarea_put_word(ctx, my_label),
             "glkarea_put_bytes" => gen_glkarea_put_bytes(ctx, my_label),
             "glkarea_put_words" => gen_glkarea_put_words(ctx, my_label),
+            "glkarea_size" => gen_glkarea_size(ctx, my_label),
             "random" => gen_random(ctx, my_label),
             "setrandom" => gen_setrandom(ctx, my_label),
             "fmodf" => gen_fmodf(ctx, my_label),

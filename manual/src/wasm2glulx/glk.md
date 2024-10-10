@@ -100,6 +100,8 @@ The following intrinsics are provided for moving data in and out of the Glk area
         (func (param $glkaddr) (param $addr i32) (param $n i32)))
 (import "glulx" "glkarea_put_words"
         (func (param $glkaddr) (param $addr i32) (param $n i32)))
+
+(import "glulx "glkarea_size" (func (result i32)))
 ```
 
 The first four functions read or write an individual byte or word to or from the
@@ -107,4 +109,4 @@ Glk area at offset `$glkaddr`, while the second four move `$n` bytes or words
 between the Glk area at offset `$glkaddr` and main memory at offset `$addr`.
 Note that the destination argument always comes first. The word functions will
 perform endianness swaps as required, while the byte functions will not swap
-anything.
+anything. `glkarea_size` returns the size of the Glk area in bytes.
