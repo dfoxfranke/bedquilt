@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // Copyright 2024 Daniel Fox Franke.
 use bitflags::bitflags;
-use cfg_if::cfg_if;
 use core::ffi::c_char;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -243,63 +242,59 @@ pub struct Date {
     pub microsec: i32,
 }
 
-cfg_if! {
-    if #[cfg(all(target_arch = "wasm32", target_os = "unknown"))] {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
-        #[repr(transparent)]
-        pub struct WinId(u32);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
+pub struct WinId(u32);
 
-        impl WinId {
-            pub fn null() -> Self {
-                Self(0)
-            }
+impl WinId {
+    pub fn null() -> Self {
+        Self(0)
+    }
 
-            pub fn is_null(&self) -> bool {
-                self.0 == 0
-            }
-        }
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
+    }
+}
 
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
-        #[repr(transparent)]
-        pub struct StrId(u32);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
+pub struct StrId(u32);
 
-        impl StrId {
-            pub fn null() -> Self {
-                Self(0)
-            }
+impl StrId {
+    pub fn null() -> Self {
+        Self(0)
+    }
 
-            pub fn is_null(&self) -> bool {
-                self.0 == 0
-            }
-        }
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
+    }
+}
 
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
-        #[repr(transparent)]
-        pub struct FrefId(u32);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
+pub struct FrefId(u32);
 
-        impl FrefId {
-            pub fn null() -> Self {
-                Self(0)
-            }
+impl FrefId {
+    pub fn null() -> Self {
+        Self(0)
+    }
 
-            pub fn is_null(&self) -> bool {
-                self.0 == 0
-            }
-        }
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
+    }
+}
 
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
-        #[repr(transparent)]
-        pub struct SchanId(u32);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
+pub struct SchanId(u32);
 
-        impl SchanId {
-            pub fn null() -> Self {
-                Self(0)
-            }
+impl SchanId {
+    pub fn null() -> Self {
+        Self(0)
+    }
 
-            pub fn is_null(&self) -> bool {
-                self.0 == 0
-            }
-        }
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
     }
 }
 
