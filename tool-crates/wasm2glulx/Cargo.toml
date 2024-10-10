@@ -1,6 +1,6 @@
 [package]
 name = "wasm2glulx"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
 edition = "2021"
 description = "Translate WebAssembly into Glulx"
