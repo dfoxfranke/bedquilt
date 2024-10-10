@@ -1,62 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// Copyright 2024 Daniel Fox Franke.
 use bitflags::bitflags;
-use core::ffi::*;
+use cfg_if::cfg_if;
+use core::ffi::c_char;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct WinId(*mut c_void);
-
-impl WinId {
-    pub fn null() -> Self {
-        Self(core::ptr::null_mut())
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.0.is_null()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct StrId(*mut c_void);
-
-impl StrId {
-    pub fn null() -> Self {
-        Self(core::ptr::null_mut())
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.0.is_null()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct FrefId(*mut c_void);
-
-impl FrefId {
-    pub fn null() -> Self {
-        Self(core::ptr::null_mut())
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.0.is_null()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct SchanId(*mut c_void);
-
-impl SchanId {
-    pub fn null() -> Self {
-        Self(core::ptr::null_mut())
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.0.is_null()
-    }
-}
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
@@ -96,8 +43,9 @@ pub enum GestaltCharOutput {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, IntoPrimitive, TryFromPrimitive)]
 pub enum EvType {
+    #[default]
     None = 0,
     Timer = 1,
     CharInput = 2,
@@ -111,17 +59,22 @@ pub enum EvType {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Event {
-    pub evtype: EvType,
+    /// You can call [`EvType`]`::try_from` on this field, but it cannot *be* an
+    /// `EvType` because future Glk versions or extensions may add new event
+    /// types, and if those are not accounted for in the enumeration then UB
+    /// could result.
+    pub evtype: u32,
     pub win: WinId,
     pub val1: u32,
     pub val2: u32,
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, IntoPrimitive, TryFromPrimitive)]
 pub enum Keycode {
+    #[default]
     Unknown = 0xffffffff,
     Left = 0xfffffffe,
     Right = 0xfffffffd,
@@ -150,8 +103,9 @@ pub enum Keycode {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, IntoPrimitive, TryFromPrimitive)]
 pub enum Style {
+    #[default]
     Normal = 0,
     Emphasized = 1,
     Preformatted = 2,
@@ -166,15 +120,16 @@ pub enum Style {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct StreamResult {
     pub readcount: u32,
     pub writecount: u32,
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, IntoPrimitive, TryFromPrimitive)]
 pub enum WinType {
+    #[default]
     AllTypes = 0,
     Pair = 1,
     Blank = 2,
@@ -195,7 +150,7 @@ bitflags! {
 
         const FIXED = 0x10;
         const PROPORTIONAL = 0x20;
-        const DIVISION_AMSK = 0xf0;
+        const DIVISION_MASK = 0xf0;
 
         const BORDER = 0x000;
         const NO_BORDER = 0x100;
@@ -268,7 +223,7 @@ pub enum ImageAlign {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Timeval {
     pub high_sec: i32,
     pub low_sec: u32,
@@ -276,7 +231,7 @@ pub struct Timeval {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Date {
     pub year: i32,
     pub month: i32,
@@ -288,14 +243,74 @@ pub struct Date {
     pub microsec: i32,
 }
 
-#[cfg(target_arch = "wasm32")]
+cfg_if! {
+    if #[cfg(all(target_arch = "wasm32", target_os = "unknown"))] {
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+        #[repr(transparent)]
+        pub struct WinId(u32);
+
+        impl WinId {
+            pub fn null() -> Self {
+                Self(0)
+            }
+
+            pub fn is_null(&self) -> bool {
+                self.0 == 0
+            }
+        }
+
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+        #[repr(transparent)]
+        pub struct StrId(u32);
+
+        impl StrId {
+            pub fn null() -> Self {
+                Self(0)
+            }
+
+            pub fn is_null(&self) -> bool {
+                self.0 == 0
+            }
+        }
+
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+        #[repr(transparent)]
+        pub struct FrefId(u32);
+
+        impl FrefId {
+            pub fn null() -> Self {
+                Self(0)
+            }
+
+            pub fn is_null(&self) -> bool {
+                self.0 == 0
+            }
+        }
+
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+        #[repr(transparent)]
+        pub struct SchanId(u32);
+
+        impl SchanId {
+            pub fn null() -> Self {
+                Self(0)
+            }
+
+            pub fn is_null(&self) -> bool {
+                self.0 == 0
+            }
+        }
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 #[link(wasm_import_module = "glk")]
 extern "C" {
     pub fn exit() -> !;
     pub fn tick();
 
-    pub fn gestalt(sel: Gestalt, val: u32);
-    pub fn gestalt_ext(sel: Gestalt, val: u32, arr: *mut u32, arrlen: u32);
+    pub fn gestalt(sel: Gestalt, val: u32) -> u32;
+    pub fn gestalt_ext(sel: Gestalt, val: u32, arr: *mut u32, arrlen: u32) -> u32;
 
     pub fn char_to_upper(ch: u32) -> u32;
     pub fn char_to_lower(ch: u32) -> u32;
@@ -349,12 +364,12 @@ extern "C" {
     pub fn set_style_stream(str: StrId, styl: Style);
 
     pub fn get_char_stream(str: StrId) -> i32;
-    pub fn get_line_stream(str: StrId, buf: *mut c_char, len: u32);
-    pub fn get_buffer_stream(str: StrId, buf: *mut c_char, len: u32);
+    pub fn get_line_stream(str: StrId, buf: *mut c_char, len: u32) -> u32;
+    pub fn get_buffer_stream(str: StrId, buf: *mut c_char, len: u32) -> u32;
 
     pub fn stylehint_set(wintype: WinType, styl: Style, hint: StyleHint, val: i32);
     pub fn stylehint_clear(wintype: WinType, styl: Style, hint: StyleHint);
-    pub fn style_distinguish(win: WinId, styl1: Style, styl2: Style);
+    pub fn style_distinguish(win: WinId, styl1: Style, styl2: Style) -> u32;
     pub fn style_measure(win: WinId, styl: Style, hint: StyleHint, result: *mut u32) -> u32;
 
     pub fn fileref_create_temp(usage: FileUsage, rock: u32) -> FrefId;
@@ -395,8 +410,8 @@ extern "C" {
     pub fn put_buffer_stream_uni(str: StrId, buf: *const u32, len: u32);
 
     pub fn get_char_stream_uni(str: StrId) -> i32;
-    pub fn get_buffer_stream_uni(str: StrId, buf: *mut u32, len: u32);
-    pub fn get_line_stream_uni(str: StrId, buf: *mut u32, len: u32);
+    pub fn get_buffer_stream_uni(str: StrId, buf: *mut u32, len: u32) -> u32;
+    pub fn get_line_stream_uni(str: StrId, buf: *mut u32, len: u32) -> u32;
 
     pub fn stream_open_file_uni(fileref: FrefId, mode: FileMode, rock: u32) -> StrId;
     pub fn stream_open_memory_uni(glkaddr: u32, buflen: u32, mode: FileMode, rock: u32) -> StrId;

@@ -9,6 +9,7 @@ extern "C" {
     pub fn glkarea_get_words(addr: *mut u32, glkaddr: u32, n: u32);
     pub fn glkarea_put_bytes(glkaddr: u32, addr: *const u8, n: u32);
     pub fn glkarea_put_words(glkaddr: u32, addr: *const u32, n: u32);
+    pub fn glkarea_size() -> u32;
 
     pub fn fmodf(x: f32, y: f32) -> f32;
     pub fn floorf(x: f32) -> f32;

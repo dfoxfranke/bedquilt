@@ -1,6 +1,6 @@
 [package]
-name = "bedquilt-sys"
-version = "0.1.0"
+name = "wasm2glulx-ffi"
+version = "0.1.0-alpha1"
 authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
 edition = "2021"
 description = "Low-level bindings to the Wasm2Glulx API"
@@ -11,4 +11,5 @@ categories = ["wasm", "games"]
 
 [dependencies]
 bitflags = "2"
+cfg-if = "1"
 num_enum = { version = "0.7", default-features = false }
