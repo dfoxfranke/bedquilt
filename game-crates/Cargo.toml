@@ -1,6 +1,6 @@
 [workspace]
 members = [
     "wasm2glulx-ffi",
-    "bedquilt"
+    "bedquilt-io"
 ]
 resolver = "2"

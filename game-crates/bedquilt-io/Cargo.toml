@@ -1,0 +1,18 @@
+[package]
+name = "bedquilt-io"
+version = "0.1.0"
+authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
+edition = "2021"
+description = "High-level system interface for interactive fiction"
+license = "Apache-2.0 WITH LLVM-exception"
+repository = "https://github.com/dfoxfranke/bedquilt"
+keywords = ["glulx", "glk", "bedquilt"]
+categories = ["wasm", "games"]
+
+[dependencies]
+wasm2glulx-ffi = { path = "../wasm2glulx-ffi" }
+cfg-if = "1"
+futures-task = { version = "0.3", default-features = false }
+hashbrown = "0.15"
+lock_api = "0.4"
+rand_core = { version = "0.6", default-features = false }
