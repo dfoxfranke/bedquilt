@@ -1,4 +1,6 @@
-#[cfg(target_arch = "wasm32")]
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// Copyright 2024 Daniel Fox Franke.
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 #[link(wasm_import_module = "glulx")]
 extern "C" {
     pub fn glkarea_get_byte(glkaddr: u32) -> u32;
@@ -47,4 +49,9 @@ extern "C" {
     pub fn hasundo() -> u32;
     pub fn discardundo();
     pub fn protect(addr: *mut (), len: u32);
+
+    pub fn random(range: i32) -> i32;
+    pub fn setrandom(seed: u32);
+    pub fn gestalt(selector: u32, extra: u32) -> u32;
+
 }

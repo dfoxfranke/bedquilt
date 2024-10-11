@@ -11,5 +11,4 @@ categories = ["wasm", "games"]
 
 [dependencies]
 bitflags = "2"
-cfg-if = "1"
 num_enum = { version = "0.7", default-features = false }
