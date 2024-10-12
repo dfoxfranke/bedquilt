@@ -85,7 +85,7 @@ static GLK_FUNCTIONS: &[GlkFunction] = [
     GlkFunction {
         name: "window_get_root",
         selector: 0x0022,
-        params: &[GlkParam::Scalar],
+        params: &[],
         has_return: true,
     },
     GlkFunction {

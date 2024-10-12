@@ -31,8 +31,9 @@ fn check_intrinsic_type(ctx: &mut Context, imported_func: &ImportedFunction) -> 
         "glkarea_size" => (&[], &[ValType::I32]),
         "random" | "glkarea_get_byte" | "glkarea_get_word" | "save" | "restore" => {
             (&[ValType::I32], &[ValType::I32])
-        }
-        "setrandom" | "glkarea_put_byte" | "glkarea_put_word" | "saveundo" | "restoreundo"
+        },
+        "glkarea_put_byte" | "glkarea_put_word" => (&[ValType::I32, ValType::I32], &[]),
+        "setrandom" | "saveundo" | "restoreundo"
         | "hasundo" => (&[ValType::I32], &[]),
         "protect" => (&[ValType::I32, ValType::I32], &[]),
         "gesalt" => (&[ValType::I32, ValType::I32], &[ValType::I32]),
