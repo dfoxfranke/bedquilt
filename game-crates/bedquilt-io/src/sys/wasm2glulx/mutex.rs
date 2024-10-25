@@ -1,13 +1,21 @@
 use core::{
     num::NonZeroUsize,
-    sync::atomic::{AtomicBool, AtomicUsize},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
-use std::sync::atomic::Ordering;
 
+/// Raw mutex implementation.
 #[derive(Debug, Default)]
 pub struct RawMutexImpl(AtomicBool);
+
+/// Raw fair mutex implementation.
 pub type RawFairMutexImpl = RawMutexImpl;
+
+/// Raw reader-writer lock implementation.
+#[derive(Debug)]
 pub struct RawRwLockImpl(AtomicUsize, AtomicBool);
+
+/// Raw thread-id implementation.
+#[derive(Debug)]
 pub struct RawThreadIdImpl;
 
 unsafe impl lock_api::RawMutex for RawMutexImpl {

@@ -3,9 +3,9 @@ use wasm2glulx_ffi::glulx::random;
 
 /// A random number generator that retrieves randomness from the operating
 /// system.
-/// 
-/// This is a zero-sized struct. It can be freely constructed with OsRng.
-/// 
+///
+/// This is a zero-sized struct. It can be freely constructed with `OsRng`.
+///
 /// This implementation is provided by Glulx's `random` intrinsic.
 #[derive(Debug, Copy, Clone, Default)]
 pub struct OsRng;

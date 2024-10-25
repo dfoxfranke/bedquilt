@@ -16,3 +16,12 @@ futures-task = { version = "0.3", default-features = false }
 hashbrown = "0.15"
 lock_api = "0.4"
 rand_core = { version = "0.6", default-features = false }
+
+[target.'cfg(all(target_arch="wasm32", target_os="unknown"))'.dependencies]
+dlmalloc = { version = "0.2", features = ["global"] }
+
+
+[features]
+default = ["panic_handler", "global_allocator"]
+global_allocator = []
+panic_handler = []

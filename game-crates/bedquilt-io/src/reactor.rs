@@ -1,14 +1,17 @@
 use crate::error::Result;
 use crate::sync::{MappedMutexGuard, Mutex, MutexGuard};
-use crate::sys::io::{
-    cancel_char, cancel_hyperlink, cancel_line, cancel_mouse, request_char, request_hyperlink,
-    request_line, request_mouse, WinId,
+use crate::sys::glk::{
+    cancel_char, cancel_hyperlink, cancel_line, cancel_mouse, request_char, request_hyperlink, request_line, request_mouse, write_str, WinId
 };
 
+use alloc::borrow::ToOwned;
 use alloc::{
+    boxed::Box,
     collections::{BinaryHeap, VecDeque},
+    string::String,
     sync::Arc,
     task::Wake,
+    vec::Vec,
 };
 use core::{
     any::Any,
@@ -29,35 +32,57 @@ type SoundNotifyId = u32;
 type TaskResult = Box<dyn Any + Send>;
 type Task = Pin<Box<dyn Future<Output = TaskResult> + Send>>;
 
+/// The result of a line input event.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LineEvent {
+    /// The line of input entered by the user.
     pub input: String,
+    /// The way in which the line input was completed.
     pub termination: LineTermination,
 }
 
+/// The reason for completion of a line input event.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineTermination {
+    /// Line input was ended by the user pressing enter.
     Normal,
+    /// Line input was ended by the user pressing the given key.
     Terminator(Keycode),
+    /// Line input was ended because the program cancelled the request.
     Cancelled,
 }
 
+/// The result of a character input event.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CharEvent {
+    /// The given character was entered.
     Normal(char),
+    /// The given key was pressed.
     Terminator(Keycode),
+    /// The character request was cancelled.
     Cancelled,
 }
 
+/// The result of a mouse input event.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum MouseEvent {
-    Click { x: u32, y: u32 },
+    /// The user clicked at the given coordinates.
+    Click {
+        /// Pixels or characters right from the left edge of the window.
+        x: u32,
+        /// Pixels or characters down from the top edge of the window.
+        y: u32,
+    },
+    /// The mouse input request was cancelled.
     Cancelled,
 }
 
+/// The result of a hyperlink input event.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum HyperlinkEvent {
+    /// The hyperlink with the given number was clicked.
     Click(u32),
+    /// The request was cancelled.
     Cancelled,
 }
 
@@ -81,7 +106,6 @@ struct ReactorState {
     next_task_id: TaskId,
     next_timer_id: TimerId,
     next_sound_notify_id: SoundNotifyId,
-    tick_interval: u64,
 
     redraw_count: u64,
     tick_count: Tick,
@@ -91,6 +115,7 @@ struct ReactorState {
     mouse_input: HashMap<WinId, VecDeque<MouseEvent>>,
     hyperlink_input: HashMap<WinId, VecDeque<HyperlinkEvent>>,
     sound_notifications: HashSet<SoundNotifyId>,
+    dropped_sound_futures: HashSet<SoundNotifyId>,
 
     timers: BinaryHeap<(Reverse<Tick>, TimerId)>,
 
@@ -108,10 +133,15 @@ struct ReactorState {
 
 struct TaskWaker(TaskId);
 
+/// Handle to poll for task completion and collect its result.
+///
+/// Join handles can safely be dropped at any time. This will neither leak
+/// resources nor cancel the task.
 #[derive(Debug)]
 pub struct JoinHandle<T> {
     task: TaskId,
     result: PhantomData<T>,
+    cancelled: bool,
 }
 
 #[derive(Debug)]
@@ -126,17 +156,25 @@ pub struct MouseFuture(WinId);
 #[derive(Debug)]
 pub struct HyperlinkFuture(WinId);
 
+/// Future which becomes ready when a timer elapses.
+#[derive(Debug)]
+pub struct TimerFuture(TimerId, Tick);
+
+/// Future which becomes ready on the next redraw or rearrange event.
 #[derive(Debug)]
 pub struct RedrawFuture(u64);
+
+#[derive(Debug)]
+pub struct SoundFuture(pub(crate) SoundNotifyId);
 
 impl<T> Unpin for JoinHandle<T> {}
 
 impl Wake for TaskWaker {
-    fn wake(self: std::sync::Arc<Self>) {
+    fn wake(self: Arc<Self>) {
         self.wake_by_ref();
     }
 
-    fn wake_by_ref(self: &std::sync::Arc<Self>) {
+    fn wake_by_ref(self: &Arc<Self>) {
         let mut state = GLOBAL_REACTOR.state();
         if let Some(task) = state.unready_tasks.remove(&self.0) {
             state.ready_tasks.push_back((self.0, task));
@@ -171,6 +209,7 @@ impl Reactor {
         JoinHandle {
             task: task_id,
             result: PhantomData,
+            cancelled: false,
         }
     }
 
@@ -186,7 +225,7 @@ impl Reactor {
                 let mut ctx = Context::from_waker(&waker);
 
                 match task.as_mut().poll(&mut ctx) {
-                    std::task::Poll::Ready(result) => {
+                    Poll::Ready(result) => {
                         let mut state = self.state();
                         if !state.dropped_handles.remove(&task_id) {
                             state.done_tasks.insert(task_id, result);
@@ -197,7 +236,7 @@ impl Reactor {
                             waker.wake();
                         }
                     }
-                    std::task::Poll::Pending => {
+                    Poll::Pending => {
                         let mut state = self.state();
                         state.unready_tasks.insert(task_id, task);
                     }
@@ -217,10 +256,11 @@ impl Reactor {
             }
             core::mem::drop(state);
 
-            match crate::sys::io::event_wait() {
+            match crate::sys::glk::event_wait() {
                 crate::win::Event::Timer => {
-                    let mut state = self.state();
-                    state.tick_count += state.tick_interval;
+                    let mut state_guard = self.state();
+                    let state = &mut *state_guard;
+                    state.tick_count += 1;
                     let mut wakers = Vec::new();
                     while let Some((Reverse(tick_ref), timer_id_ref)) = state.timers.peek() {
                         if *tick_ref <= state.tick_count {
@@ -233,7 +273,7 @@ impl Reactor {
                             break;
                         }
                     }
-                    core::mem::drop(state);
+                    core::mem::drop(state_guard);
                     for waker in wakers {
                         waker.wake();
                     }
@@ -309,7 +349,7 @@ impl Reactor {
                         waker.wake();
                     }
                 }
-                crate::win::Event::Hyerlink { win, linkid } => {
+                crate::win::Event::Hyperlink { win, linkid } => {
                     let mut state = self.state();
                     if let Some(counts) = state.pending_input.get_mut(&win) {
                         counts.hyperlink_pending = false;
@@ -325,13 +365,7 @@ impl Reactor {
                 }
 
                 crate::win::Event::Arrange { win: _ } | crate::win::Event::Redraw { win: _ } => {
-                    let mut state = self.state();
-                    state.redraw_count += 1;
-                    let wakers = core::mem::take(&mut state.redraw_interest);
-                    core::mem::drop(state);
-                    for waker in wakers {
-                        waker.wake();
-                    }
+                    self.redraw();
                 }
                 crate::win::Event::SoundNotify {
                     resource: _,
@@ -339,13 +373,25 @@ impl Reactor {
                 }
                 | crate::win::Event::VolumeNotify { notify } => {
                     let mut state = self.state();
-                    state.sound_notifications.insert(notify);
+                    if !state.dropped_sound_futures.remove(&notify) {
+                        state.sound_notifications.insert(notify);
+                    }
                     let wakers = state.sound_interest.remove(&notify).unwrap_or_default();
                     for waker in wakers {
                         waker.wake();
                     }
                 }
             }
+        }
+    }
+
+    pub fn redraw(&self) {
+        let mut state = self.state();
+        state.redraw_count += 1;
+        let wakers = core::mem::take(&mut state.redraw_interest);
+        core::mem::drop(state);
+        for waker in wakers {
+            waker.wake();
         }
     }
 
@@ -549,17 +595,148 @@ impl Reactor {
     pub fn on_redraw(&self) -> RedrawFuture {
         RedrawFuture(self.state().redraw_count)
     }
+
+    pub fn current_tick(&self) -> Tick {
+        self.state().tick_count
+    }
+
+    pub fn set_timer(&self, tick: Tick) -> TimerFuture {
+        let mut state = self.state();
+        let timer_id = state.next_timer_id;
+        state.next_timer_id += 1;
+        state.timers.push((Reverse(tick), timer_id));
+        TimerFuture(timer_id, tick)
+    }
+
+    pub fn poll_timer(&self, cx: &mut Context<'_>, timer_id: TimerId, tick: Tick) -> Poll<()> {
+        let mut state = self.state();
+        if state.tick_count < tick {
+            let mut wakers = state.timer_interest.remove(&timer_id).unwrap_or_default();
+            add_waker(&mut wakers, cx);
+            state.timer_interest.insert(timer_id, wakers);
+            Poll::Pending
+        } else {
+            Poll::Ready(())
+        }
+    }
+
+    pub fn close_window(&self, win: WinId) {
+        let mut state = self.state();
+        if let Some(pending) = state.pending_input.remove(&win) {
+            if pending.char_pending {
+                cancel_char(win);
+            }
+            if pending.line_pending {
+                cancel_line(win);
+            }
+            if pending.mouse_pending {
+                let _ = cancel_mouse(win);
+            }
+            if pending.hyperlink_pending {
+                let _ = cancel_hyperlink(win);
+            }
+        }
+
+        state.char_input.remove(&win);
+        state.line_input.remove(&win);
+        state.mouse_input.remove(&win);
+        state.hyperlink_input.remove(&win);
+        let wakers = state.window_interest.remove(&win).unwrap_or_default();
+        core::mem::drop(state);
+        for waker in wakers {
+            waker.wake();
+        }
+    }
+
+    pub fn sound_notify(&self) -> SoundFuture {
+        let mut state = self.state();
+        if state.next_sound_notify_id == 0 {
+            state.next_sound_notify_id = 1;
+        }
+
+        let fut = SoundFuture(state.next_sound_notify_id);
+        state.next_sound_notify_id += 1;
+        fut
+    }
+
+    pub fn poll_sound(&self, cx: &mut Context<'_>, sound_id: SoundNotifyId) -> Poll<()> {
+        let mut state = self.state();
+        if state.sound_notifications.remove(&sound_id) {
+            Poll::Ready(())
+        } else {
+            let mut wakers = state.sound_interest.remove(&sound_id).unwrap_or_default();
+            add_waker(&mut wakers, cx);
+            state.sound_interest.insert(sound_id, wakers);
+            Poll::Pending
+        }
+    }
+
+    pub fn drop_sound(&self, sound_id: SoundNotifyId) {
+        let mut state = self.state();
+        state.dropped_sound_futures.insert(sound_id);
+    }
+
+    pub fn cancel_task(&self, task_id: TaskId) {
+        let mut _task = None;
+        let mut state = self.state();
+        _task = state.unready_tasks.remove(&task_id);
+        if let Some(ready_index) =
+            state
+                .ready_tasks
+                .iter()
+                .enumerate()
+                .find_map(|(i, (task_id_ref, _))| {
+                    if *task_id_ref == task_id {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+        {
+            _task = state.ready_tasks.remove(ready_index).map(|(_, task)| task);
+        }
+        let _done = state.done_tasks.remove(&task_id);
+        state.dropped_handles.remove(&task_id);
+        core::mem::drop(state);
+    }
+    
+    pub fn write_str(&self, win: WinId, s: &str) -> core::fmt::Result {
+        let state = self.state();
+        if let Some(pending) = state.pending_input.get(&win) {
+            if pending.line_pending {
+                Err(core::fmt::Error)
+            } else {
+                write_str(win, s)
+            }
+        } else {
+            write_str(win, s)
+        }
+    }
 }
 
 impl<T> JoinHandle<T>
 where
     T: 'static,
 {
-    pub fn poll_nowake(&mut self) -> Poll<<Self as Future>::Output> {
+    /// This convenience method allows polling a join handle from a synchronous
+    /// context using a no-op waker, without having to pin it or construct a
+    /// context. It is useful for collecting a task's exit status after `run`
+    /// has returned, at which point it is guaranteed to be ready.
+    pub fn poll_nowake(&mut self) -> Poll<T> {
         let waker = futures_task::noop_waker_ref();
         let mut cx = Context::from_waker(waker);
         let pinned = Pin::new(self);
         pinned.poll(&mut cx)
+    }
+
+    /// Cancels the task along with any pending futures that it owns.
+    /// 
+    /// This method must be used with care. Although all futures produced by
+    /// `bedquilt-io` are cancel-safe, those produced by third-party crates may
+    /// not be.
+    pub fn cancel(mut self) {
+        GLOBAL_REACTOR.cancel_task(self.task);
+        self.cancelled = true;
     }
 }
 
@@ -579,9 +756,11 @@ where
 
 impl<T> Drop for JoinHandle<T> {
     fn drop(&mut self) {
-        let mut state = GLOBAL_REACTOR.state();
-        if state.done_tasks.remove(&self.task).is_none() {
-            state.dropped_handles.insert(self.task);
+        if !self.cancelled {
+            let mut state = GLOBAL_REACTOR.state();
+            if state.done_tasks.remove(&self.task).is_none() {
+                state.dropped_handles.insert(self.task);
+            }
         }
     }
 }
@@ -702,9 +881,46 @@ impl Future for RedrawFuture {
     }
 }
 
+impl Future for TimerFuture {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        GLOBAL_REACTOR.poll_timer(cx, self.0, self.1)
+    }
+}
+
+impl Future for SoundFuture {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.0 == 0 {
+            panic!("Poll of completed SoundFuture");
+        }
+        let result = GLOBAL_REACTOR.poll_sound(cx, self.0);
+        if result.is_ready() {
+            self.0 = 0;
+        }
+        result
+    }
+}
+
+impl Drop for SoundFuture {
+    fn drop(&mut self) {
+        if self.0 != 0 {
+            GLOBAL_REACTOR.drop_sound(self.0);
+        }
+    }
+}
+
+impl SoundFuture {
+    pub fn cancel(&mut self) {
+        self.0 = 0;
+    }
+}
+
 pub static GLOBAL_REACTOR: Reactor = Reactor(Mutex::new(None));
 
-fn add_waker(wakers: &mut Vec<Waker>, cx: &mut Context<'_>) {
+pub fn add_waker(wakers: &mut Vec<Waker>, cx: &mut Context<'_>) {
     let new_waker = cx.waker();
     for waker in wakers.iter() {
         if waker.will_wake(new_waker) {
