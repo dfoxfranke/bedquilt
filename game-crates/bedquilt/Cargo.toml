@@ -1,0 +1,16 @@
+[package]
+name = "bedquilt"
+version = "0.0.0"
+authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
+edition = "2021"
+description = "Batteries-included metacrate for the Bedquilt interactive fiction platform"
+license = "Apache-2.0 WITH LLVM-exception"
+repository = "https://github.com/dfoxfranke/bedquilt"
+keywords = ["glulx", "glk", "bedquilt"]
+categories = ["wasm", "games"]
+
+[dependencies]
+bedquilt-io = { path = "../bedquilt-io", version = "0.1.0-alpha1" }
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown"]
