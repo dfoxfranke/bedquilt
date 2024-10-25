@@ -1,16 +1,16 @@
 [package]
 name = "bedquilt-io"
-version = "0.1.0"
+version = "0.1.0-alpha1"
 authors = ["Daniel Fox Franke <dfoxfranke@gmail.com>"]
 edition = "2021"
-description = "High-level system interface for interactive fiction"
+description = "System interface for the Bedquilt interactive fiction platform"
 license = "Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/dfoxfranke/bedquilt"
 keywords = ["glulx", "glk", "bedquilt"]
 categories = ["wasm", "games"]
 
 [dependencies]
-wasm2glulx-ffi = { path = "../wasm2glulx-ffi" }
+wasm2glulx-ffi = { version = "0.1.0-alpha2", path = "../wasm2glulx-ffi" }
 cfg-if = "1"
 futures-task = { version = "0.3", default-features = false }
 hashbrown = "0.15"
@@ -25,3 +25,6 @@ dlmalloc = { version = "0.2", features = ["global"] }
 default = ["panic_handler", "global_allocator"]
 global_allocator = []
 panic_handler = []
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown"]
