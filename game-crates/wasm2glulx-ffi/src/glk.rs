@@ -212,7 +212,7 @@ pub enum StyleHintJustification {
     RightFlush = 3,
 }
 
-#[repr(u32)]
+#[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive)]
 pub enum ImageAlign {
     InlineUp = 0x01,
@@ -463,6 +463,8 @@ extern "C" {
     pub fn time_to_date_local(time: *const Timeval, date: *mut Date);
     pub fn simple_time_to_date_utc(time: i32, factor: u32, date: *mut Date);
     pub fn simple_time_to_date_local(time: i32, factor: u32, date: *mut Date);
+    pub fn date_to_time_utc(date: *const Date, time: *mut Timeval);
+    pub fn date_to_time_local(date: *const Date, time: *mut Timeval);
     pub fn date_to_simple_time_utc(date: *const Date, factor: u32) -> i32;
     pub fn date_to_simple_time_local(date: *const Date, factor: u32) -> i32;
 
