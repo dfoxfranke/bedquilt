@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = [ "bedquilt-graphdb-compiler",
     "glulx-asm",
     "wasm2glulx",
     "wasm2glulx-spectest-macro",
